@@ -1,17 +1,59 @@
-# google_drive_url: https://drive.google.com/drive/folders/1OyXuFEUFgRw9jwHgtk9p2_rP9vcVOHKV?usp=share_link
-import gdown
+# update_till_db.py
+# https://raw.githubusercontent.com/sivashankarplaraj/ePOS/refs/heads/main/docx/BROADWATER_CSV_240725/
+import os
+from dotenv import load_dotenv
+import requests
 
-# Replace with your Google Drive folder URL
-folder_url = "https://drive.google.com/drive/folders/1OyXuFEUFgRw9jwHgtk9p2_rP9vcVOHKV?usp=share_link"
+raw_git_path = "https://raw.githubusercontent.com/sivashankarplaraj/ePOS/refs/heads/main/docx/"
 
-# gdown expects the folder id, not the full URL
-def extract_folder_id(url):
-    if "folders/" in url:
-        return url.split("folders/")[1].split("?")[0]
-    raise ValueError("Invalid Google Drive folder URL")
+# Load environment variables from the global .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
+shop_number = os.getenv('SHOP_NUMBER')
 
-folder_id = extract_folder_id(folder_url)
-gdown.download_folder(id=folder_id, quiet=False, use_cookies=False)
+csv_files = [
+    "PDVAT_TB.CSV",
+    "PDITEM<n>.CSV",    # <n> is the shop number, 1-15
+    "COMBTB<n>.CSV",    # <n> is the shop number, 1-15
+    "ACODES.CSV",
+    "BCODES.CSV",
+    "COMP_PRO.CSV",
+    "OPT_PRO.CSV",
+    "P_CHOICE.CSV",
+    "ST_ITEMS.CSV",
+    "APP_COMB.CSV",
+    "APP_PROD.CSV",
+    "GROUP_TB.CSV",
+    "MISC_SEC.CSV",
+    "COMB_EXT.CSV",
+    "PROD_EXT.CSV",
+    "SHOPS_TB.CSV"
+]
+
+# Creat raw urls for each CSV file
+csv_urls = []
+raw_git_path = raw_git_path + str(shop_number) + "/"
+for file in csv_files:
+    if "<n>" in file:
+        csv_urls.append(f"{raw_git_path}{file.replace('<n>', str(shop_number))}")
+    else:
+        csv_urls.append(f"{raw_git_path}{file}")
+
+# Download each CSV file and save it to the downloaded files directory
+downloaded_files_dir = os.path.join(os.path.dirname(__file__), 'downloaded_files')
+if not os.path.exists(downloaded_files_dir):
+    os.makedirs(downloaded_files_dir)
+for url in csv_urls:
+    file_name = os.path.basename(url)
+    file_path = os.path.join(downloaded_files_dir, file_name)
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_path, 'wb') as file:
+            file.write(response.content)
+        print(f"Downloaded {file_name} to {file_path}")
+    else:
+        print(f"Failed to download {file_name} from {url}")
+
+
 
 # Table 5: PDVAT_TB
 # CSV file: PDVAT_TB.CSV
