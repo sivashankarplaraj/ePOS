@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 import requests
 
+# sqlite db file db.sqlite3 path
+sql_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'db.sqlite3')
 raw_git_path = "https://raw.githubusercontent.com/sivashankarplaraj/ePOS/refs/heads/main/docx/"
 
 # Load environment variables from the global .env file
@@ -55,14 +57,17 @@ for url in csv_urls:
 
 
 
+
+
 # Table 5: PDVAT_TB
 # CSV file: PDVAT_TB.CSV
+# read the csv file and update the sqlite database
 
 # Table 6: PDITEM
-# CSV file: PDITEM<n>.CSV (<n> is the shop number, 1-15)
+# CSV file: PDITEM<n>.CSV (<n> is the shop number
 
 # Table 7: COMBTB
-# CSV file: COMBTB<n>.CSV (<n> is the shop number, 1-15)
+# CSV file: COMBTB<n>.CSV (<n> is the shop number)
 
 # Table 8: ACODES
 # CSV file: ACODES.CSV

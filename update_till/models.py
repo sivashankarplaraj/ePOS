@@ -14,6 +14,8 @@ class KMeal(models.Model):
     TAKEAWAY = models.IntegerField(help_text="Total number sold as takeaway meals on the given date.")
     EATIN = models.IntegerField(help_text="Total number sold as eatin meals on the given date.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Meal {self.PRODNUMB} - Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}, Last Updated: {self.last_updated}"
 
 # Table 2: K_PRO
 # Tracks product and combination product sales and related stats per date.
@@ -30,6 +32,8 @@ class KPro(models.Model):
     STAFF = models.IntegerField(help_text="Total entered as Crew Food on the given date.")
     OPTION = models.IntegerField(help_text="Total chosen as optional product for products on the given date.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Product {self.PRODNUMB} - Combo: {self.COMBO}, Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}, Waste: {self.WASTE}, Staff: {self.STAFF}, Option: {self.OPTION}, Last Updated: {self.last_updated}"
 
 # Table 3: K_REV
 # Tracks POS financials for a given date.
@@ -60,6 +64,8 @@ class KRev(models.Model):
     VAT = models.BigIntegerField(help_text="Total VAT due (pence) on the given date.")
     XPV = models.BigIntegerField(help_text="Extended product value (pence) on the given date. Not required.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Revenue - Cash: {self.TCASHVAL}, Cheque: {self.TCHQVAL}, Card: {self.TCARDVAL}, On Account: {self.TONACCOUNT}, Last Updated: {self.last_updated}"
 
 # Table 4: K_WK_VAT
 # Tracks VAT rates and totals for each day of the week.
@@ -87,6 +93,8 @@ class KWkVat(models.Model):
     T_VAL_EXCLVAT_6 = models.FloatField(help_text="Total value excluding VAT (Saturday).")
     T_VAL_EXCLVAT_7 = models.FloatField(help_text="Total value excluding VAT (Sunday).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"VAT Class {self.VAT_CLASS} - Rate: {self.VAT_RATE}, Last Updated: {self.last_updated}"
 
 # Table 5: PDVAT_TB
 # Stores VAT class details.
@@ -96,7 +104,8 @@ class PdVatTb(models.Model):
     VAT_RATE = models.FloatField(help_text="VAT rate for this class.")
     VAT_DESC = models.CharField(max_length=20, help_text="Description of this VAT class.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
-    
+    def __str__(self):
+        return f"VAT Class {self.VAT_CLASS} - Rate: {self.VAT_RATE}, Description: {self.VAT_DESC}, Last Updated: {self.last_updated}"
 
 # Table 6: PDITEM
 # Stores product details for each shop.
@@ -125,6 +134,9 @@ class PdItem(models.Model):
     VATPR_6 = models.IntegerField(help_text="Current price incl. VAT (price band 6).")
     DC_VATPR_6 = models.IntegerField(help_text="Discounted price incl. VAT (price band 6).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Product {self.PRODNUMB} - Name: {self.PRODNAME}, Last Updated: {self.last_updated}"
+    
 
 # Table 7: COMBTB
 # Stores combination product details for each shop.
@@ -149,6 +161,8 @@ class CombTb(models.Model):
     VATPR_6 = models.IntegerField(help_text="Current price incl. VAT (price band 6).")
     T_VATPR_6 = models.IntegerField(help_text="Trade up price incl. VAT (price band 6).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Combination {self.COMBONUMB} - Desc: {self.DESC}, Last Updated: {self.last_updated}"
 
 # Table 8: ACODES
 # Stores 'A' code stock components for products.
@@ -158,6 +172,8 @@ class ACodes(models.Model):
     ST_CODENUM = models.IntegerField(help_text="A code stock component number.")
     QTY = models.FloatField(help_text="Quantity of this A code stock component.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"A Code {self.ST_CODENUM} for Product {self.PRODNUMB} - Quantity: {self.QTY}, Last Updated: {self.last_updated}"
 
 # Table 9: BCODES
 # Stores 'B' code stock components for products.
@@ -167,6 +183,8 @@ class BCodes(models.Model):
     ST_CODENUM = models.IntegerField(help_text="B code stock component number.")
     QTY = models.FloatField(help_text="Quantity of this B code stock component.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"B Code {self.ST_CODENUM} for Product {self.PRODNUMB} - Quantity: {self.QTY}, Last Updated: {self.last_updated}"
 
 # Table 10: COMP_PRO
 # Stores compulsory products for combinations.
@@ -176,6 +194,8 @@ class CompPro(models.Model):
     PRODNUMB = models.IntegerField(help_text="Product code of compulsory product.")
     T_PRODNUMB = models.IntegerField(help_text="Trade up product code (0 if none).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Compulsory Product {self.PRODNUMB} for Combination {self.COMBONUMB} - Trade Up: {self.T_PRODNUMB}, Last Updated: {self.last_updated}"
 
 # Table 11: OPT_PRO
 # Stores optional products for combinations.
@@ -185,6 +205,8 @@ class OptPro(models.Model):
     PRODNUMB = models.IntegerField(help_text="Product code of optional product.")
     T_PRODNUMB = models.IntegerField(help_text="Trade up product code (0 if none).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Optional Product {self.PRODNUMB} for Combination {self.COMBONUMB} - Trade Up: {self.T_PRODNUMB}, Last Updated: {self.last_updated}"
 
 # Table 12: P_CHOICE
 # Stores optional products for each product.
@@ -193,6 +215,8 @@ class PChoice(models.Model):
     PRODNUMB = models.IntegerField(help_text="Product code.")
     OPT_PRODNUMB = models.IntegerField(help_text="Optional product code for this product.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Optional Product {self.OPT_PRODNUMB} for Product {self.PRODNUMB}, Last Updated: {self.last_updated}"
 
 # Table 13: ST_ITEMS
 # Stores stock item codes and descriptions.
@@ -202,6 +226,8 @@ class StItems(models.Model):
     ST_CODENUM = models.IntegerField(help_text="Second part of stock item code (4-digit number).")
     ITEM = models.CharField(max_length=18, help_text="Description for this stock item.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Stock Item {self.CODEALPH}{self.ST_CODENUM} - Description: {self.ITEM}, Last Updated: {self.last_updated}"
 
 # Table 14: APP_COMB
 # Stores combination products for reporting.
@@ -212,6 +238,8 @@ class AppComb(models.Model):
     GROUP_ID = models.PositiveSmallIntegerField(help_text="Section number for report printing.")
     GROUP_SUB_ID = models.IntegerField(help_text="Order in section for report printing.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Combination {self.COMBONUMB} - Desc: {self.DESC}, Last Updated: {self.last_updated}"
 
 # Table 15: APP_PROD
 # Stores products for reporting.
@@ -226,6 +254,8 @@ class AppProd(models.Model):
     DOUBLE_PDNUMB = models.IntegerField(help_text="Corresponding double product code.")
     TRIPLE_PDNUMB = models.IntegerField(help_text="Corresponding triple product code.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Product {self.PRODNUMB} - Name: {self.PRODNAME}, Last Updated: {self.last_updated}"
 
 # Table 16: GROUP_TB
 # Stores report section details.
@@ -236,6 +266,8 @@ class GroupTb(models.Model):
     SOURCE_TYPE = models.CharField(max_length=1, help_text="'P' for products, 'C' for combinations.")
     MEAL_GROUP = models.PositiveSmallIntegerField(help_text="Section number for meal products.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Group {self.GROUP_ID} - Name: {self.GROUP_NAME}, Source Type: {self.SOURCE_TYPE}, Last Updated: {self.last_updated}"
 
 # Table 17: MISC_SEC
 # Stores miscellaneous items for reporting.
@@ -246,6 +278,8 @@ class MiscSec(models.Model):
     ITEM_DESC = models.CharField(max_length=20, help_text="Description printed in report column.")
     SEQ_ORDER = models.IntegerField(help_text="Order in Section 10 - Miscellaneous on report.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Misc Item {self.PRODNUMB} - Name: {self.PRODNAME}, Description: {self.ITEM_DESC}, Last Updated: {self.last_updated}"
 
 # Table 18: COMB_EXT
 # Stores extended combination product info.
@@ -256,6 +290,8 @@ class CombExt(models.Model):
     NAME_ON_MENU = models.CharField(max_length=30, help_text="Name shown on the menu.")
     PROD_DESC = models.TextField(max_length=255, help_text="Description of combination product.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Combination {self.COMBONUMB} - Desc: {self.DESC}, Name on Menu: {self.NAME_ON_MENU}, Last Updated: {self.last_updated}"
 
 # Table 19: PROD_EXT
 # Stores extended product info.
@@ -267,6 +303,8 @@ class ProdExt(models.Model):
     COOK_ZONE = models.PositiveSmallIntegerField(help_text="Cooking zone.")
     PROD_DESC = models.TextField(max_length=255, help_text="Description of product.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Product {self.PRODNUMB} - Name: {self.PRODNAME}, Name on Menu: {self.NAME_ON_MENU}, Last Updated: {self.last_updated}"
 
 # Table 20: SHOPS_TB
 # Stores shop details.
@@ -282,3 +320,5 @@ class ShopsTb(models.Model):
     ADDRESS_3 = models.CharField(max_length=17, help_text="Third line of shop address.")
     POST_CODE = models.CharField(max_length=8, help_text="Postcode of shop address.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Shop {self.SHOP_CODE} - Name: {self.SHOP_NAME}, Abbreviation: {self.SHOP_ABBREV}, Last Updated: {self.last_updated}"

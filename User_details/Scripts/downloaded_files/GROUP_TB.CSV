@@ -1,0 +1,10 @@
+GROUP_ID,GROUP_NAME,SOURCE_TYPE,MEAL_GROUP
+1,Burger Meals,P,1
+2,Kids Meals,P,2
+3,Sharing Platter,C,0
+4,Burgers,P,0
+5,Chicken,P,0
+6,Veggies,P,0
+7,Fries and Sides,P,0
+8,Drinks,P,0
+9,Dips,P,0
