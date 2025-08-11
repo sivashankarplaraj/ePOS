@@ -1,0 +1,606 @@
+{% extends 'manage_orders/index.html' %}
+{% load static %}
+{% block content %}
+<h5 class="mt-3">Create Order</h5>
+<!-- Price Band Selector -->
+<div class="mb-3" style="max-width:420px;">
+    <label for="price-band" class="form-label fw-semibold">Select Price Band</label>
+    <select id="price-band" class="form-select" style="height: 56px; font-size: 1.25rem;">
+        {% for band, value in price_band.items %}
+            <option value="{{ value }}">{{ band }}</option>
+        {% endfor %}
+    </select>
+</div>
+<!-- Categories below Price Band (horizontal scroll) -->
+<div id="categories-section" class="mb-3">
+  <div class="fw-semibold small text-uppercase text-secondary mb-2">Categories</div>
+  <div id="category-strip" class="d-flex flex-nowrap overflow-auto gap-2 py-2" style="font-size:1.15rem; -webkit-overflow-scrolling: touch;"></div>
+</div>
+
+<!-- Main layout: Items (70%) | Basket (30%) -->
+<div class="row" id="order-workspace">
+  <div class="col-12 col-lg-9" id="items-pane" style="max-height:70vh; overflow:auto;">
+    <div class="fw-semibold small text-uppercase text-secondary mb-2">Items</div>
+    <div id="items-container" class="row g-3">
+      <!-- Items injected via JS -->
+    </div>
+  </div>
+  <div class="col-12 col-lg-3 border-start" id="basket-pane" style="max-height:70vh; overflow:auto;">
+    <div class="fw-semibold small text-uppercase text-secondary mb-2">Basket</div>
+    <ul class="list-group" id="basket-list" style="font-size:1.15rem;"></ul>
+    <div class="mt-3 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Total</span>
+      <span id="basket-total" class="fs-5">£0.00</span>
+    </div>
+    <div class="mt-4 text-end">
+      <button class="btn btn-lg btn-outline-secondary px-4 py-2 me-2" id="clear-basket" disabled>Clear</button>
+      <button class="btn btn-lg btn-primary px-4 py-2" id="checkout" disabled>Checkout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Option selection modal -->
+<div class="modal fade" id="optionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="optionTitle">Choose an option</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-group" id="optionList"></ul>
+      </div>
+    </div>
+  </div>
+  </div>
+<style>
+    /* Touch-friendly tweaks */
+  /* Horizontal category chips */
+  #category-strip { scroll-snap-type: x mandatory; }
+  .cat-chip { white-space: nowrap; scroll-snap-align: start; }
+    #items-container .item-btn {
+        min-height: 64px;
+        font-size: 1.15rem;
+        padding: 1rem 0.75rem;
+        border-width: 2px;
+        border-radius: 0.75rem;
+    }
+    #basket-list .list-group-item {
+        min-height: 56px;
+        font-size: 1.15rem;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+    #clear-basket, #checkout {
+        font-size: 1.15rem;
+        min-width: 120px;
+        min-height: 48px;
+    }
+</style>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+  // Load menu JSON client-side from static files
+  const MENU_URL = '{% static "menu/local_menu.json" %}';
+  let MENU = {};
+
+  const categoryStrip = document.getElementById('category-strip');
+  const priceBandSelect = document.getElementById('price-band');
+  function slugify(name){
+    return name.toLowerCase().replace(/\s+/g,'-').replace(/[()']/g,'');
+  }
+
+  function renderCategories(){
+    categoryStrip.innerHTML = '';
+    const names = Object.keys(MENU);
+    if(!names.length){
+      categoryStrip.innerHTML = '<span class="text-muted small">No categories</span>';
+      return;
+    }
+    names.forEach(n => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-primary cat-chip px-3';
+      btn.dataset.cat = slugify(n);
+      btn.dataset.name = n;
+      btn.innerHTML = `${n} <span class="badge bg-light text-dark ms-1">${(MENU[n]||[]).length}</span>`;
+      categoryStrip.appendChild(btn);
+    });
+  }
+  const itemsContainer = document.getElementById('items-container');
+  const basketList = document.getElementById('basket-list');
+  const clearBtn = document.getElementById('clear-basket');
+  const checkoutBtn = document.getElementById('checkout');
+  const basketTotalEl = document.getElementById('basket-total');
+  const optionModalEl = document.getElementById('optionModal');
+  let optionModal; // Bootstrap modal instance
+
+  let basket = [];
+  let currentPrices = {}; // { prod: { price, dc_price } }
+  let currentCategory = null;
+
+  // Return unified options description for an item
+  // { mode: 'single'|'addons'|'radio_free'|null, title, choices: [{name, PRODNUMB}], required?: boolean, optional?: boolean, specialInstructions?: boolean }
+  function getOptions(item){
+    const d = item.custom_options_data || {};
+    // Single-select shape
+    if (d.option_1 && Array.isArray(d.option_1.choose)) {
+      const choices = d.option_1.choose.filter(ch => ch && ch.PRODNUMB);
+      if (choices.length) return { mode: 'single', title: item.name, choices };
+    }
+    // Add-on multi-select shape
+    const addKey = d.add_on_options_1 || d.add_on_option_1; // accept either key
+    if (addKey && Array.isArray(addKey.choose)) {
+      const choices = addKey.choose.filter(ch => ch && ch.PRODNUMB);
+      if (choices.length) return {
+        mode: 'addons',
+        title: addKey.title || 'Choose add-ons',
+        choices,
+        required: !!addKey.required,
+        optional: !!addKey.optional,
+        specialInstructions: !!addKey.special_instructions
+      };
+    }
+    // Radio single-select add-on, free (doesn't affect price)
+    const radioKey = d.add_on_options_2 || d.add_on_option_2; // accept either key
+    if (radioKey && Array.isArray(radioKey.choose)) {
+      const choices = radioKey.choose.filter(ch => ch && (ch.PRODNUMB !== undefined));
+      if (choices.length) return {
+        mode: 'radio_free',
+        title: radioKey.title || 'Choose one',
+        choices,
+        required: !!radioKey.required,
+        optional: !!radioKey.optional,
+        free: String(radioKey.type || '').toLowerCase().includes('free'),
+        specialInstructions: !!radioKey.special_instructions
+      };
+    }
+    return { mode: null, title: item.name, choices: [] };
+  }
+
+  async function fetchPricesFor(catName){
+    // Collect product IDs in this category
+    const items = MENU[catName] || [];
+    const ids = new Set();
+    items.forEach(i => {
+      if (i.PRODNUMB) ids.add(i.PRODNUMB);
+      if (i.custom_options) {
+        const opts = getOptions(i);
+        opts.choices.forEach(ch => ids.add(ch.PRODNUMB));
+      }
+    });
+    const prodIds = [...ids];
+    if (!prodIds.length) { currentPrices = {}; return; }
+    const params = new URLSearchParams({ band: priceBandSelect.value, prods: prodIds.join(',') });
+    const resp = await fetch(`/api/prices?${params.toString()}`);
+    if (!resp.ok) { currentPrices = {}; return; }
+    const data = await resp.json();
+    currentPrices = data.prices || {};
+  }
+
+  function formatPence(p){
+    const v = (Number(p)||0) / 100;
+    return v.toLocaleString(undefined, { style:'currency', currency:'GBP' });
+  }
+
+  async function renderItems(catName) {
+    itemsContainer.innerHTML = '';
+    currentCategory = catName;
+    const items = MENU[catName] || [];
+    if(!items.length){
+      itemsContainer.innerHTML = '<div class="text-muted small">No items</div>';
+      return;
+    }
+    await fetchPricesFor(catName);
+    items.forEach(item => {
+      const col = document.createElement('div');
+      col.className = 'col-6';
+      const prod = item.PRODNUMB || '';
+      let priceInfo = currentPrices[String(prod)] || { price: 0, dc_price: 0 };
+      let priceText = '';
+      let fromPrefix = '';
+      let inlineBasePrice = '';
+      if (item.custom_options) {
+        // Compute min price among choices for modes that affect price
+        const opts = getOptions(item);
+        if (opts.mode !== 'radio_free') {
+          let minP = Infinity;
+          opts.choices.forEach(ch => {
+            const info = currentPrices[String(ch.PRODNUMB)] || { price: 0 };
+            if (info.price && info.price < minP) minP = info.price;
+          });
+          if (isFinite(minP)) {
+            priceText = formatPence(minP);
+            fromPrefix = 'from ';
+          }
+        }
+        // If base_price is flagged and base has a price, show inline next to name (no prefix)
+        if (item.base_price && priceInfo.price) {
+          inlineBasePrice = formatPence(priceInfo.price);
+        }
+      } else {
+        priceText = priceInfo.price ? formatPence(priceInfo.price) : '';
+      }
+      col.innerHTML = `
+        <button class="btn btn-outline-secondary w-100 text-start btn-sm item-btn" data-name="${item.name}" data-prod="${prod}" data-price="${priceInfo.price}" data-cat="${catName}" data-custom="${item.custom_options ? '1':'0'}">
+          <span class="d-block fw-semibold">
+            <span>${item.name}</span>
+            ${inlineBasePrice ? `<span class="text-secondary small ms-2">${inlineBasePrice}</span>` : ''}
+          </span>
+          ${item.custom_options ? '<span class="badge text-bg-warning">Options</span>' : ''}
+          ${priceText ? `<span class=\"d-block text-secondary small\">${fromPrefix}${priceText}</span>` : ''}
+        </button>`;
+      itemsContainer.appendChild(col);
+    });
+  }
+
+  function renderBasket(){
+    basketList.innerHTML='';
+    if(!basket.length){
+      basketList.innerHTML = '<li class="list-group-item text-muted small">Empty</li>';
+      clearBtn.disabled = true;
+      checkoutBtn.disabled = true;
+      basketTotalEl.textContent = '£0.00';
+      return;
+    }
+    let total = 0;
+    basket.forEach((b,i)=>{
+      const li = document.createElement('li');
+      li.className='list-group-item py-2 d-flex justify-content-between align-items-center';
+      total += Number(b.price||0);
+      li.innerHTML = `<span>${b.name}</span><span class="ms-2 text-nowrap">${formatPence(b.price||0)}</span><button class="btn btn-sm btn-outline-danger ms-2" data-rm="${i}">&times;</button>`;
+      basketList.appendChild(li);
+    });
+    clearBtn.disabled = false;
+    checkoutBtn.disabled = false;
+    basketTotalEl.textContent = formatPence(total);
+  }
+
+  categoryStrip.addEventListener('click', e => {
+    const chip = e.target.closest('.cat-chip');
+    if(!chip) return;
+    document.querySelectorAll('.cat-chip').forEach(el=>el.classList.remove('active'));
+    chip.classList.add('active');
+    const catName = chip.dataset.name;
+    renderItems(catName);
+  });
+
+  itemsContainer.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.item-btn');
+    if(!btn) return;
+    if (btn.dataset.custom === '1') {
+      // Decide which modal behavior to use
+      const catName = btn.dataset.cat;
+      const items = MENU[catName] || [];
+      const item = items.find(i => i.name === btn.dataset.name);
+      if (!item) return;
+      const opts = getOptions(item);
+      if (opts.mode === 'addons') {
+        openAddonsModal(catName, item);
+      } else if (opts.mode === 'radio_free') {
+        openRadioFreeModal(catName, item);
+      } else {
+        openOptionsModal(catName, btn.dataset.name);
+      }
+    } else {
+      basket.push({ name: btn.dataset.name, prod: btn.dataset.prod, price: Number(btn.dataset.price||0) });
+      renderBasket();
+    }
+  });
+
+  basketList.addEventListener('click', e => {
+    const rm = e.target.getAttribute('data-rm');
+    if(rm !== null){
+      basket.splice(parseInt(rm,10),1);
+      renderBasket();
+    }
+  });
+
+  clearBtn.addEventListener('click', () => { basket = []; renderBasket(); });
+
+  // When price band changes, refresh current items view and reprice basket items
+  priceBandSelect.addEventListener('change', async () => {
+    // Re-render items for active category
+    const activeChip = document.querySelector('.cat-chip.active');
+    const catName = activeChip ? activeChip.dataset.name : (Object.keys(MENU)[0] || null);
+    if (catName) {
+      await renderItems(catName);
+    }
+    // Re-fetch prices for basket items grouped by category membership is unknown; fetch all at once
+    const prodIds = [...new Set(basket.map(b=>b.prod).filter(Boolean))];
+    if (prodIds.length){
+      const params = new URLSearchParams({ band: priceBandSelect.value, prods: prodIds.join(',') });
+      try {
+        const resp = await fetch(`/api/prices?${params.toString()}`);
+        if (resp.ok){
+          const data = await resp.json();
+          const map = data.prices || {};
+          basket = basket.map(b => ({...b, price: Number((map[String(b.prod)]||{}).price||0)}));
+        }
+      } catch {}
+    }
+    renderBasket();
+  });
+
+  // Load MENU then auto-select first category
+  fetch(MENU_URL)
+    .then(resp => resp.json())
+    .then(data => {
+      MENU = data;
+  renderCategories();
+  const firstCat = categoryStrip.querySelector('.cat-chip');
+  if(firstCat){ firstCat.click(); }
+      renderBasket();
+    })
+    .catch(() => {
+      itemsContainer.innerHTML = '<div class="text-danger small">Failed to load menu.</div>';
+    });
+
+  function ensureModal() {
+    if (!optionModal && window.bootstrap) {
+      optionModal = new bootstrap.Modal(optionModalEl);
+    }
+    // Ensure focus is cleared from elements inside before the modal hides (a11y)
+    if (!optionModalEl._a11yHooked) {
+      optionModalEl.addEventListener('hide.bs.modal', () => {
+        const active = document.activeElement;
+        if (active && optionModalEl.contains(active)) {
+          try { active.blur(); } catch(e) {}
+        }
+      });
+      optionModalEl._a11yHooked = true;
+    }
+  }
+
+  function safeHideOptionModal(){
+    const active = document.activeElement;
+    if (active && optionModalEl.contains(active)) {
+      try { active.blur(); } catch(e) {}
+    }
+    if (optionModal) optionModal.hide();
+  }
+
+  async function openOptionsModal(catName, itemName){
+    ensureModal();
+    const listEl = document.getElementById('optionList');
+    const titleEl = document.getElementById('optionTitle');
+    titleEl.textContent = itemName;
+    listEl.innerHTML = '';
+    const items = MENU[catName] || [];
+    const item = items.find(i => i.name === itemName);
+    if (!item) return;
+  // Ensure we have prices for choices
+  const { choices } = getOptions(item);
+    // Fetch any missing prices for choices
+    const missing = choices.filter(ch => !currentPrices[String(ch.PRODNUMB)]);
+    if (missing.length) {
+      const params = new URLSearchParams({ band: priceBandSelect.value, prods: missing.map(m=>m.PRODNUMB).join(',') });
+      try {
+        const resp = await fetch(`/api/prices?${params.toString()}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          Object.assign(currentPrices, data.prices || {});
+        }
+      } catch {}
+    }
+    // Populate choices
+    choices.forEach((ch, idx) => {
+      const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `<span class=\"me-3\" style=\"font-size:1.15rem;\">${ch.name}</span><button class=\"btn btn-primary btn-lg\" data-choose=\"${idx}\">${formatPence(pr)}</button>`;
+      listEl.appendChild(li);
+    });
+    // Click handler
+    listEl.onclick = (ev) => {
+      const btn = ev.target.closest('[data-choose]');
+      if (!btn) return;
+      const ix = parseInt(btn.getAttribute('data-choose'), 10);
+      const ch = choices[ix];
+      const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+      basket.push({ name: ch.name, prod: ch.PRODNUMB, price: Number(pr) });
+      renderBasket();
+      safeHideOptionModal();
+    };
+    if (optionModal) optionModal.show();
+  }
+
+  // Add-on multi-select modal (quantities + optional note)
+  function openAddonsModal(catName, item){
+    ensureModal();
+    const listEl = document.getElementById('optionList');
+    const titleEl = document.getElementById('optionTitle');
+  const opts = getOptions(item);
+  titleEl.textContent = `${opts.title || item.name}`;
+    listEl.innerHTML = '';
+    // Build UI: each choice with - qty + and price
+    const quantities = {};
+    opts.choices.forEach((ch, idx) => {
+      const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+      quantities[ch.PRODNUMB] = 0;
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `
+        <div class="d-flex flex-column">
+          <span style="font-size:1.05rem;">${ch.name}</span>
+          <small class="text-secondary">+${formatPence(pr)}</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-secondary btn-sm" data-minus="${ch.PRODNUMB}">−</button>
+          <span class="fw-semibold" data-qty-for="${ch.PRODNUMB}">0</span>
+          <button class="btn btn-outline-secondary btn-sm" data-plus="${ch.PRODNUMB}">+</button>
+        </div>`;
+      listEl.appendChild(li);
+    });
+
+    // Optional special instructions
+    let noteArea = null;
+    if (opts.specialInstructions) {
+      const noteLi = document.createElement('li');
+      noteLi.className = 'list-group-item';
+      noteLi.innerHTML = `
+        <label class="form-label fw-semibold">Special Instructions</label>
+        <textarea class="form-control" rows="2" placeholder="Add a note here..." id="addon-note"></textarea>`;
+      listEl.appendChild(noteLi);
+      noteArea = noteLi.querySelector('#addon-note');
+    }
+
+    // Footer action
+    const footer = document.createElement('div');
+    footer.className = 'p-3 d-flex justify-content-end gap-2';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-outline-secondary btn-lg';
+    cancelBtn.textContent = 'Cancel';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary btn-lg';
+    addBtn.textContent = 'Add';
+    listEl.appendChild(footer);
+    footer.appendChild(cancelBtn);
+    footer.appendChild(addBtn);
+
+    // Show required/optional in modal header
+    titleEl.textContent = `${opts.title || item.name} (${opts.required ? 'Required' : 'Optional'})`;
+
+    const totalSelected = () => Object.values(quantities).reduce((a,b)=>a+Number(b||0),0);
+    const updateAddEnabled = () => { addBtn.disabled = !!(opts.required && totalSelected() === 0); };
+    updateAddEnabled();
+
+    // Event handlers for qty
+    listEl.onclick = (ev) => {
+      const plus = ev.target.closest('[data-plus]');
+      const minus = ev.target.closest('[data-minus]');
+      if (!plus && !minus) return;
+      const key = Number((plus||minus).getAttribute(plus?'data-plus':'data-minus'));
+      if (!(key in quantities)) return;
+      if (plus) quantities[key] += 1; else quantities[key] = Math.max(0, quantities[key] - 1);
+      const qtyEl = listEl.querySelector(`[data-qty-for="${key}"]`);
+      if (qtyEl) qtyEl.textContent = String(quantities[key]);
+      updateAddEnabled();
+    };
+
+    // Add button: push base item and each selected addon as separate basket items
+    addBtn.onclick = () => {
+      if (opts.required && totalSelected() === 0) return; // guard
+      const basePrice = (currentPrices[String(item.PRODNUMB)]||{}).price || 0;
+      const noteText = noteArea ? noteArea.value.trim() : '';
+      const baseName = noteText ? `${item.name} — ${noteText}` : item.name;
+      basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
+      opts.choices.forEach(ch => {
+        const qty = quantities[ch.PRODNUMB] || 0;
+        if (qty > 0) {
+          const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+          for (let i=0;i<qty;i++) {
+            basket.push({ name: `${ch.name} (Dip)`, prod: ch.PRODNUMB, price: Number(pr) });
+          }
+        }
+      });
+      renderBasket();
+      safeHideOptionModal();
+    };
+    cancelBtn.onclick = () => { safeHideOptionModal(); };
+
+    if (optionModal) optionModal.show();
+  }
+
+  // Radio single-select add-on (free) modal
+  function openRadioFreeModal(catName, item){
+    ensureModal();
+    const listEl = document.getElementById('optionList');
+    const titleEl = document.getElementById('optionTitle');
+    const opts = getOptions(item);
+  titleEl.textContent = `${opts.title || item.name} (${opts.required ? 'Required' : 'Optional'})`;
+    listEl.innerHTML = '';
+
+    // Build selectable list
+  let selected = null;
+
+    opts.choices.forEach((ch, idx) => {
+      const id = `rf_${String(ch.PRODNUMB)}_${idx}`;
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `
+        <label for="${id}" class="d-flex align-items-center gap-3 w-100 m-0" style="cursor:pointer;">
+          <input class="form-check-input" type="radio" name="rf_choice" id="${id}" value="${ch.PRODNUMB}">
+          <span class="flex-grow-1" style="font-size:1.05rem;">${ch.name}</span>
+          ${opts.free ? '<small class="text-secondary">+£0.00</small>' : ''}
+        </label>`;
+      listEl.appendChild(li);
+    });
+
+    // Optional special instructions
+    let noteArea = null;
+    if (opts.specialInstructions) {
+      const noteLi = document.createElement('li');
+      noteLi.className = 'list-group-item';
+      noteLi.innerHTML = `
+        <label class="form-label fw-semibold">Special Instructions</label>
+        <textarea class="form-control" rows="2" placeholder="Add a note here..." id="rf-note"></textarea>`;
+      listEl.appendChild(noteLi);
+      noteArea = noteLi.querySelector('#rf-note');
+    }
+
+    // Footer actions
+    const footer = document.createElement('div');
+    footer.className = 'p-3 d-flex justify-content-end gap-2';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-outline-secondary btn-lg';
+    cancelBtn.textContent = 'Cancel';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary btn-lg';
+    addBtn.textContent = 'Add';
+    listEl.appendChild(footer);
+    footer.appendChild(cancelBtn);
+    footer.appendChild(addBtn);
+
+    // Selection handling
+    listEl.addEventListener('change', (ev) => {
+      const input = ev.target.closest('input[name="rf_choice"]');
+      if (input) selected = Number(input.value);
+    });
+
+    // Disable Add until valid when required
+    const updateAddEnabledRF = () => { addBtn.disabled = !!(opts.required && (selected === null)); };
+    updateAddEnabledRF();
+    listEl.addEventListener('change', updateAddEnabledRF);
+
+    addBtn.onclick = () => {
+      if (opts.required && selected === null) return;
+      const basePrice = (currentPrices[String(item.PRODNUMB)]||{}).price || 0;
+      const noteText = noteArea ? noteArea.value.trim() : '';
+      const baseName = noteText ? `${item.name} — ${noteText}` : item.name;
+      basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
+
+      // Add selected add-on as free line (including 'No Dip') when a choice is made
+      if (selected !== null) {
+        const selectedChoice = opts.choices.find(ch => Number(ch.PRODNUMB) === Number(selected));
+        if (selectedChoice) {
+          basket.push({ name: `${selectedChoice.name} (Dip - Free)`, prod: selectedChoice.PRODNUMB, price: 0 });
+        }
+      }
+
+      renderBasket();
+      safeHideOptionModal();
+    };
+    cancelBtn.onclick = () => { safeHideOptionModal(); };
+
+    if (optionModal) optionModal.show();
+  }
+</script>
+<style>
+  .cat-chip.active { color:#fff; background:#0d6efd; border-color:#0d6efd; }
+  .cat-chip.active .badge { background:#fff !important; color:#0d6efd; }
+  .item-btn { white-space:normal; }
+  /* Touch friendly modal */
+  #optionModal .modal-content { border-radius: 1rem; }
+  #optionModal .modal-header { padding: 1rem 1.25rem; }
+  #optionModal .modal-body { padding: 0.75rem 0; }
+  #optionModal .list-group-item { padding: 1rem 1.25rem; min-height: 64px; }
+  #optionModal .btn { min-width: 120px; min-height: 48px; }
+  @media (min-width: 992px) {
+    #optionModal .list-group-item { padding: 1.15rem 1.5rem; }
+    #optionModal .btn { min-width: 140px; }
+  }
+</style>
+{% endblock %}
+
