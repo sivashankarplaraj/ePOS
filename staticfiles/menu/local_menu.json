@@ -69,51 +69,90 @@
     {"name": "Bluecheese Dip", "PRODNUMB": 104, "custom_options": false, "custom_options_data": {}}
   ],
   "Kids Meals": [
-    {
+     {
         "name": "Kids Hamburger Meal", 
-        "PRODNUMB": 200, 
-        "custom_options": true, 
+        "PRODNUMB": 13,
+        "meal_discount": true,
+        "custom_options": true,
+        "base_price": true,
         "custom_options_data": {
-            "add_on_options_2": {
+            "add_on_options_3": {
                 "title": "Kids Drinks",
                 "required": true,
                 "optional": false,
                 "type": "Radio Button, Select Only One",
                 "choose":[
-                    {
-                        "name": "Kids Strawberry Shake",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Vanilla Shake",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Chocolate Shake",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Toffee Shake",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Banana Shake",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Fruit Shoot - Orange",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids Fruit Shoot - Apple/Blackcurrant",
-                        "PRODNUMB": ""
-                    },
-                    {
-                        "name": "Kids bottled Water",
-                        "PRODNUMB": ""
-                    }
+                    {"name": "Kids Strawberry Shake","PRODNUMB": 85},
+                    {"name": "Kids Vanilla Shake","PRODNUMB": 86},
+                    {"name": "Kids Chocolate Shake","PRODNUMB": 76},
+                    {"name": "Kids Toffee Shake","PRODNUMB": 148},
+                    {"name": "Kids Banana Shake","PRODNUMB": 84},
+                    {"name": "Kids Fruit Shoot - Orange","PRODNUMB": 191},
+                    {"name": "Kids Fruit Shoot - Apple/Blackcurrant","PRODNUMB": 194},
+                    {"name": "Kids bottled Water","PRODNUMB": 93}
+                ]                
+              },
+              "special_instructions": true,
+              "toppings_not_wanted": [
+                "No Ketchup"
+              ]
+          }
+     },
+     {
+        "name": "Kids Cheese Burger Meal", 
+        "PRODNUMB": 35,
+        "meal_discount": true,
+        "custom_options": true,
+        "base_price": true,
+        "custom_options_data": {
+            "add_on_options_3": {
+                "title": "Kids Drinks",
+                "required": true,
+                "optional": false,
+                "type": "Radio Button, Select Only One",
+                "choose":[
+                    {"name": "Kids Strawberry Shake","PRODNUMB": 85},
+                    {"name": "Kids Vanilla Shake","PRODNUMB": 86},
+                    {"name": "Kids Chocolate Shake","PRODNUMB": 76},
+                    {"name": "Kids Toffee Shake","PRODNUMB": 148},
+                    {"name": "Kids Banana Shake","PRODNUMB": 84},
+                    {"name": "Kids Fruit Shoot - Orange","PRODNUMB": 191},
+                    {"name": "Kids Fruit Shoot - Apple/Blackcurrant","PRODNUMB": 194},
+                    {"name": "Kids bottled Water","PRODNUMB": 93}
                 ]
-        }}
+              },
+              "special_instructions": true,
+              "toppings_not_wanted": [
+                "No Ketchup"
+              ]
+          }
+     },
+     {
+        "name": "Kids Chicken Bites Meal", 
+        "PRODNUMB": 118,
+        "meal_discount": true,
+        "custom_options": true,
+        "base_price": true,
+        "custom_options_data": {
+            "add_on_options_3": {
+                "title": "Kids Drinks",
+                "required": true,
+                "optional": false,
+                "type": "Radio Button, Select Only One",
+                "choose":[
+                    {"name": "Kids Strawberry Shake","PRODNUMB": 85},
+                    {"name": "Kids Vanilla Shake","PRODNUMB": 86},
+                    {"name": "Kids Chocolate Shake","PRODNUMB": 76},
+                    {"name": "Kids Toffee Shake","PRODNUMB": 148},
+                    {"name": "Kids Banana Shake","PRODNUMB": 84},
+                    {"name": "Kids Fruit Shoot - Orange","PRODNUMB": 191},
+                    {"name": "Kids Fruit Shoot - Apple/Blackcurrant","PRODNUMB": 194},
+                    {"name": "Kids bottled Water","PRODNUMB": 93}
+                ]
+              },
+              "special_instructions": true
+          }
+     }
   ],
   "Fries n Sides": [
     {"name": "Fries - Regular", "PRODNUMB": 30, "custom_options": false},
@@ -134,12 +173,12 @@
                 {"name": "Mayo Dip", "PRODNUMB": 27},
                 {"name": "Garlic Mayo Dip", "PRODNUMB": 29},
                 {"name": "1000 Island Dip", "PRODNUMB": 101},
-            {"name": "BBQ Dip", "PRODNUMB": 39},
-            {"name": "Chilli Dip", "PRODNUMB": 28},
-            {"name": "Bluecheese Dip", "PRODNUMB": 104}
-          ],
-          "special_instructions": true
-        }
+                {"name": "BBQ Dip", "PRODNUMB": 39},
+                {"name": "Chilli Dip", "PRODNUMB": 28},
+                {"name": "Bluecheese Dip", "PRODNUMB": 104}
+          ]
+        },
+        "special_instructions": true
       }
     },
     {
@@ -158,12 +197,12 @@
                 {"name": "Mayo Dip", "PRODNUMB": 27},
                 {"name": "Garlic Mayo Dip", "PRODNUMB": 29},
                 {"name": "1000 Island Dip", "PRODNUMB": 101},
-            {"name": "BBQ Dip", "PRODNUMB": 39},
-            {"name": "Chilli Dip", "PRODNUMB": 28},
-            {"name": "Bluecheese Dip", "PRODNUMB": 104}
-          ],
-          "special_instructions": true
-        }
+                {"name": "BBQ Dip", "PRODNUMB": 39},
+                {"name": "Chilli Dip", "PRODNUMB": 28},
+                {"name": "Bluecheese Dip", "PRODNUMB": 104}
+          ]
+        },
+        "special_instructions": true
       }
     },
     {
@@ -182,12 +221,12 @@
                 {"name": "Mayo Dip", "PRODNUMB": 27},
                 {"name": "Garlic Mayo Dip", "PRODNUMB": 29},
                 {"name": "1000 Island Dip", "PRODNUMB": 101},
-            {"name": "BBQ Dip", "PRODNUMB": 39},
-            {"name": "Chilli Dip", "PRODNUMB": 28},
-            {"name": "Bluecheese Dip", "PRODNUMB": 104}
-          ],
-          "special_instructions": true
-        }
+                {"name": "BBQ Dip", "PRODNUMB": 39},
+                {"name": "Chilli Dip", "PRODNUMB": 28},
+                {"name": "Bluecheese Dip", "PRODNUMB": 104}
+          ]
+        },
+        "special_instructions": true
       }
     },
     {
@@ -207,8 +246,8 @@
                 {"name": "Mayo Dip", "PRODNUMB": 27},
                 {"name": "Garlic Mayo Dip", "PRODNUMB": 29},
                 {"name": "1000 Island Dip", "PRODNUMB": 101},
-            {"name": "BBQ Dip", "PRODNUMB": 39},
-            {"name": "Chilli Dip", "PRODNUMB": 28}
+                {"name": "BBQ Dip", "PRODNUMB": 39},
+                {"name": "Chilli Dip", "PRODNUMB": 28}
           ],
           "special_instructions": true
         }
@@ -231,16 +270,100 @@
                 {"name": "Mayo Dip", "PRODNUMB": 27},
                 {"name": "Garlic Mayo Dip", "PRODNUMB": 29},
                 {"name": "1000 Island Dip", "PRODNUMB": 101},
-            {"name": "BBQ Dip", "PRODNUMB": 39},
-            {"name": "Chilli Dip", "PRODNUMB": 28}
-          ],
-          "special_instructions": true
-        }
+                {"name": "BBQ Dip", "PRODNUMB": 39},
+                {"name": "Chilli Dip", "PRODNUMB": 28}
+          ]
+        },
+        "special_instructions": true
       }
     }
   ],
-  "Veggie Samwiches": [],
-  "Viggies": [],
+  "Veggie Samwiches": [
+    {"name": "Veggie Bacon Samwich", "PRODNUMB": 96, "custom_options": false, "custom_options_data": {}},
+    {"name": "Veggie Salad Samwich", "PRODNUMB": 103, "custom_options": false, "custom_options_data": {}}
+  ],
+  "Viggies": [
+    {
+        "name": "Veggie Burger", 
+        "PRODNUMB": 11,       
+        "custom_options": true,
+        "base_price": true,
+        "custom_options_data": {
+            "add_on_options_1": {
+                "title": "Add Cheese",
+                "required": false,
+                "optional": true,
+                "type": "Multiple Multi Select",
+                "choose":[
+                    {"name": "Extra Cheese","PRODNUMB": 45}
+                ]
+              },
+              "add_on_options_3": {
+                "title": "Make it a Double Veggie",
+                "required": false,
+                "optional": true,
+                "type": "Multiple Multi Select",
+                "choose":[
+                    {"name": "Extra Veggie Patty","PRODNUMB": 34}
+                ]
+              },
+              "special_instructions": true,
+              "toppings_not_wanted": [
+                "No Lettuce",
+                "No Mayo",
+                "No Onion",
+                "No Tomato"
+              ]
+          }
+     },
+     {
+        "name": "Veggie DeLuxe Burger", 
+        "PRODNUMB": 92,       
+        "custom_options": true,
+        "base_price": true,
+        "custom_options_data": {
+            "add_on_options_1": {
+                "title": "Add Cheese",
+                "required": false,
+                "optional": true,
+                "type": "Multiple Multi Select",
+                "choose":[
+                    {"name": "Extra Cheese","PRODNUMB": 45}
+                ]
+              },
+              "add_on_options_2": {
+              "title": "Choose your Sauce",
+              "required": true,
+              "optional": false,
+              "type": "Radio Button, Select Only One, Item is free so don't include choose price in total",
+              "choose": [
+                  {"name": "No Sauce (plain)", "PRODNUMB": 0},
+                  {"name": "Ketchup ", "PRODNUMB": 0},
+                  {"name": "Mayo", "PRODNUMB": 0},
+                  {"name": "Garlic Mayo", "PRODNUMB": 0},
+                  {"name": "1000 Island", "PRODNUMB": 0},
+                  {"name": "BBQ", "PRODNUMB": 0},
+                  {"name": "Chilli (hot)", "PRODNUMB": 0}
+                ]
+              },
+              "add_on_options_3": {
+                "title": "Make it a Double Veggie",
+                "required": false,
+                "optional": true,
+                "type": "Multiple Multi Select",
+                "choose":[
+                    {"name": "Extra Veggie Patty","PRODNUMB": 34}
+                ]
+              },
+              "special_instructions": true,
+              "toppings_not_wanted": [
+                "No Cheese",
+                "No Lettuce",
+                "No Onion"
+              ]
+          }
+     }
+  ],
   "Chicken": [],
   "Burgers": [],
   "Special Offers": [],

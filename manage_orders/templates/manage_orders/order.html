@@ -119,15 +119,53 @@
   let basket = [];
   let currentPrices = {}; // { prod: { price, dc_price } }
   let currentCategory = null;
+  // Extract all add_on_options_x sections present under custom_options_data
+  // Returns { sections: [{ id, mode: 'addons'|'radio_free'|'radio_paid', title, required, optional, choices }], specialInstructions, toppingsNotWanted }
+  function getAllOptionSections(item){
+    const d = item.custom_options_data || {};
+    const toppings = Array.isArray(d.toppings_not_wanted) ? d.toppings_not_wanted.filter(x => typeof x === 'string' && x.trim().length) : [];
+    const list = [];
+    const pairs = [
+      { id: 'add_on_options_1', key: d.add_on_options_1 || d.add_on_option_1, mode: 'addons' },
+      { id: 'add_on_options_2', key: d.add_on_options_2 || d.add_on_option_2, mode: 'radio_free' },
+      { id: 'add_on_options_3', key: d.add_on_options_3 || d.add_on_option_3, mode: 'radio_paid' }
+    ];
+    pairs.forEach(p => {
+      if (p.key && Array.isArray(p.key.choose)){
+        const choices = p.key.choose.filter(ch => ch && (ch.PRODNUMB !== undefined));
+        if (choices.length){
+          list.push({ id: p.id, mode: p.mode, title: p.key.title || 'Choose', required: !!p.key.required, optional: !!p.key.optional, choices });
+        }
+      }
+    });
+    return { sections: list, specialInstructions: !!d.special_instructions, toppingsNotWanted: toppings };
+  }
+
 
   // Return unified options description for an item
   // { mode: 'single'|'addons'|'radio_free'|null, title, choices: [{name, PRODNUMB}], required?: boolean, optional?: boolean, specialInstructions?: boolean }
   function getOptions(item){
     const d = item.custom_options_data || {};
+    const toppings = Array.isArray(d.toppings_not_wanted) ? d.toppings_not_wanted.filter(x => typeof x === 'string' && x.trim().length) : [];
     // Single-select shape
     if (d.option_1 && Array.isArray(d.option_1.choose)) {
       const choices = d.option_1.choose.filter(ch => ch && ch.PRODNUMB);
-      if (choices.length) return { mode: 'single', title: item.name, choices };
+      if (choices.length) return { mode: 'single', title: item.name, choices, specialInstructions: !!d.special_instructions, toppingsNotWanted: toppings };
+    }
+    // Radio single-select add-on, paid (choice price adds to base) — prioritize before add-ons
+    const radioPaidKey = d.add_on_options_3 || d.add_on_option_3; // accept either key
+    if (radioPaidKey && Array.isArray(radioPaidKey.choose)) {
+      const choices = radioPaidKey.choose.filter(ch => ch && (ch.PRODNUMB !== undefined));
+      if (choices.length) return {
+        mode: 'radio_paid',
+        title: radioPaidKey.title || 'Choose one',
+        choices,
+        required: !!radioPaidKey.required,
+        optional: !!radioPaidKey.optional,
+        free: String(radioPaidKey.type || '').toLowerCase().includes('free'), // likely false
+        specialInstructions: (d.special_instructions !== undefined) ? !!d.special_instructions : !!radioPaidKey.special_instructions,
+        toppingsNotWanted: toppings
+      };
     }
     // Add-on multi-select shape
     const addKey = d.add_on_options_1 || d.add_on_option_1; // accept either key
@@ -139,7 +177,9 @@
         choices,
         required: !!addKey.required,
         optional: !!addKey.optional,
-        specialInstructions: !!addKey.special_instructions
+        // special_instructions now lives under custom_options_data; keep fallback for backward compat
+        specialInstructions: (d.special_instructions !== undefined) ? !!d.special_instructions : !!addKey.special_instructions,
+        toppingsNotWanted: toppings
       };
     }
     // Radio single-select add-on, free (doesn't affect price)
@@ -153,7 +193,8 @@
         required: !!radioKey.required,
         optional: !!radioKey.optional,
         free: String(radioKey.type || '').toLowerCase().includes('free'),
-        specialInstructions: !!radioKey.special_instructions
+        specialInstructions: (d.special_instructions !== undefined) ? !!d.special_instructions : !!radioKey.special_instructions,
+        toppingsNotWanted: toppings
       };
     }
     return { mode: null, title: item.name, choices: [] };
@@ -166,8 +207,12 @@
     items.forEach(i => {
       if (i.PRODNUMB) ids.add(i.PRODNUMB);
       if (i.custom_options) {
+        // Include choices from any single-option flow
         const opts = getOptions(i);
-        opts.choices.forEach(ch => ids.add(ch.PRODNUMB));
+        (opts.choices||[]).forEach(ch => ids.add(ch.PRODNUMB));
+        // Include all add_on_options_x choices
+        const all = getAllOptionSections(i);
+        all.sections.forEach(sec => sec.choices.forEach(ch => ids.add(ch.PRODNUMB)));
       }
     });
     const prodIds = [...ids];
@@ -275,10 +320,15 @@
       const items = MENU[catName] || [];
       const item = items.find(i => i.name === btn.dataset.name);
       if (!item) return;
+      const all = getAllOptionSections(item);
+      if (all.sections.length) {
+        openCompositeOptionsModal(catName, item);
+        return;
+      }
       const opts = getOptions(item);
       if (opts.mode === 'addons') {
         openAddonsModal(catName, item);
-      } else if (opts.mode === 'radio_free') {
+      } else if (opts.mode === 'radio_free' || opts.mode === 'radio_paid') {
         openRadioFreeModal(catName, item);
       } else {
         openOptionsModal(catName, btn.dataset.name);
@@ -288,6 +338,203 @@
       renderBasket();
     }
   });
+
+  // Composite modal: renders all add_on_options_x sections in one flow
+  async function openCompositeOptionsModal(catName, item){
+    ensureModal();
+    const listEl = document.getElementById('optionList');
+    const titleEl = document.getElementById('optionTitle');
+    const cfg = getAllOptionSections(item);
+    titleEl.textContent = `${item.name} (Options)`;
+    listEl.innerHTML = '';
+
+    // Ensure prices for any needed choices (addons and paid radios)
+    const choiceIds = [];
+    cfg.sections.forEach(sec => sec.choices.forEach(ch => choiceIds.push(ch.PRODNUMB)));
+    const missing = choiceIds.filter(id => !currentPrices[String(id)]);
+    if (missing.length) {
+      const params = new URLSearchParams({ band: priceBandSelect.value, prods: [...new Set(missing)].join(',') });
+      try {
+        const resp = await fetch(`/api/prices?${params.toString()}`);
+        if (resp.ok){ const data = await resp.json(); Object.assign(currentPrices, data.prices || {}); }
+      } catch {}
+    }
+
+    // State tracking per section
+    const state = {};
+
+    cfg.sections.forEach((sec, idx) => {
+      // Section header
+      const head = document.createElement('li');
+      head.className = 'list-group-item';
+      head.innerHTML = `<div class="fw-semibold">${sec.title} <span class="text-secondary">(${sec.required ? 'Required' : 'Optional'})</span></div>`;
+      listEl.appendChild(head);
+
+      if (sec.mode === 'addons'){
+        state[sec.id] = { quantities: {} };
+        sec.choices.forEach(ch => {
+          const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+          state[sec.id].quantities[ch.PRODNUMB] = 0;
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.innerHTML = `
+            <div class="d-flex flex-column">
+              <span style="font-size:1.05rem;">${ch.name}</span>
+              <small class="text-secondary">+${formatPence(pr)}</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-outline-secondary btn-sm" data-combo-minus="${sec.id}:${ch.PRODNUMB}">−</button>
+              <span class="fw-semibold" data-combo-qty-for="${sec.id}:${ch.PRODNUMB}">0</span>
+              <button class="btn btn-outline-secondary btn-sm" data-combo-plus="${sec.id}:${ch.PRODNUMB}">+</button>
+            </div>`;
+          listEl.appendChild(li);
+        });
+      } else if (sec.mode === 'radio_free' || sec.mode === 'radio_paid'){
+        state[sec.id] = { selected: null };
+        sec.choices.forEach((ch, cidx) => {
+          const id = `combo_${sec.id}_${String(ch.PRODNUMB)}_${cidx}`;
+          const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+          const rightText = (sec.mode === 'radio_paid') ? `<small class="text-secondary">+${formatPence(pr)}</small>` : '<small class="text-secondary">+£0.00</small>';
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.innerHTML = `
+            <label for="${id}" class="d-flex align-items-center gap-3 w-100 m-0" style="cursor:pointer;">
+              <input class="form-check-input" type="radio" name="${sec.id}" id="${id}" value="${ch.PRODNUMB}">
+              <span class="flex-grow-1" style="font-size:1.05rem;">${ch.name}</span>
+              ${rightText}
+            </label>`;
+          listEl.appendChild(li);
+        });
+      }
+    });
+
+    // Toppings not wanted (overall)
+    const tnwLi = renderToppingsNotWanted(listEl, cfg.toppingsNotWanted);
+
+    // Special instructions (overall)
+    let noteArea = null;
+    if (cfg.specialInstructions) {
+      const noteLi = document.createElement('li');
+      noteLi.className = 'list-group-item';
+      noteLi.innerHTML = `
+        <label class="form-label fw-semibold">Special Instructions</label>
+        <textarea class="form-control" rows="2" placeholder="Add a note here..." id="combo-note"></textarea>`;
+      listEl.appendChild(noteLi);
+      noteArea = noteLi.querySelector('#combo-note');
+    }
+
+    // Footer actions
+    const footer = document.createElement('div');
+    footer.className = 'p-3 d-flex justify-content-end gap-2';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-outline-secondary btn-lg';
+    cancelBtn.textContent = 'Cancel';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-primary btn-lg';
+    addBtn.textContent = 'Add';
+    listEl.appendChild(footer);
+    footer.appendChild(cancelBtn);
+    footer.appendChild(addBtn);
+
+    const isSectionSatisfied = (sec) => {
+      const st = state[sec.id];
+      if (!sec.required) return true;
+      if (sec.mode === 'addons') {
+        const total = Object.values(st.quantities||{}).reduce((a,b)=>a+Number(b||0),0);
+        return total > 0;
+      }
+      if (sec.mode === 'radio_free' || sec.mode === 'radio_paid') return st.selected !== null;
+      return true;
+    };
+    const updateAddEnabledCombo = () => {
+      const ok = cfg.sections.every(isSectionSatisfied);
+      addBtn.disabled = !ok;
+    };
+    updateAddEnabledCombo();
+
+    // Events
+    listEl.addEventListener('click', (ev) => {
+      const plus = ev.target.closest('[data-combo-plus]');
+      const minus = ev.target.closest('[data-combo-minus]');
+      if (plus || minus){
+        const key = (plus||minus).getAttribute(plus?'data-combo-plus':'data-combo-minus');
+        const [secId, prodStr] = key.split(':');
+        const st = state[secId];
+        if (!st || !st.quantities) return;
+        const pid = Number(prodStr);
+        if (!(pid in st.quantities)) st.quantities[pid] = 0;
+        if (plus) st.quantities[pid] += 1; else st.quantities[pid] = Math.max(0, st.quantities[pid]-1);
+        const qtyEl = listEl.querySelector(`[data-combo-qty-for="${secId}:${pid}"]`);
+        if (qtyEl) qtyEl.textContent = String(st.quantities[pid]);
+        updateAddEnabledCombo();
+      }
+    });
+    listEl.addEventListener('change', (ev) => {
+      const input = ev.target.closest('input.form-check-input[type="radio"]');
+      if (input){
+        const secId = input.getAttribute('name');
+        if (state[secId]) state[secId].selected = Number(input.value);
+        updateAddEnabledCombo();
+      }
+    });
+
+    // Add button logic
+    addBtn.onclick = () => {
+      // Compose note
+      const tnwSelected = tnwLi ? Array.from(tnwLi.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value) : [];
+      const tnwNote = tnwSelected.length ? `Toppings not wanted: ${tnwSelected.join(', ')}` : '';
+      const rawNote = noteArea ? noteArea.value.trim() : '';
+      const noteText = [tnwNote, rawNote].filter(Boolean).join(' | ');
+      const baseName = noteText ? `${item.name} — ${noteText}` : item.name;
+      const basePrice = (currentPrices[String(item.PRODNUMB)]||{}).price || 0;
+
+      // radio_paid: combine base + chosen price into single line if selected
+      const paidSec = cfg.sections.find(s => s.mode === 'radio_paid');
+      if (paidSec && state[paidSec.id] && state[paidSec.id].selected !== null){
+        const selected = state[paidSec.id].selected;
+        const choice = paidSec.choices.find(c => Number(c.PRODNUMB) === Number(selected));
+        const choicePrice = (currentPrices[String(selected)]||{}).price || 0;
+        const combinedName = `${baseName} - ${choice ? choice.name : ''}`;
+        basket.push({ name: combinedName, prod: item.PRODNUMB, price: Number(basePrice + choicePrice) });
+      } else {
+        // Otherwise add base line if the product has a base price flag or generally desired
+        if (item.base_price) {
+          basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
+        }
+      }
+
+      // radio_free: add free line if selected
+      const freeSec = cfg.sections.find(s => s.mode === 'radio_free');
+      if (freeSec && state[freeSec.id] && state[freeSec.id].selected !== null){
+        const selected = state[freeSec.id].selected;
+        const choice = freeSec.choices.find(c => Number(c.PRODNUMB) === Number(selected));
+        if (choice){
+          basket.push({ name: `${baseName} - ${choice.name} (Dip - Free)`, prod: choice.PRODNUMB, price: 0 });
+        }
+      }
+
+      // addons: add quantities as separate lines
+      const addonsSec = cfg.sections.find(s => s.mode === 'addons');
+      if (addonsSec && state[addonsSec.id]){
+        const quantities = state[addonsSec.id].quantities || {};
+        addonsSec.choices.forEach(ch => {
+          const qty = quantities[ch.PRODNUMB] || 0;
+          if (qty > 0){
+            const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+            for (let i=0;i<qty;i++){
+              basket.push({ name: `${baseName} - ${ch.name} (Extra)`, prod: ch.PRODNUMB, price: Number(pr) });
+            }
+          }
+        });
+      }
+
+      renderBasket();
+      safeHideOptionModal();
+    };
+    cancelBtn.onclick = () => { safeHideOptionModal(); };
+
+    if (optionModal) optionModal.show();
+  }
 
   basketList.addEventListener('click', e => {
     const rm = e.target.getAttribute('data-rm');
@@ -323,8 +570,9 @@
     renderBasket();
   });
 
-  // Load MENU then auto-select first category
-  fetch(MENU_URL)
+  // Load MENU then auto-select first category (avoid cache to pick up latest JSON edits)
+  const MENU_NO_CACHE_URL = `${MENU_URL}?v=${Date.now()}`;
+  fetch(MENU_NO_CACHE_URL, { cache: 'no-store' })
     .then(resp => resp.json())
     .then(data => {
       MENU = data;
@@ -361,6 +609,42 @@
     if (optionModal) optionModal.hide();
   }
 
+  // Helper: render "Toppings not wanted:" checkbox list
+  function renderToppingsNotWanted(listEl, toppings){
+    if (!Array.isArray(toppings) || toppings.length === 0) return null;
+    const li = document.createElement('li');
+    li.className = 'list-group-item';
+    const wrap = document.createElement('div');
+
+    // Header styled like the provided reference (soft warning background)
+    const header = document.createElement('div');
+    header.className = 'rounded-2 px-3 py-2 mb-2';
+    header.style.backgroundColor = '#fff3cd'; // fallback if no Bootstrap subtle color
+    header.style.border = '1px solid #ffeeba';
+    header.style.color = '#7a5c00';
+    header.textContent = 'Toppings not wanted:';
+    wrap.appendChild(header);
+
+    // One item per row (mobile friendly)
+    const grid = document.createElement('div');
+    grid.className = 'row g-2';
+    toppings.forEach((t, idx) => {
+      const col = document.createElement('div');
+      col.className = 'col-12';
+      const id = `tnw_${idx}_${Math.random().toString(36).slice(2,7)}`;
+      col.innerHTML = `
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="${id}" value="${t}">
+          <label class="form-check-label" for="${id}">${t}</label>
+        </div>`;
+      grid.appendChild(col);
+    });
+    wrap.appendChild(grid);
+    li.appendChild(wrap);
+    listEl.appendChild(li);
+    return li;
+  }
+
   async function openOptionsModal(catName, itemName){
     ensureModal();
     const listEl = document.getElementById('optionList');
@@ -371,7 +655,8 @@
     const item = items.find(i => i.name === itemName);
     if (!item) return;
   // Ensure we have prices for choices
-  const { choices } = getOptions(item);
+  const opts = getOptions(item);
+  const choices = opts.choices;
     // Fetch any missing prices for choices
     const missing = choices.filter(ch => !currentPrices[String(ch.PRODNUMB)]);
     if (missing.length) {
@@ -392,6 +677,8 @@
       li.innerHTML = `<span class=\"me-3\" style=\"font-size:1.15rem;\">${ch.name}</span><button class=\"btn btn-primary btn-lg\" data-choose=\"${idx}\">${formatPence(pr)}</button>`;
       listEl.appendChild(li);
     });
+  // Toppings not wanted
+  const tnwLi = renderToppingsNotWanted(listEl, opts.toppingsNotWanted);
     // Click handler
     listEl.onclick = (ev) => {
       const btn = ev.target.closest('[data-choose]');
@@ -399,7 +686,13 @@
       const ix = parseInt(btn.getAttribute('data-choose'), 10);
       const ch = choices[ix];
       const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
-      basket.push({ name: ch.name, prod: ch.PRODNUMB, price: Number(pr) });
+      // Include base item name with the chosen option
+      const base = item && item.name ? item.name : itemName;
+      // Build note from selected toppings (no explicit textarea in this modal)
+      const tnwSelected = tnwLi ? Array.from(tnwLi.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value) : [];
+      const noteText = tnwSelected.length ? `Toppings not wanted: ${tnwSelected.join(', ')}` : '';
+      const baseWithNote = noteText ? `${base} — ${noteText}` : base;
+      basket.push({ name: `${baseWithNote} - ${ch.name}`, prod: ch.PRODNUMB, price: Number(pr) });
       renderBasket();
       safeHideOptionModal();
     };
@@ -434,7 +727,10 @@
       listEl.appendChild(li);
     });
 
-    // Optional special instructions
+  // Toppings not wanted (if any)
+  const tnwLi = renderToppingsNotWanted(listEl, opts.toppingsNotWanted);
+
+  // Optional special instructions
     let noteArea = null;
     if (opts.specialInstructions) {
       const noteLi = document.createElement('li');
@@ -479,11 +775,15 @@
       updateAddEnabled();
     };
 
-    // Add button: push base item and each selected addon as separate basket items
+  // Add button: push base item and each selected addon as separate basket items
     addBtn.onclick = () => {
       if (opts.required && totalSelected() === 0) return; // guard
       const basePrice = (currentPrices[String(item.PRODNUMB)]||{}).price || 0;
-      const noteText = noteArea ? noteArea.value.trim() : '';
+    // Merge toppings not wanted into the note
+    const tnwSelected = tnwLi ? Array.from(tnwLi.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value) : [];
+    const tnwNote = tnwSelected.length ? `TNW: ${tnwSelected.join(', ')}` : '';
+    const rawNote = noteArea ? noteArea.value.trim() : '';
+    const noteText = [tnwNote, rawNote].filter(Boolean).join(' | ');
       const baseName = noteText ? `${item.name} — ${noteText}` : item.name;
       basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
       opts.choices.forEach(ch => {
@@ -491,7 +791,8 @@
         if (qty > 0) {
           const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
           for (let i=0;i<qty;i++) {
-            basket.push({ name: `${ch.name} (Dip)`, prod: ch.PRODNUMB, price: Number(pr) });
+      // Include base item name with addon choice
+      basket.push({ name: `${baseName} - ${ch.name} (Extra)`, prod: ch.PRODNUMB, price: Number(pr) });
           }
         }
       });
@@ -504,7 +805,7 @@
   }
 
   // Radio single-select add-on (free) modal
-  function openRadioFreeModal(catName, item){
+  async function openRadioFreeModal(catName, item){
     ensureModal();
     const listEl = document.getElementById('optionList');
     const titleEl = document.getElementById('optionTitle');
@@ -515,21 +816,43 @@
     // Build selectable list
   let selected = null;
 
+    // For paid radios, ensure we have choice prices
+    const needPrices = (opts.mode === 'radio_paid');
+    if (needPrices) {
+      const missing = opts.choices.filter(ch => !currentPrices[String(ch.PRODNUMB)]);
+      if (missing.length) {
+        const params = new URLSearchParams({ band: priceBandSelect.value, prods: missing.map(m=>m.PRODNUMB).join(',') });
+        try {
+          const resp = await fetch(`/api/prices?${params.toString()}`);
+          if (resp.ok) {
+            const data = await resp.json();
+            Object.assign(currentPrices, data.prices || {});
+          }
+        } catch {}
+      }
+    }
+
+    // Populate list
     opts.choices.forEach((ch, idx) => {
       const id = `rf_${String(ch.PRODNUMB)}_${idx}`;
       const li = document.createElement('li');
       li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      const pr = (currentPrices[String(ch.PRODNUMB)]||{}).price || 0;
+      const rightText = (opts.mode === 'radio_paid') ? `<small class="text-secondary">+${formatPence(pr)}</small>` : '<small class="text-secondary">+£0.00</small>';
       li.innerHTML = `
         <label for="${id}" class="d-flex align-items-center gap-3 w-100 m-0" style="cursor:pointer;">
           <input class="form-check-input" type="radio" name="rf_choice" id="${id}" value="${ch.PRODNUMB}">
           <span class="flex-grow-1" style="font-size:1.05rem;">${ch.name}</span>
-          ${opts.free ? '<small class="text-secondary">+£0.00</small>' : ''}
+          ${rightText}
         </label>`;
       listEl.appendChild(li);
     });
 
+  // Toppings not wanted (if any)
+  const tnwLi = renderToppingsNotWanted(listEl, opts.toppingsNotWanted);
+
     // Optional special instructions
-    let noteArea = null;
+  let noteArea = null;
     if (opts.specialInstructions) {
       const noteLi = document.createElement('li');
       noteLi.className = 'list-group-item';
@@ -564,18 +887,31 @@
     updateAddEnabledRF();
     listEl.addEventListener('change', updateAddEnabledRF);
 
-    addBtn.onclick = () => {
+  addBtn.onclick = () => {
       if (opts.required && selected === null) return;
       const basePrice = (currentPrices[String(item.PRODNUMB)]||{}).price || 0;
-      const noteText = noteArea ? noteArea.value.trim() : '';
+      // Merge toppings not wanted into the note
+      const tnwSelected = tnwLi ? Array.from(tnwLi.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.value) : [];
+      const tnwNote = tnwSelected.length ? `TNW: ${tnwSelected.join(', ')}` : '';
+      const rawNote = noteArea ? noteArea.value.trim() : '';
+      const noteText = [tnwNote, rawNote].filter(Boolean).join(' | ');
       const baseName = noteText ? `${item.name} — ${noteText}` : item.name;
-      basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
 
-      // Add selected add-on as free line (including 'No Dip') when a choice is made
-      if (selected !== null) {
+      if (opts.mode === 'radio_paid') {
+        // Combine base + choice price into a single line
+        if (selected === null) return;
         const selectedChoice = opts.choices.find(ch => Number(ch.PRODNUMB) === Number(selected));
-        if (selectedChoice) {
-          basket.push({ name: `${selectedChoice.name} (Dip - Free)`, prod: selectedChoice.PRODNUMB, price: 0 });
+        const choicePrice = (currentPrices[String(selected)]||{}).price || 0;
+        const combinedName = `${baseName} - ${selectedChoice ? selectedChoice.name : ''}`;
+        basket.push({ name: combinedName, prod: item.PRODNUMB, price: Number(basePrice + choicePrice) });
+      } else {
+        // Free radio: base line + free option line
+        basket.push({ name: baseName, prod: item.PRODNUMB, price: Number(basePrice) });
+        if (selected !== null) {
+          const selectedChoice = opts.choices.find(ch => Number(ch.PRODNUMB) === Number(selected));
+          if (selectedChoice) {
+            basket.push({ name: `${baseName} - ${selectedChoice.name} (Dip - Free)`, prod: selectedChoice.PRODNUMB, price: 0 });
+          }
         }
       }
 
