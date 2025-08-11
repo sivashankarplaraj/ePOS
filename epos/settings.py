@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ['*'] # allow all hosts for development, change in production
 
 INSTALLED_APPS = [
     'update_till.apps.UpdateTillConfig',
+    'manage_orders.apps.ManageOrdersConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -116,7 +117,12 @@ USE_TZ = True
 
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Use a dedicated directory for collected static files (after running collectstatic)
+STATIC_ROOT = BASE_DIR / 'collected_static'
+# Source directories for static assets during development
+STATICFILES_DIRS = [
+    BASE_DIR / 'staticfiles',  # contains bootstrap-5.3.7-dist etc.
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
