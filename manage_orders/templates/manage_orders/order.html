@@ -615,6 +615,7 @@
     const li = document.createElement('li');
     li.className = 'list-group-item';
     const wrap = document.createElement('div');
+  wrap.className = 'toppings-not-wanted-group';
 
     // Header styled like the provided reference (soft warning background)
     const header = document.createElement('div');
@@ -633,9 +634,9 @@
       col.className = 'col-12';
       const id = `tnw_${idx}_${Math.random().toString(36).slice(2,7)}`;
       col.innerHTML = `
-        <div class="form-check">
+        <div class="form-check align-items-center d-flex">
           <input class="form-check-input" type="checkbox" id="${id}" value="${t}">
-          <label class="form-check-label" for="${id}">${t}</label>
+          <label class="form-check-label ms-2" for="${id}">${t}</label>
         </div>`;
       grid.appendChild(col);
     });
@@ -936,6 +937,21 @@
   @media (min-width: 992px) {
     #optionModal .list-group-item { padding: 1.15rem 1.5rem; }
     #optionModal .btn { min-width: 140px; }
+  }
+  /* Touch-enlarged checkboxes for Toppings not wanted */
+  .toppings-not-wanted-group .form-check-input {
+    width: 1.4rem;
+    height: 1.4rem;
+    margin-top: 0;
+    cursor: pointer;
+  }
+  .toppings-not-wanted-group .form-check-label {
+    font-size: 1.05rem;
+    padding-top: 2px;
+    cursor: pointer;
+  }
+  .toppings-not-wanted-group .form-check {
+    min-height: 2.25rem;
   }
 </style>
 {% endblock %}
