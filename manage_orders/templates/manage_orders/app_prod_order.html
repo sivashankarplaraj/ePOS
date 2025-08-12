@@ -1,0 +1,499 @@
+{% extends 'manage_orders/index.html' %}
+{% load static %}
+{% block content %}
+<h5 class="mt-3">Create Order</h5>
+<!-- Price Band Selector -->
+<div class="mb-3" style="max-width:420px;">
+    <label for="price-band" class="form-label fw-semibold">Select Price Band</label>
+  <select id="price-band" class="form-select form-select-lg fw-bold" style="height: 64px; font-size: 1.35rem;">
+        {% for band, value in price_band.items %}
+            <option value="{{ value }}">{{ band }}</option>
+        {% endfor %}
+    </select>
+    <div class="form-check mt-2">
+      <input class="form-check-input" type="checkbox" id="toggle-net" />
+      <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
+    </div>
+    <div class="mt-2">
+      <label class="form-label small mb-1" for="vat-basis">VAT Basis</label>
+      <select id="vat-basis" class="form-select form-select-sm" style="max-width:200px;">
+        <option value="take">Takeaway</option>
+        <option value="eat">Eatin</option>
+      </select>
+    </div>
+</div>
+<!-- Categories below Price Band (horizontal scroll) -->
+<div id="categories-section" class="mb-3">
+  <div class="fw-semibold small text-uppercase text-secondary mb-2">Categories</div>
+  <div id="category-strip" class="d-flex flex-nowrap overflow-auto gap-3 py-3" style="font-size:1.35rem; -webkit-overflow-scrolling: touch;"></div>
+</div>
+
+<!-- Main layout: Items (70%) | Basket (30%) -->
+<div class="row" id="order-workspace">
+  <div class="col-12 col-lg-9" id="items-pane" style="max-height:70vh; overflow:auto;">
+    <div class="fw-semibold small text-uppercase text-secondary mb-2">Items</div>
+    <div id="items-container" class="row g-3">
+      <!-- Items injected via JS -->
+    </div>
+  </div>
+  <div class="col-12 col-lg-3 border-start" id="basket-pane" style="max-height:70vh; overflow:auto;">
+    <div class="fw-semibold small text-uppercase text-secondary mb-2">Basket</div>
+    <ul class="list-group" id="basket-list" style="font-size:1.15rem;"></ul>
+    <div class="mt-3 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Total</span>
+      <span id="basket-total" class="fs-5">£0.00</span>
+    </div>
+    <div class="mt-4 text-end">
+      <button class="btn btn-lg btn-outline-secondary px-4 py-2 me-2" id="clear-basket" disabled>Clear</button>
+      <button class="btn btn-lg btn-primary px-4 py-2" id="checkout" disabled>Checkout</button>
+    </div>
+  </div>
+</div>
+<!-- Item Configuration Modal -->
+<div class="modal fade" id="itemConfigModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-3">
+        <h5 class="modal-title fs-3 fw-bold" id="cfg-title">Configure Item</h5>
+        <button type="button" class="btn-close btn-lg" style="transform:scale(1.3);" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="cfg-loading" class="text-center py-5">Loading...</div>
+        <div id="cfg-body" class="d-none">
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+              <div>
+                <strong id="cfg-item-name"></strong>
+                <span class="badge bg-secondary ms-2 d-none" id="cfg-item-type">Combo</span>
+                <span class="badge bg-info text-dark ms-2 d-none" id="cfg-meal-badge">Meal</span>
+              </div>
+              <div class="text-end small">
+                <div>Band <span id="cfg-band"></span></div>
+                <div class="d-flex flex-column">
+                  <div>Price: <span id="cfg-price-main"></span><span id="cfg-meal-price" class="ms-2 small text-info"></span></div>
+                  <div class="small" id="cfg-price-note"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="cfg-variants" class="mb-4 d-none">
+            <label class="form-label fw-semibold" style="font-size:1.15rem;">Variants</label>
+            <div id="cfg-variant-list" class="d-flex flex-wrap gap-3"></div>
+          </div>
+          <div id="cfg-meal-section" class="border rounded p-3 mb-4 d-none" style="background:var(--bs-tertiary-bg);">
+            <div class="form-check form-switch mb-3" style="font-size:1.15rem;">
+              <input class="form-check-input" style="width:3rem;height:1.5rem;" type="checkbox" id="cfg-meal-toggle" />
+              <label class="form-check-label ms-2" for="cfg-meal-toggle">Convert to Meal</label>
+            </div>
+            <div id="cfg-meal-components" class="row g-3 d-none">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:1.05rem;">Fries</label>
+                <select id="cfg-fries" class="form-select form-select-lg py-3" style="font-size:1.15rem;"></select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:1.05rem;">Drink</label>
+                <select id="cfg-drink" class="form-select form-select-lg py-3" style="font-size:1.15rem;"></select>
+              </div>
+            </div>
+          </div>
+          <div id="cfg-options" class="mb-4 d-none">
+            <label class="form-label fw-semibold" style="font-size:1.15rem;">Optional Products</label>
+            <div id="cfg-options-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
+          </div>
+          <div id="cfg-combo-structure" class="mb-4 d-none">
+            <label class="form-label fw-semibold" style="font-size:1.15rem;">Combination Components</label>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <div class="border rounded p-3 h-100" style="font-size:1.05rem;">
+                  <div class="fw-semibold mb-2" style="font-size:1.05rem;">Compulsory</div>
+                  <ul id="cfg-compulsory" class="mb-0 list-unstyled"></ul>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="border rounded p-3 h-100" style="font-size:1.05rem;">
+                  <div class="fw-semibold mb-2" style="font-size:1.05rem;">Optional <span class="text-muted" id="cfg-free-optional"></span></div>
+                  <div id="cfg-optional" class="d-flex flex-column gap-2"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg btn-outline-secondary px-4 py-2" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-lg btn-primary px-4 py-2 fw-bold" id="cfg-add-btn" disabled>Add to Basket</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const bandSelect = document.getElementById('price-band');
+  const vatBasisSelect = document.getElementById('vat-basis');
+  const categoryStrip = document.getElementById('category-strip');
+  const itemsContainer = document.getElementById('items-container');
+  const basketList = document.getElementById('basket-list');
+  const basketTotal = document.getElementById('basket-total');
+  const clearBtn = document.getElementById('clear-basket');
+  const checkoutBtn = document.getElementById('checkout');
+  let currentBand = bandSelect.value;
+  let vatBasis = vatBasisSelect.value; // 'take' or 'eat'
+  let showNet = false;
+  let menuData = null;
+  let activeCategoryId = null;
+
+  const basket = { lines:[], total:0 };
+
+  // Modal / config state
+  const cfgModalEl = document.getElementById('itemConfigModal');
+  let cfgModal = null; const ensureModal=()=>{ if(!cfgModal) cfgModal = new bootstrap.Modal(cfgModalEl); };
+  const cfg = { data:null, currentVariant:null, meal:false, fries:null, drink:null, optionalSelected:new Set(), effectivePrice:0 };
+
+  function money(pence){ return '£' + (pence/100).toFixed(2); }
+
+  function fetchMenu(){
+    itemsContainer.innerHTML='';
+    categoryStrip.innerHTML='<div class="text-muted small">Loading...</div>';
+    fetch(`/api/menu?band=${currentBand}`)
+      .then(r=>r.json())
+      .then(data=>{ menuData = data; renderCategories(); autoSelectFirst(); })
+      .catch(err=>{ console.error('Menu load error', err); categoryStrip.innerHTML='<div class="text-danger small">Failed to load</div>'; });
+  }
+
+  function renderCategories(){
+    categoryStrip.innerHTML='';
+    (menuData?.categories||[]).forEach(cat=>{
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline-secondary';
+      btn.textContent = cat.name;
+      btn.dataset.catId = cat.id;
+      if(cat.id === activeCategoryId) btn.classList.add('active');
+      btn.addEventListener('click', ()=>{ activeCategoryId = cat.id; renderCategories(); renderProducts(); });
+      categoryStrip.appendChild(btn);
+    });
+  }
+
+  function autoSelectFirst(){
+    if(!activeCategoryId && (menuData?.categories||[]).length){
+      activeCategoryId = menuData.categories[0].id;
+    }
+    renderProducts();
+  }
+
+  function priceForDisplay(prod){
+    if(showNet){ return vatBasis==='eat'? prod.price_net_eat : prod.price_net_take; }
+    return prod.price_gross;
+  }
+
+  function priceForDiscountDisplay(prod){
+    if(showNet){ return vatBasis==='eat'? prod.discounted_price_net_eat : prod.discounted_price_net_take; }
+    return prod.discounted_price_gross;
+  }
+
+  function renderProducts(){
+    itemsContainer.innerHTML='';
+    const cat = (menuData?.categories||[]).find(c=>c.id===activeCategoryId);
+    if(!cat){ return; }
+    cat.items.forEach(prod=>{
+      const col = document.createElement('div');
+      col.className='col-6 col-md-4 col-xl-3';
+      const card = document.createElement('div'); card.className='card h-100 shadow-sm';
+      const basePrice = priceForDisplay(prod);
+  const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
+      const mealBadge = prod.meal_flag ? " <span class='badge bg-info text-dark'>Meal</span>" : '';
+      const discountHtml = prod.has_discount ? ` <span class='badge bg-warning text-dark'>Meal ${money(priceForDiscountDisplay(prod))}</span>` : '';
+      let variantsHtml='';
+      if(prod.variants && prod.variants.length){
+        variantsHtml = `<div class='mt-1 small d-flex flex-wrap gap-1'>` + prod.variants.map(v=>{
+          return `<span class='badge text-bg-light' role='button' data-var='${v.code}' data-parent='${prod.code}' data-item-type='product' title='${v.label}'>${v.label}: ${money(v.price_gross)}</span>`; }).join('') + `</div>`;
+      }
+      card.innerHTML = `<div class=\"card-body d-flex flex-column\">
+        <h6 class=\"card-title mb-1 text-truncate\" title=\"${prod.name}\">${prod.name}${mealBadge}</h6>
+        <div class=\"small text-muted mb-2\">#${prod.code} ${prod.type==='combo'?'<span class=\"badge bg-secondary\">Combo</span>':''}</div>
+        <div class=\"fw-semibold mb-2\">${priceHtml}${discountHtml}</div>
+        ${variantsHtml}
+        <div class=\"mt-auto d-flex gap-2\">
+          <button class=\"btn btn-primary flex-grow-1 fw-semibold py-2\" style=\"font-size:1rem;\" data-add=\"${prod.code}\" data-item-type=\"${prod.type}\">Add</button>
+          <button class=\"btn btn-outline-secondary fw-semibold py-2\" style=\"font-size:1rem;\" data-config=\"${prod.code}\" data-item-type=\"${prod.type}\">Config</button>
+        </div>
+      </div>`;
+      col.appendChild(card); itemsContainer.appendChild(col);
+    });
+  }
+
+  function findItem(type, code){
+    for(const cat of (menuData?.categories||[])){
+      for(const it of cat.items){ if(it.type===type && it.code==code) return it; }
+    }
+    return null;
+  }
+
+  function addLine(line){
+    // merge if same code+variant+meal
+    const existing = basket.lines.find(l=> l.code===line.code && l.variant===line.variant && l.meal===line.meal);
+    if(existing){ existing.qty = (existing.qty||1)+ (line.qty||1); }
+    else basket.lines.push({...line, qty: line.qty||1});
+    renderBasket();
+  }
+  function renderBasket(){
+    basket.total = basket.lines.reduce((s,l)=> s + (l.price * (l.qty||1)), 0);
+    basketList.innerHTML='';
+    basket.lines.forEach((l,idx)=>{
+      const li=document.createElement('li');
+      li.className='list-group-item d-flex justify-content-between align-items-center';
+      li.innerHTML = `<div class='flex-grow-1'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}</div>
+        <div class='d-flex align-items-center gap-1'>
+          <div class='btn-group btn-group-sm' role='group'>
+            <button class='btn btn-outline-secondary' data-dec='${idx}'>&minus;</button>
+            <span class='px-2'>${l.qty||1}</span>
+            <button class='btn btn-outline-secondary' data-inc='${idx}'>&plus;</button>
+          </div>
+          <span class='fw-semibold'>${money(l.price * (l.qty||1))}</span>
+          <button class='btn btn-sm btn-link text-danger' data-del='${idx}' title='Remove'>&times;</button>
+        </div>`;
+      basketList.appendChild(li);
+    });
+    basketTotal.textContent = money(basket.total);
+    clearBtn.disabled = basket.lines.length===0; checkoutBtn.disabled = basket.lines.length===0;
+  }
+  clearBtn.addEventListener('click', ()=>{ basket.lines=[]; renderBasket(); });
+  checkoutBtn.addEventListener('click', submitOrder);
+
+  itemsContainer.addEventListener('click', (e)=>{
+    const variant = e.target.closest('[data-var]');
+    if(variant){ openConfig('product', variant.dataset.parent, variant.dataset.var); return; }
+    const configBtn = e.target.closest('[data-config]');
+    if(configBtn){ openConfig(configBtn.dataset.itemType, configBtn.dataset.config, null); return; }
+    const addBtn = e.target.closest('[data-add]');
+    if(addBtn){ const base=findItem(addBtn.dataset.itemType, addBtn.dataset.add); if(base){ addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type }); } }
+  });
+
+  basketList.addEventListener('click', (e)=>{
+    const inc = e.target.closest('[data-inc]');
+    if(inc){ const i=parseInt(inc.dataset.inc,10); basket.lines[i].qty++; renderBasket(); return; }
+    const dec = e.target.closest('[data-dec]');
+    if(dec){ const i=parseInt(dec.dataset.dec,10); basket.lines[i].qty--; if(basket.lines[i].qty<=0) basket.lines.splice(i,1); renderBasket(); return; }
+    const del = e.target.closest('[data-del]');
+    if(del){ const i=parseInt(del.dataset.del,10); basket.lines.splice(i,1); renderBasket(); return; }
+  });
+
+  function openConfig(type, code, preVariant){
+    ensureModal();
+    cfg.data=null; cfg.currentVariant=preVariant; cfg.meal=false; cfg.fries=null; cfg.drink=null; cfg.optionalSelected.clear();
+    document.getElementById('cfg-loading').classList.remove('d-none');
+    document.getElementById('cfg-body').classList.add('d-none');
+    document.getElementById('cfg-add-btn').disabled=true;
+    cfgModal.show();
+    fetch(`/api/item/${type}/${code}/detail?band=${currentBand}`)
+      .then(r=>r.json())
+      .then(d=>{ cfg.data=d.item; populateConfig(); })
+      .catch(()=>{ document.getElementById('cfg-loading').textContent='Failed to load'; });
+  }
+
+  function populateConfig(){
+    const data = cfg.data; if(!data) return;
+    document.getElementById('cfg-title').textContent = `Configure #${data.code}`;
+    document.getElementById('cfg-item-name').textContent = data.name;
+    document.getElementById('cfg-item-type').classList.toggle('d-none', data.type!=='combo');
+    document.getElementById('cfg-meal-badge').classList.toggle('d-none', !data.meal_flag);
+    document.getElementById('cfg-band').textContent = currentBand;
+    // Variants
+    const vWrap = document.getElementById('cfg-variants');
+    const vList = document.getElementById('cfg-variant-list'); vList.innerHTML='';
+    if(data.variants && data.variants.length){
+      vWrap.classList.remove('d-none');
+      data.variants.forEach(v=>{
+        const btn=document.createElement('button'); btn.type='button'; btn.className='btn btn-sm btn-outline-secondary';
+        btn.textContent = `${v.label} ${money(v.price_gross)}`; btn.dataset.code=v.code;
+        if(cfg.currentVariant && cfg.currentVariant==v.code) btn.classList.add('active');
+        btn.addEventListener('click',()=>{ cfg.currentVariant=v.code; [...vList.children].forEach(c=>c.classList.remove('active')); btn.classList.add('active'); updateConfigPrice(); });
+        vList.appendChild(btn);
+      });
+    } else vWrap.classList.add('d-none');
+    // Meal
+    const mealSection = document.getElementById('cfg-meal-section');
+    const mealToggle = document.getElementById('cfg-meal-toggle');
+    const mealComp = document.getElementById('cfg-meal-components');
+    const friesSel = document.getElementById('cfg-fries');
+    const drinkSel = document.getElementById('cfg-drink'); friesSel.innerHTML=''; drinkSel.innerHTML='';
+    if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
+      mealSection.classList.remove('d-none'); mealToggle.checked=false; mealComp.classList.add('d-none');
+      mealToggle.onchange=()=>{ cfg.meal=mealToggle.checked; mealComp.classList.toggle('d-none', !cfg.meal); updateConfigPrice(); };
+  (data.meal_components.fries||[]).forEach(f=>{ const o=document.createElement('option'); o.value=f.code; o.textContent=`${f.name} ${money(f.price_gross)}`; friesSel.appendChild(o); });
+  (data.meal_components.drinks||[]).forEach(dr=>{ const o=document.createElement('option'); o.value=dr.code; o.textContent=`${dr.name} ${money(dr.price_gross)}`; drinkSel.appendChild(o); });
+  // set defaults (none selected -> discount not applied until user chooses)
+  friesSel.selectedIndex = -1; drinkSel.selectedIndex = -1; cfg.fries=null; cfg.drink=null;
+  friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
+  drinkSel.onchange=()=>{ cfg.drink=drinkSel.value? parseInt(drinkSel.value,10):null; updateConfigPrice(); };
+    } else mealSection.classList.add('d-none');
+    // Product options
+    const optWrap = document.getElementById('cfg-options');
+    const optList = document.getElementById('cfg-options-list'); optList.innerHTML='';
+    if(data.options && data.options.length){
+      optWrap.classList.remove('d-none');
+      data.options.forEach(o=>{
+        const id=`opt-prod-${o.code}`;
+        optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name}</label></div>`);
+      });
+      optList.addEventListener('change', e=>{ const cb=e.target.closest('[data-opt-code]'); if(cb){ const code=parseInt(cb.dataset.optCode,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); }});
+    } else optWrap.classList.add('d-none');
+    // Combo structure
+    const comboStruct = document.getElementById('cfg-combo-structure');
+    const compUL = document.getElementById('cfg-compulsory');
+    const optDiv = document.getElementById('cfg-optional');
+    const freeLbl = document.getElementById('cfg-free-optional'); compUL.innerHTML=''; optDiv.innerHTML='';
+    if(data.type==='combo'){
+      comboStruct.classList.remove('d-none');
+      (data.compulsory||[]).forEach(c=>{ compUL.insertAdjacentHTML('beforeend', `<li>${c.name} ${money(c.price_gross)}</li>`); });
+      if(data.optional && data.optional.length){
+        freeLbl.textContent = data.free_optional_count? `(First ${data.free_optional_count} free)` : '';
+        data.optional.forEach(o=>{
+          const id=`opt-combo-${o.code}`;
+          optDiv.insertAdjacentHTML('beforeend', `<div class='form-check'><input class='form-check-input' type='checkbox' id='${id}' data-combo-opt='${o.code}'><label class='form-check-label small' for='${id}'>${o.name} ${money(o.price_gross)}</label></div>`);
+        });
+        optDiv.addEventListener('change', e=>{ const cb=e.target.closest('[data-combo-opt]'); if(cb){ const code=parseInt(cb.dataset.comboOpt,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); enforceComboFreeLimit(data); updateConfigPrice(); }});
+      }
+    } else comboStruct.classList.add('d-none');
+    updateConfigPrice();
+    document.getElementById('cfg-loading').classList.add('d-none');
+    document.getElementById('cfg-body').classList.remove('d-none');
+    document.getElementById('cfg-add-btn').disabled=false;
+  }
+
+  function enforceComboFreeLimit(data){
+    if(!data.free_optional_count) return;
+    const chosen=[...cfg.optionalSelected];
+    if(chosen.length<=data.free_optional_count) return;
+    const extras=chosen.slice(data.free_optional_count);
+    extras.forEach(code=>{ const input=document.querySelector(`[data-combo-opt='${code}']`); if(input){ input.checked=false; cfg.optionalSelected.delete(code);} });
+  }
+
+  function updateConfigPrice(){
+    if(!cfg.data) return;
+    const data=cfg.data; const noteEl=document.getElementById('cfg-price-note');
+    let base = data.price_gross;
+    let variantObj = null;
+    if(cfg.currentVariant){ variantObj = (data.variants||[]).find(v=>v.code==cfg.currentVariant); if(variantObj) base=variantObj.price_gross; }
+    let mealApplied = false;
+    const mealPriceSpan = document.getElementById('cfg-meal-price');
+    let mealCandidate = 0;
+    if(cfg.meal){
+      mealCandidate = variantObj?.discounted_price_gross || data.discounted_price_gross || 0;
+    }
+    if(cfg.meal){
+      const haveFries = cfg.fries !== null && cfg.fries !== undefined;
+      const haveDrink = cfg.drink !== null && cfg.drink !== undefined;
+      if(haveFries && haveDrink){
+        // Use variant discounted price if available, else base discounted
+        const variantDisc = variantObj?.discounted_price_gross;
+        if(variantDisc && variantDisc>0){ base = variantDisc; mealApplied = true; }
+        else if(data.discounted_price_gross && data.discounted_price_gross>0){ base = data.discounted_price_gross; mealApplied = true; }
+      }
+      if(!mealApplied){
+        // Meal not fully configured yet
+        noteEl.textContent = 'Select fries & drink to apply meal price';
+      } else {
+        noteEl.textContent = 'Meal price applied';
+      }
+    } else {
+      noteEl.textContent='';
+    }
+    // Add option prices (product options always add full price; combo optional add after free allowance)
+    if(data.type==='product'){
+      (data.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)){ base += o.price_gross; } });
+    } else if(data.type==='combo'){
+      const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
+      const free = data.free_optional_count || 0;
+      chosen.forEach((o,idx)=>{ if(idx>=free) base += o.price_gross; });
+    }
+    cfg.effectivePrice = base;
+    document.getElementById('cfg-price-main').textContent = money(base);
+    // Show potential meal candidate + savings if applicable
+    if(cfg.meal){
+      if(mealCandidate>0){
+        const savings = (variantObj? (variantObj.price_gross - mealCandidate) : ( (data.price_gross || 0) - mealCandidate));
+        mealPriceSpan.textContent = mealApplied ? `(Meal £${(mealCandidate/100).toFixed(2)}${savings>0? ' save £'+(savings/100).toFixed(2):''})` : `(Meal £${(mealCandidate/100).toFixed(2)} pending)`;
+      } else {
+        mealPriceSpan.textContent='';
+      }
+    } else {
+      mealPriceSpan.textContent='';
+    }
+    // Gate Add button
+    const addBtn = document.getElementById('cfg-add-btn');
+    if(cfg.meal){
+      const ready = mealApplied; // apply rule: require fries & drink so meal applied
+      addBtn.disabled = !ready;
+    } else {
+      addBtn.disabled = false;
+    }
+  }
+
+  document.getElementById('cfg-add-btn').addEventListener('click', ()=>{
+    if(!cfg.data) return;
+    const meta = {
+      options: [...cfg.optionalSelected],
+      fries: cfg.meal? cfg.fries : null,
+      drink: cfg.meal? cfg.drink : null,
+      variant_code: cfg.currentVariant || null
+    };
+    addLine({
+      code: cfg.currentVariant || cfg.data.code,
+      name: cfg.data.name + (cfg.currentVariant? '*':'') + (cfg.meal? ' Meal':''),
+      variant: cfg.currentVariant? (cfg.data.variants||[]).find(v=>v.code==cfg.currentVariant)?.label : null,
+      meal: cfg.meal,
+      price: cfg.effectivePrice,
+      type: cfg.data.type,
+      meta: { ...meta, meal_applied: cfg.meal }
+    });
+    cfgModal.hide();
+  });
+
+  vatBasisSelect.addEventListener('change', ()=>{ vatBasis = vatBasisSelect.value; renderProducts(); });
+  bandSelect.addEventListener('change', ()=>{ currentBand = bandSelect.value; fetchMenu(); });
+  document.getElementById('toggle-net').addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });
+
+  // Initial
+  fetchMenu();
+
+  function submitOrder(){
+    if(!basket.lines.length) return;
+    checkoutBtn.disabled = true; checkoutBtn.textContent='Saving...';
+  const payload = {
+      price_band: currentBand,
+      vat_basis: vatBasis,
+      show_net: showNet,
+      lines: basket.lines.map(l=>({
+        code: l.code,
+        type: l.type || 'product',
+        name: l.name,
+        variant: l.variant,
+        meal: !!l.meal,
+        qty: l.qty||1,
+    price_gross: l.price,
+    meta: l.meta || {}
+      }))
+    };
+    fetch('/api/order/submit', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
+      .then(r=>r.json())
+      .then(resp=>{
+        if(resp.order_id){
+          alert('Order Saved #' + resp.order_id);
+          basket.lines=[]; renderBasket();
+        } else {
+          alert('Save failed: ' + (resp.error||'unknown'));
+        }
+      })
+      .catch(()=>alert('Network error saving order'))
+      .finally(()=>{ checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout'; });
+  }
+
+  function getCsrf(){
+    const m = document.cookie.match(/csrftoken=([^;]+)/); return m? m[1]:'';
+  }
+})();
+</script>
+{% endblock %}
