@@ -232,28 +232,57 @@
   }
 
   function addLine(line){
-    // merge if same code+variant+meal
-    const existing = basket.lines.find(l=> l.code===line.code && l.variant===line.variant && l.meal===line.meal);
+    // Compute a signature so we only merge identical configuration (code, variant, meal, choices)
+    const sig = createLineSignature(line);
+    line.signature = sig;
+    const existing = basket.lines.find(l=> l.signature === sig);
     if(existing){ existing.qty = (existing.qty||1)+ (line.qty||1); }
-    else basket.lines.push({...line, qty: line.qty||1});
+    else basket.lines.push({...line, qty: line.qty||1, signature: sig});
     renderBasket();
+  }
+  function createLineSignature(line){
+    const meta = line.meta || {};
+    const opts = (meta.options||[]).slice().sort((a,b)=>a-b).join('-');
+    const fries = meta.fries || '';
+    const drink = meta.drink || '';
+    const variant = line.variant || '';
+    return [line.code, variant, line.meal?1:0, fries, drink, opts].join('|');
   }
   function renderBasket(){
     basket.total = basket.lines.reduce((s,l)=> s + (l.price * (l.qty||1)), 0);
     basketList.innerHTML='';
     basket.lines.forEach((l,idx)=>{
       const li=document.createElement('li');
-      li.className='list-group-item d-flex justify-content-between align-items-center';
-      li.innerHTML = `<div class='flex-grow-1'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}</div>
-        <div class='d-flex align-items-center gap-1'>
+      li.className='list-group-item';
+      // Build choices/details list
+      let details = [];
+      const meta = l.meta || {};
+      if(meta.display_choices && meta.display_choices.length){
+        details = meta.display_choices.map(dc=> `<li>${dc}</li>`);
+      } else {
+        // Legacy: derive basic details from meta codes if names not stored
+        if(meta.fries) details.push(`<li>Fries: #${meta.fries}</li>`);
+        if(meta.drink) details.push(`<li>Drink: #${meta.drink}</li>`);
+        if(meta.options && meta.options.length){ details.push(`<li>Options: ${meta.options.map(o=>'#'+o).join(', ')}</li>`); }
+      }
+      const detailsHtml = details.length? `<ul class='small text-muted mb-1 ms-2 list-unstyled'>${details.join('')}</ul>` : '';
+      li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
+        <div class='flex-grow-1'>
+          <div>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}</div>
+          ${detailsHtml}
+        </div>
+        <div class='d-flex align-items-center gap-2'>
           <div class='btn-group btn-group-sm' role='group'>
             <button class='btn btn-outline-secondary' data-dec='${idx}'>&minus;</button>
             <span class='px-2'>${l.qty||1}</span>
             <button class='btn btn-outline-secondary' data-inc='${idx}'>&plus;</button>
           </div>
-          <span class='fw-semibold'>${money(l.price * (l.qty||1))}</span>
-          <button class='btn btn-sm btn-link text-danger' data-del='${idx}' title='Remove'>&times;</button>
-        </div>`;
+          <div class='text-end'>
+            <div class='fw-semibold'>${money(l.price * (l.qty||1))}</div>
+            <button class='btn btn-sm btn-link text-danger p-0 mt-1' data-del='${idx}' title='Remove'>&times;</button>
+          </div>
+        </div>
+      </div>`;
       basketList.appendChild(li);
     });
     basketTotal.textContent = money(basket.total);
@@ -451,11 +480,31 @@
 
   document.getElementById('cfg-add-btn').addEventListener('click', ()=>{
     if(!cfg.data) return;
+    // Build display-friendly choice labels
+    const displayChoices = [];
+    const baseData = cfg.data;
+    if(cfg.meal){
+      if(cfg.fries){
+        const friesObj = (baseData.meal_components?.fries||[]).find(f=> f.code==cfg.fries);
+        displayChoices.push(`Fries: ${friesObj? friesObj.name : '#'+cfg.fries}`);
+      }
+      if(cfg.drink){
+        const drinkObj = (baseData.meal_components?.drinks||[]).find(d=> d.code==cfg.drink);
+        displayChoices.push(`Drink: ${drinkObj? drinkObj.name : '#'+cfg.drink}`);
+      }
+    }
+    // Product options
+    if(baseData.type==='product'){
+      (baseData.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(o.name); });
+    } else if(baseData.type==='combo'){
+      (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(o.name); });
+    }
     const meta = {
       options: [...cfg.optionalSelected],
       fries: cfg.meal? cfg.fries : null,
       drink: cfg.meal? cfg.drink : null,
-      variant_code: cfg.currentVariant || null
+      variant_code: cfg.currentVariant || null,
+      display_choices: displayChoices
     };
     addLine({
       code: cfg.currentVariant || cfg.data.code,
