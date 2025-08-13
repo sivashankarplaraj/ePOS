@@ -381,22 +381,33 @@
     const mealPriceSpan = document.getElementById('cfg-meal-price');
     let mealCandidate = 0;
     if(cfg.meal){
-      mealCandidate = variantObj?.discounted_price_gross || data.discounted_price_gross || 0;
-    }
-    if(cfg.meal){
+      // We only apply meal pricing once fries & drink are both selected.
       const haveFries = cfg.fries !== null && cfg.fries !== undefined;
       const haveDrink = cfg.drink !== null && cfg.drink !== undefined;
       if(haveFries && haveDrink){
-        // Use variant discounted price if available, else base discounted
-        const variantDisc = variantObj?.discounted_price_gross;
-        if(variantDisc && variantDisc>0){ base = variantDisc; mealApplied = true; }
-        else if(data.discounted_price_gross && data.discounted_price_gross>0){ base = data.discounted_price_gross; mealApplied = true; }
-      }
-      if(!mealApplied){
-        // Meal not fully configured yet
-        noteEl.textContent = 'Select fries & drink to apply meal price';
+        // Helper to pick correct price (discounted component price if provided else standard).
+        const chosenBurgerStd = variantObj? variantObj.price_gross : data.price_gross;
+        const chosenBurgerMeal = variantObj? (variantObj.discounted_price_gross||0) : (data.discounted_price_gross||0);
+        // Find fries & drink product objects from meal_components lists.
+        const friesObj = (data.meal_components?.fries||[]).find(f=> f.code==cfg.fries);
+        const drinkObj = (data.meal_components?.drinks||[]).find(d=> d.code==cfg.drink);
+        const friesStd = friesObj? friesObj.price_gross : 0;
+        const drinkStd = drinkObj? drinkObj.price_gross : 0;
+        const friesMeal = friesObj? (friesObj.discounted_price_gross||0) : 0;
+        const drinkMeal = drinkObj? (drinkObj.discounted_price_gross||0) : 0;
+        // If any discounted component price is zero/absent fall back to its standard price.
+        const burgerComponent = (chosenBurgerMeal>0? chosenBurgerMeal : chosenBurgerStd);
+        const friesComponent = (friesMeal>0? friesMeal : friesStd);
+        const drinkComponent = (drinkMeal>0? drinkMeal : drinkStd);
+        mealCandidate = burgerComponent + friesComponent + drinkComponent;
+        base = mealCandidate; // effective base becomes sum of discounted components
+        mealApplied = true;
+        // Savings vs paying individually (all standard or variant standard)
+        const singlesTotal = chosenBurgerStd + friesStd + drinkStd;
+        const savings = singlesTotal - mealCandidate;
+        noteEl.textContent = savings>0 ? `Meal price applied (save £${(savings/100).toFixed(2)})` : 'Meal price applied';
       } else {
-        noteEl.textContent = 'Meal price applied';
+        noteEl.textContent = 'Select fries & drink to apply meal price';
       }
     } else {
       noteEl.textContent='';
@@ -413,9 +424,15 @@
     document.getElementById('cfg-price-main').textContent = money(base);
     // Show potential meal candidate + savings if applicable
     if(cfg.meal){
-      if(mealCandidate>0){
-        const savings = (variantObj? (variantObj.price_gross - mealCandidate) : ( (data.price_gross || 0) - mealCandidate));
-        mealPriceSpan.textContent = mealApplied ? `(Meal £${(mealCandidate/100).toFixed(2)}${savings>0? ' save £'+(savings/100).toFixed(2):''})` : `(Meal £${(mealCandidate/100).toFixed(2)} pending)`;
+      if(mealApplied){
+        const chosenBurgerStd = variantObj? variantObj.price_gross : data.price_gross;
+        const friesObj = (data.meal_components?.fries||[]).find(f=> f.code==cfg.fries);
+        const drinkObj = (data.meal_components?.drinks||[]).find(d=> d.code==cfg.drink);
+        const singlesTotal = (chosenBurgerStd||0) + (friesObj?.price_gross||0) + (drinkObj?.price_gross||0);
+        const savings = singlesTotal - mealCandidate;
+        mealPriceSpan.textContent = `(Meal £${(mealCandidate/100).toFixed(2)}${savings>0? ' save £'+(savings/100).toFixed(2):''})`;
+      } else if(mealCandidate>0){
+        mealPriceSpan.textContent = `(Meal £${(mealCandidate/100).toFixed(2)} pending)`;
       } else {
         mealPriceSpan.textContent='';
       }

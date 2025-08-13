@@ -449,6 +449,40 @@ def api_submit_order(request: HttpRequest):
     from .models import Order, OrderLine
     total_gross = 0
     total_net = 0
+    # Helper inside view so it can access band variable
+    def _compute_meal_price(burger_code: int, fries_code: int, drink_code: int, option_codes: list[int]):
+        """Compute meal unit price (gross, in pence) from its components for given price band.
+
+        Business rule (derived from MEAL_DISCOUNT docs): meal price = sum of discounted component
+        prices (burger, fries, drink) where a discounted (DC_) price is defined (>0), otherwise
+        fall back to the component's standard price. Additional optional products always add their
+        full standard price (no meal discount applied to them).
+        """
+        std_col = _price_column_name(band, discounted=False)
+        dc_col = _price_column_name(band, discounted=True)
+        codes_needed = [c for c in [burger_code, fries_code, drink_code] if c]
+        if option_codes:
+            codes_needed.extend(option_codes)
+        items = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=codes_needed).only('PRODNUMB', std_col, dc_col)}
+        def comp_price(code):
+            item = items.get(code)
+            if not item:
+                return 0
+            std_val = getattr(item, std_col, None) or 0
+            dc_val = getattr(item, dc_col, None) or 0
+            return dc_val if dc_val and dc_val > 0 else std_val
+        burger_price = comp_price(burger_code)
+        fries_price = comp_price(fries_code)
+        drink_price = comp_price(drink_code)
+        # Options: always standard price (no discount)
+        opt_total = 0
+        if option_codes:
+            for oc in option_codes:
+                it = items.get(oc)
+                if it:
+                    opt_total += getattr(it, std_col, None) or 0
+        return int(burger_price + fries_price + drink_price + opt_total)
+
     with transaction.atomic():
         order = Order.objects.create(price_band=int(band), vat_basis=vat_basis, show_net=bool(payload.get('show_net')))
         for ln in lines:
@@ -471,6 +505,27 @@ def api_submit_order(request: HttpRequest):
                 drink = meta_payload.get('drink')
                 if fries in (None, '') or drink in (None, ''):
                     return JsonResponse({'error': f'Meal line for code {code} missing fries or drink selection'}, status=400)
+                # Server-side authoritative meal price computation (ignore client provided meal price)
+                if is_meal:
+                    fries = meta_payload.get('fries')
+                    drink = meta_payload.get('drink')
+                    if fries in (None, '') or drink in (None, ''):
+                        return JsonResponse({'error': f'Meal line for code {code} missing fries or drink selection'}, status=400)
+                    try:
+                        fries_code = int(fries)
+                        drink_code = int(drink)
+                    except Exception:
+                        return JsonResponse({'error': 'Invalid fries or drink code'}, status=400)
+                    option_codes = []
+                    raw_opts = meta_payload.get('options') or []
+                    if isinstance(raw_opts, list):
+                        for oc in raw_opts:
+                            try:
+                                option_codes.append(int(oc))
+                            except Exception:
+                                continue
+                    recomputed = _compute_meal_price(code, fries_code, drink_code, option_codes)
+                    unit_price_gross = recomputed  # override any client value
             line_total = unit_price_gross * qty
             total_gross += line_total
             # Determine VAT rate based on basis for net calculation
