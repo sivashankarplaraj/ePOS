@@ -543,7 +543,7 @@
     meta: l.meta || {}
       }))
     };
-    fetch('/api/order/submit', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
+  fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
       .then(resp=>{
         if(resp.order_id){

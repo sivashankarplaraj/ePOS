@@ -4,6 +4,7 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.views.decorators.http import require_GET
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro
 )
@@ -77,10 +78,12 @@ def _price_band_map():
         'Sams online - Collect-SO-C': '2'
     }
 
+@ensure_csrf_cookie
 def index(request):
     # Landing page could become a dashboard; for now redirect logic optional
     return order(request)
 
+@ensure_csrf_cookie
 def order(request):
     context = {
         'price_band': _price_band_map(),
@@ -88,9 +91,11 @@ def order(request):
     return render(request, 'manage_orders/order.html', context)
 
 
+@ensure_csrf_cookie
 def dashboard(request):
     return render(request, 'manage_orders/dashboard.html')
 
+@ensure_csrf_cookie
 def app_prod_order(request):
     # GroupTb is the menu category
     context = {

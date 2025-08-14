@@ -27,6 +27,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*'] # allow all hosts for development, change in production
 
+# CSRF trusted origins (update with your deployed domain)
+CSRF_TRUSTED_ORIGINS = [
+    'https://unclesams.pythonanywhere.com',
+    'https://www.unclesams.pythonanywhere.com'
+]
+
 
 # Application definition
 
@@ -128,3 +134,6 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# When behind a proxy/SSL terminator (e.g., PythonAnywhere), tell Django to trust X-Forwarded-Proto
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

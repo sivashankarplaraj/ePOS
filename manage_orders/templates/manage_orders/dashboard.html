@@ -90,7 +90,7 @@
     const btn=e.target.closest('[data-complete]');
     if(!btn) return;
     const id=btn.dataset.complete;
-    fetch(`/api/order/${id}/complete`, {method:'POST', headers:{'X-CSRFToken':getCsrf()}})
+  fetch(`/api/order/${id}/complete`, {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken':getCsrf()}})
       .then(r=>r.json()).then(()=>{ loadSummary(); loadPending(); });
   });
   function getCsrf(){ const m=document.cookie.match(/csrftoken=([^;]+)/); return m? m[1]:''; }
