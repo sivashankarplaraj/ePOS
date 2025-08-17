@@ -449,6 +449,11 @@ def api_submit_order(request: HttpRequest):
     if vat_basis not in {'take','eat'}:
         return JsonResponse({'error': 'Invalid vat_basis'}, status=400)
     lines = payload.get('lines') or []
+    # Optional payment details (from checkout modal)
+    payment_method = (payload.get('payment_method') or 'Cash').strip()
+    crew_id = str(payload.get('crew_id') or '0').strip()
+    if crew_id == '':
+        return JsonResponse({'error': 'Crew ID is required'}, status=400)
     if not isinstance(lines, list) or not lines:
         return JsonResponse({'error': 'No lines supplied'}, status=400)
     from .models import Order, OrderLine
@@ -490,6 +495,10 @@ def api_submit_order(request: HttpRequest):
 
     with transaction.atomic():
         order = Order.objects.create(price_band=int(band), vat_basis=vat_basis, show_net=bool(payload.get('show_net')))
+        # Store payment info in notes (simple, avoids schema change)
+        tag = f"Payment: {payment_method} | CrewID: {crew_id}"
+        order.notes = (order.notes or '') + (('\n' if order.notes else '') + tag)
+        order.save(update_fields=['notes'])
         for ln in lines:
             try:
                 code = int(ln.get('code'))
