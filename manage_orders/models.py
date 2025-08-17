@@ -11,6 +11,8 @@ class Order(models.Model):
 	show_net = models.BooleanField(default=False)
 	total_gross = models.IntegerField(default=0, help_text="Total in pence (gross)")
 	total_net = models.IntegerField(default=0, help_text="Total in pence (net, takeaway basis)")
+	payment_method = models.CharField(max_length=20, blank=True, default='')
+	crew_id = models.CharField(max_length=20, blank=True, default='')
 	notes = models.TextField(blank=True)
 
 	def __str__(self):

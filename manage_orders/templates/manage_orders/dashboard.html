@@ -49,8 +49,9 @@
           <div>
             <div class='fw-bold fs-5'>Order #${o.id}</div>
             <div class='text-muted small'>${new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+            <div class='mt-1'><span class='badge text-bg-light'>${o.payment_method || ''}</span>${o.crew_id? ` <span class='badge text-bg-light'>Crew ${o.crew_id}</span>`:''}</div>
           </div>
-          <div class='badge bg-danger fs-6 fw-semibold' data-timer='${o.id}'>--:--</div>
+          <div class='badge bg-danger fs-6 fw-semibold' data-timer='${o.id}' data-age='${o.age_seconds||0}'>--:--</div>
         </div>
         <div class='flex-grow-1 overflow-auto mb-2'>
           <ul class='list-unstyled mb-0 fs-6'>
@@ -67,21 +68,24 @@
     startTimers();
   }
   function startTimers(){
-    const now=Date.now();
+    // Initialize badges with current age provided by server
     document.querySelectorAll('[data-timer]').forEach(el=>{
-      const id=parseInt(el.dataset.timer,10);
-      // store start time in dataset if not present
-      if(!el.dataset.start){ el.dataset.start = now; }
+      if(!el.dataset.ageCurrent){ el.dataset.ageCurrent = String(parseInt(el.dataset.age||'0',10)); }
+      el.textContent = formatAge(parseInt(el.dataset.ageCurrent,10));
     });
+    if(!window.__pendingTilesTimer){ window.__pendingTilesTimer = setInterval(tick, 1000); }
   }
   function tick(){
-    const now=Date.now();
     document.querySelectorAll('[data-timer]').forEach(el=>{
-      const card = el.closest('.card');
-      // derive order created_at by walking up data if needed (enhancement: embed created_at ms)
-      // Instead we approximate by age_seconds not included here; leaving placeholder.
-      // Without server-provided age we can't compute accurately -> future improvement.
+      let a = parseInt(el.dataset.ageCurrent||'0',10);
+      a = isNaN(a)? 0 : a+1;
+      el.dataset.ageCurrent = String(a);
+      el.textContent = formatAge(a);
     });
+  }
+  function formatAge(sec){
+    const m = Math.floor(sec/60), s = sec%60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
   setInterval(()=>{ loadSummary(); loadPending(); }, 10000);
   setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString(); },1000);

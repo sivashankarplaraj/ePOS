@@ -494,11 +494,13 @@ def api_submit_order(request: HttpRequest):
         return int(burger_price + fries_price + drink_price + opt_total)
 
     with transaction.atomic():
-        order = Order.objects.create(price_band=int(band), vat_basis=vat_basis, show_net=bool(payload.get('show_net')))
-        # Store payment info in notes (simple, avoids schema change)
-        tag = f"Payment: {payment_method} | CrewID: {crew_id}"
-        order.notes = (order.notes or '') + (('\n' if order.notes else '') + tag)
-        order.save(update_fields=['notes'])
+        order = Order.objects.create(
+            price_band=int(band),
+            vat_basis=vat_basis,
+            show_net=bool(payload.get('show_net')),
+            payment_method=payment_method,
+            crew_id=crew_id,
+        )
         for ln in lines:
             try:
                 code = int(ln.get('code'))
@@ -604,6 +606,8 @@ def api_orders_pending(request: HttpRequest):
             'id': o.id,
             'created_at': o.created_at.isoformat(),
             'age_seconds': int((timezone.now()-o.created_at).total_seconds()),
+            'payment_method': o.payment_method,
+            'crew_id': o.crew_id,
             'total_gross': o.total_gross,
             'lines': [
                 {
