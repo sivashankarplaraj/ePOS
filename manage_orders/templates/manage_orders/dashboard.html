@@ -24,6 +24,27 @@
 </div>
 <h5 class="fw-bold mt-4">Pending Orders</h5>
 <div id="pending-orders" class="row g-3"></div>
+
+<hr class="my-4" />
+
+<div class="d-flex flex-wrap align-items-end gap-3">
+  <h5 class="fw-bold mb-0">Completed Orders</h5>
+  <div>
+    <label for="history-date" class="form-label small mb-1">Date</label>
+    <input type="date" id="history-date" class="form-control" style="min-width: 200px;" />
+  </div>
+  <button class="btn btn-outline-secondary" id="reload-history">Reload</button>
+  <div class="ms-auto text-muted small" id="history-summary"></div>
+  
+  
+  
+  
+  
+  
+  
+  
+</div>
+<div id="completed-orders" class="row g-3 mt-2"></div>
 {% endblock %}
 {% block extra_js %}
 <script>
@@ -31,6 +52,10 @@
   const pendingCountEl=document.getElementById('pending-count');
   const completedCountEl=document.getElementById('completed-count');
   const pendingWrap=document.getElementById('pending-orders');
+  const histWrap=document.getElementById('completed-orders');
+  const histDate=document.getElementById('history-date');
+  const reloadHistBtn=document.getElementById('reload-history');
+  const histSummary=document.getElementById('history-summary');
   function money(p){return '£'+(p/100).toFixed(2);}  
   function loadSummary(){
     fetch('/api/orders/summary').then(r=>r.json()).then(d=>{ pendingCountEl.textContent=d.pending; completedCountEl.textContent=d.completed; });
@@ -38,12 +63,35 @@
   function loadPending(){
     fetch('/api/orders/pending').then(r=>r.json()).then(d=>{ renderPending(d.orders||[]); });
   }
+  function loadCompleted(){
+    const date = histDate.value || new Date().toISOString().slice(0,10);
+    fetch(`/api/orders/completed?date=${date}`)
+      .then(r=>r.json())
+      .then(d=>{ renderCompleted(d.orders||[], d.date); });
+  }
   function renderPending(list){
     pendingWrap.innerHTML='';
     if(!list.length){ pendingWrap.innerHTML='<div class="col-12 text-muted">No pending orders.</div>'; return; }
     list.forEach(o=>{
       const col=document.createElement('div'); col.className='col-12 col-md-6 col-xl-4';
       const card=document.createElement('div'); card.className='card shadow-sm border border-3 border-warning position-relative';
+      // Build lines HTML including selected options/choices
+      const linesHtml = (o.lines||[]).map(l=>{
+        const hasChoices = l && l.meta && Array.isArray(l.meta.display_choices) && l.meta.display_choices.length>0;
+        let choicesHtml = '';
+        if(hasChoices){
+          choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${l.meta.display_choices.map(c=>`<li>${c}</li>`).join('')}</ul>`;
+        } else if (l && l.meta){
+          const d = [];
+          if(l.meta.fries) d.push(`Fries: #${l.meta.fries}`);
+          if(l.meta.drink) d.push(`Drink: #${l.meta.drink}`);
+          if(Array.isArray(l.meta.options) && l.meta.options.length){ d.push(`Options: ${l.meta.options.map(o=>`#${o}`).join(', ')}`); }
+          if(d.length){ choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${d.map(x=>`<li>${x}</li>`).join('')}</ul>`; }
+        }
+        const variantHtml = l.variant ? ` <span class='badge bg-secondary'> ${l.variant}</span>` : '';
+        const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
+        return `<li class='mb-1'><span class='fw-semibold'>${l.qty}x</span> ${l.name}${variantHtml}${mealHtml}${choicesHtml}</li>`;
+      }).join('');
       card.innerHTML=`<div class='card-body d-flex flex-column' style='min-height:260px;'>
         <div class='d-flex justify-content-between align-items-start mb-2'>
           <div>
@@ -55,7 +103,7 @@
         </div>
         <div class='flex-grow-1 overflow-auto mb-2'>
           <ul class='list-unstyled mb-0 fs-6'>
-            ${o.lines.map(l=>`<li class='mb-1'><span class='fw-semibold'>${l.qty}x</span> ${l.name}${l.variant? ' <span class=\'badge bg-secondary\'> '+l.variant+'</span>':''}${l.meal? ' <span class=\'badge bg-info text-dark\'>Meal</span>':''}</li>`).join('')}
+            ${linesHtml}
           </ul>
         </div>
         <div class='mt-auto d-flex justify-content-between align-items-center'>
@@ -66,6 +114,49 @@
       col.appendChild(card); pendingWrap.appendChild(col);
     });
     startTimers();
+  }
+  function renderCompleted(list, dateLbl){
+    histWrap.innerHTML='';
+    histSummary.textContent = `${list.length} orders on ${dateLbl}`;
+    if(!list.length){ histWrap.innerHTML='<div class="col-12 text-muted">No completed orders for the selected date.</div>'; return; }
+    list.forEach(o=>{
+      const col=document.createElement('div'); col.className='col-12 col-md-6 col-xl-4';
+      const card=document.createElement('div'); card.className='card shadow-sm border border-3 border-success position-relative';
+      const linesHtml = (o.lines||[]).map(l=>{
+        const hasChoices = l && l.meta && Array.isArray(l.meta.display_choices) && l.meta.display_choices.length>0;
+        let choicesHtml = '';
+        if(hasChoices){
+          choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${l.meta.display_choices.map(c=>`<li>${c}</li>`).join('')}</ul>`;
+        } else if (l && l.meta){
+          const d = [];
+          if(l.meta.fries) d.push(`Fries: #${l.meta.fries}`);
+          if(l.meta.drink) d.push(`Drink: #${l.meta.drink}`);
+          if(Array.isArray(l.meta.options) && l.meta.options.length){ d.push(`Options: ${l.meta.options.map(o=>`#${o}`).join(', ')}`); }
+          if(d.length){ choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${d.map(x=>`<li>${x}</li>`).join('')}</ul>`; }
+        }
+        const variantHtml = l.variant ? ` <span class='badge bg-secondary'> ${l.variant}</span>` : '';
+        const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
+        return `<li class='mb-1'><span class='fw-semibold'>${l.qty}x</span> ${l.name}${variantHtml}${mealHtml}${choicesHtml}</li>`;
+      }).join('');
+      card.innerHTML = `
+        <div class='card-body d-flex flex-column' style='min-height:220px;'>
+          <div class='d-flex justify-content-between align-items-start mb-2'>
+            <div>
+              <div class='fw-bold'>Order #${o.id}</div>
+              <div class='text-muted small'>Completed: ${o.completed_at ? new Date(o.completed_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''}</div>
+            </div>
+            <div class='badge text-bg-success'>Done</div>
+          </div>
+          <div class='flex-grow-1 overflow-auto mb-2'>
+            <ul class='list-unstyled mb-0 fs-6'>${linesHtml}</ul>
+          </div>
+          <div class='mt-auto d-flex justify-content-between align-items-center'>
+            <div class='fw-bold'>${money(o.total_gross)}</div>
+            <div class='small text-muted'>${o.payment_method || ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
+          </div>
+        </div>`;
+      col.appendChild(card); histWrap.appendChild(col);
+    });
   }
   function startTimers(){
     // Initialize badges with current age provided by server
@@ -89,7 +180,12 @@
   }
   setInterval(()=>{ loadSummary(); loadPending(); }, 10000);
   setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString(); },1000);
-  loadSummary(); loadPending();
+  // Initialize date picker to today and load
+  const todayStr = new Date().toISOString().slice(0,10);
+  histDate.value = todayStr;
+  reloadHistBtn.addEventListener('click', loadCompleted);
+  histDate.addEventListener('change', loadCompleted);
+  loadSummary(); loadPending(); loadCompleted();
   pendingWrap.addEventListener('click', (e)=>{
     const btn=e.target.closest('[data-complete]');
     if(!btn) return;

@@ -19,4 +19,5 @@ urlpatterns = [
     path('api/orders/summary', views.api_orders_summary, name='mo_api_orders_summary'),
     path('api/orders/pending', views.api_orders_pending, name='mo_api_orders_pending'),
     path('api/order/<int:order_id>/complete', views.api_order_complete, name='mo_api_order_complete'),
+    path('api/orders/completed', views.api_orders_completed, name='mo_api_orders_completed'),
 ]

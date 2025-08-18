@@ -635,3 +635,44 @@ def api_order_complete(request: HttpRequest, order_id: int):
     order.completed_at = timezone.now()
     order.save(update_fields=['status','completed_at'])
     return JsonResponse({'status':'ok'})
+
+
+@require_GET
+def api_orders_completed(request: HttpRequest):
+    """Return completed orders for a given date (default today).
+
+    Query params:
+      - date: optional, ISO date YYYY-MM-DD. Defaults to today in server TZ.
+    Response: { orders: [ { id, created_at, completed_at, total_gross, payment_method, crew_id, lines:[...] }, ... ] }
+    """
+    from .models import Order
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            return JsonResponse({'error': 'Invalid date format, expected YYYY-MM-DD'}, status=400)
+    else:
+        target_date = timezone.now().date()
+
+    orders = []
+    qs = Order.objects.filter(status='completed', completed_at__date=target_date).order_by('-completed_at').prefetch_related('lines')
+    for o in qs:
+        orders.append({
+            'id': o.id,
+            'created_at': o.created_at.isoformat(),
+            'completed_at': o.completed_at.isoformat() if o.completed_at else None,
+            'total_gross': o.total_gross,
+            'payment_method': o.payment_method,
+            'crew_id': o.crew_id,
+            'lines': [
+                {
+                    'name': l.name,
+                    'qty': l.qty,
+                    'variant': l.variant_label,
+                    'meal': l.is_meal,
+                    'meta': l.meta
+                } for l in o.lines.all()
+            ]
+        })
+    return JsonResponse({'date': str(target_date), 'orders': orders})
