@@ -114,6 +114,11 @@
               </div>
             </div>
           </div>
+          <!-- Config Tabs: Extras appears only when options/choices exist -->
+          <div class="mb-3 d-flex gap-2" id="cfg-tabbar">
+            <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 active" data-cfg-tab="main">Configure</button>
+            <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-extras-tab" data-cfg-tab="extras">Extras</button>
+          </div>
           <div id="cfg-variants" class="mb-4 d-none">
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Variants</label>
             <div id="cfg-variant-list" class="d-flex flex-wrap gap-3"></div>
@@ -189,6 +194,7 @@
   const cfgModalEl = document.getElementById('itemConfigModal');
   let cfgModal = null; const ensureModal=()=>{ if(!cfgModal) cfgModal = new bootstrap.Modal(cfgModalEl); };
   const cfg = { data:null, currentVariant:null, meal:false, fries:null, drink:null, optionalSelected:new Set(), effectivePrice:0 };
+  let cfgTab = 'main';
 
   function money(pence){ return '£' + (pence/100).toFixed(2); }
 
@@ -436,11 +442,80 @@
         optDiv.addEventListener('change', e=>{ const cb=e.target.closest('[data-combo-opt]'); if(cb){ const code=parseInt(cb.dataset.comboOpt,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); enforceComboFreeLimit(data); updateConfigPrice(); }});
       }
     } else comboStruct.classList.add('d-none');
+
+    // Extras tab visibility (show when product choices or combo optionals exist)
+    const extrasTabBtn = document.getElementById('cfg-extras-tab');
+    const hasExtras = (data.options && data.options.length) || (data.type==='combo' && data.optional && data.optional.length);
+    if(extrasTabBtn){
+      extrasTabBtn.classList.toggle('d-none', !hasExtras);
+    }
+    cfgTab = 'main';
+    syncConfigTabs();
     updateConfigPrice();
     document.getElementById('cfg-loading').classList.add('d-none');
     document.getElementById('cfg-body').classList.remove('d-none');
     document.getElementById('cfg-add-btn').disabled=false;
   }
+
+  function syncConfigTabs(){
+    const tabbar = document.getElementById('cfg-tabbar');
+    if(tabbar){
+      const btns = tabbar.querySelectorAll('[data-cfg-tab]');
+      btns.forEach(b=> b.classList.toggle('active', b.getAttribute('data-cfg-tab')===cfgTab));
+    }
+    const data = cfg.data; if(!data) return;
+    const hasExtras = (data.options && data.options.length) || (data.type==='combo' && data.optional && data.optional.length);
+    // Reset default visibility based on data
+    const vWrap = document.getElementById('cfg-variants');
+    const mealSection = document.getElementById('cfg-meal-section');
+    const optWrap = document.getElementById('cfg-options');
+    const comboStruct = document.getElementById('cfg-combo-structure');
+    if(vWrap) vWrap.classList.toggle('d-none', !(data.variants && data.variants.length));
+    const mealOkay = data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length;
+    if(mealSection) mealSection.classList.toggle('d-none', !mealOkay);
+    if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+    if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
+    // If on Extras tab, focus only on extras lists
+    if(hasExtras && cfgTab==='extras'){
+      if(vWrap) vWrap.classList.add('d-none');
+      if(mealSection) mealSection.classList.add('d-none');
+      if(data.type==='combo'){
+        // Hide compulsory column but keep optional side visible
+        const compUL = document.getElementById('cfg-compulsory');
+        const compCol = compUL ? compUL.closest('.col-md-6') : null;
+        const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
+        if(compCol) compCol.classList.add('d-none');
+        if(optCol) optCol.classList.remove('d-none');
+        if(comboStruct) comboStruct.classList.remove('d-none');
+      }
+      if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+      // On Extras tab hide product non-extras sections already handled above
+    } else {
+      // Configure (main) tab: show core sections, hide extras if we have a dedicated Extras tab
+      const compUL = document.getElementById('cfg-compulsory');
+      const compCol = compUL ? compUL.closest('.col-md-6') : null;
+      const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
+      if(compCol) compCol.classList.remove('d-none');
+      if(hasExtras){
+        // Hide product options on main
+        if(optWrap) optWrap.classList.add('d-none');
+        // Hide combo optional column on main, keep compulsory visible
+        if(optCol) optCol.classList.add('d-none');
+      } else {
+        // If no extras, keep default visibility
+        if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+        if(optCol) optCol.classList.remove('d-none');
+      }
+    }
+  }
+
+  // Tab click handler
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('#cfg-tabbar [data-cfg-tab]');
+    if(!btn) return;
+    cfgTab = btn.getAttribute('data-cfg-tab');
+    syncConfigTabs();
+  });
 
   function enforceComboFreeLimit(data){
     if(!data.free_optional_count) return;
