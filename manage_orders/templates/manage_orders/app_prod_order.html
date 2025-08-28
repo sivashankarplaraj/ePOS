@@ -2,14 +2,17 @@
 {% load static %}
 {% block content %}
 <h5 class="mt-3">Create Order</h5>
-<!-- Price Band Selector -->
-<div class="mb-3" style="max-width:420px;">
-    <label for="price-band" class="form-label fw-semibold">Select Price Band</label>
-  <select id="price-band" class="form-select form-select-lg fw-bold" style="height: 64px; font-size: 1.35rem;">
-        {% for band, value in price_band.items %}
-            <option value="{{ value }}">{{ band }}</option>
-        {% endfor %}
-    </select>
+<!-- Price Band Selector (Buttons) -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Select Price Band</label>
+  <div id="band-buttons" class="d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3 active" data-band="1">Band-1</button>
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="2">Band-2</button>
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="3">Band-3</button>
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="4">Band-4</button>
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="5">Band-5</button>
+    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="6">Band-6</button>
+  </div>
     <div class="form-check mt-2">
       <input class="form-check-input" type="checkbox" id="toggle-net" />
       <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
@@ -165,7 +168,7 @@
 {% block extra_js %}
 <script>
 (function(){
-  const bandSelect = document.getElementById('price-band');
+  const bandButtonsWrap = document.getElementById('band-buttons');
   const vatBasisSelect = document.getElementById('vat-basis');
   const categoryStrip = document.getElementById('category-strip');
   const itemsContainer = document.getElementById('items-container');
@@ -173,7 +176,7 @@
   const basketTotal = document.getElementById('basket-total');
   const clearBtn = document.getElementById('clear-basket');
   const checkoutBtn = document.getElementById('checkout');
-  let currentBand = bandSelect.value;
+  let currentBand = '1';
   let vatBasis = vatBasisSelect.value; // 'take' or 'eat'
   let showNet = false;
   let menuData = null;
@@ -565,7 +568,17 @@
   });
 
   vatBasisSelect.addEventListener('change', ()=>{ vatBasis = vatBasisSelect.value; renderProducts(); });
-  bandSelect.addEventListener('change', ()=>{ currentBand = bandSelect.value; fetchMenu(); });
+  // Band buttons click handler (touch-friendly)
+  bandButtonsWrap.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-band]');
+    if(!btn) return;
+    const band = btn.getAttribute('data-band');
+    if(!band) return;
+    currentBand = String(band);
+    // Toggle active state
+    [...bandButtonsWrap.querySelectorAll('[data-band]')].forEach(b=> b.classList.toggle('active', b===btn));
+    fetchMenu();
+  });
   document.getElementById('toggle-net').addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });
 
   // Initial
