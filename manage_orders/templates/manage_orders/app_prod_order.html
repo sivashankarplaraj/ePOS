@@ -17,13 +17,14 @@
       <input class="form-check-input" type="checkbox" id="toggle-net" />
       <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
     </div>
-    <div class="mt-2">
-      <label class="form-label small mb-1" for="vat-basis">VAT Basis</label>
-      <select id="vat-basis" class="form-select form-select-sm" style="max-width:200px;">
-        <option value="take">Takeaway</option>
-        <option value="eat">Eatin</option>
-      </select>
-    </div>
+      
+      <div class="mt-2">
+        <label class="form-label small mb-1">VAT Basis</label>
+        <div id="basis-buttons" class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 active" data-basis="take">Takeaway</button>
+          <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2" data-basis="eat">Eat-in</button>
+        </div>
+      </div>
 </div>
 <!-- Categories below Price Band (horizontal scroll) -->
 <div id="categories-section" class="mb-3">
@@ -169,7 +170,7 @@
 <script>
 (function(){
   const bandButtonsWrap = document.getElementById('band-buttons');
-  const vatBasisSelect = document.getElementById('vat-basis');
+  const basisButtonsWrap = document.getElementById('basis-buttons');
   const categoryStrip = document.getElementById('category-strip');
   const itemsContainer = document.getElementById('items-container');
   const basketList = document.getElementById('basket-list');
@@ -177,7 +178,7 @@
   const clearBtn = document.getElementById('clear-basket');
   const checkoutBtn = document.getElementById('checkout');
   let currentBand = '1';
-  let vatBasis = vatBasisSelect.value; // 'take' or 'eat'
+  let vatBasis = 'take'; // default
   let showNet = false;
   let menuData = null;
   let activeCategoryId = null;
@@ -567,7 +568,14 @@
     cfgModal.hide();
   });
 
-  vatBasisSelect.addEventListener('change', ()=>{ vatBasis = vatBasisSelect.value; renderProducts(); });
+  // VAT basis buttons handler
+  basisButtonsWrap.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-basis]');
+    if(!btn) return;
+    vatBasis = btn.getAttribute('data-basis') === 'eat' ? 'eat' : 'take';
+    [...basisButtonsWrap.querySelectorAll('[data-basis]')].forEach(b=> b.classList.toggle('active', b===btn));
+    renderProducts();
+  });
   // Band buttons click handler (touch-friendly)
   bandButtonsWrap.addEventListener('click', (e)=>{
     const btn = e.target.closest('[data-band]');
