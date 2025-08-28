@@ -423,14 +423,21 @@
         optWrap.classList.remove('d-none');
         data.options.forEach(o=>{
           const id=`opt-prod-${o.code}`;
-          optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name}</label></div>`);
+    optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name} ${money(o.price_gross||0)}</label></div>`);
         });
       } else {
         optWrap.classList.add('d-none');
       }
     };
     renderProductOptions();
-    optList.addEventListener('change', e=>{ const cb=e.target.closest('[data-opt-code]'); if(cb){ const code=parseInt(cb.dataset.optCode,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); }});
+    optList.addEventListener('change', e=>{
+      const cb=e.target.closest('[data-opt-code]');
+      if(cb){
+        const code=parseInt(cb.dataset.optCode,10);
+        if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code);
+        updateConfigPrice();
+      }
+    });
     // Fallback: If product options missing in detail payload, fetch via API and render
     if(data.type==='product' && (!data.options || data.options.length===0)){
       fetch(`/api/product/${data.code}/options?band=${currentBand}`)
@@ -460,7 +467,7 @@
           const id=`opt-combo-${o.code}`;
           optDiv.insertAdjacentHTML('beforeend', `<div class='form-check'><input class='form-check-input' type='checkbox' id='${id}' data-combo-opt='${o.code}'><label class='form-check-label small' for='${id}'>${o.name} ${money(o.price_gross)}</label></div>`);
         });
-        optDiv.addEventListener('change', e=>{ const cb=e.target.closest('[data-combo-opt]'); if(cb){ const code=parseInt(cb.dataset.comboOpt,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); enforceComboFreeLimit(data); updateConfigPrice(); }});
+        optDiv.addEventListener('change', e=>{ const cb=e.target.closest('[data-combo-opt]'); if(cb){ const code=parseInt(cb.dataset.comboOpt,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); updateConfigPrice(); }});
       }
     } else comboStruct.classList.add('d-none');
 
@@ -592,8 +599,8 @@
       (data.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)){ base += o.price_gross; } });
     } else if(data.type==='combo'){
       const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
-      const free = data.free_optional_count || 0;
-      chosen.forEach((o,idx)=>{ if(idx>=free) base += o.price_gross; });
+      // Always charge for selected combo optionals
+      chosen.forEach(o=>{ base += (o.price_gross||0); });
     }
     cfg.effectivePrice = base;
     document.getElementById('cfg-price-main').textContent = money(base);
@@ -641,9 +648,9 @@
     }
     // Product options
     if(baseData.type==='product'){
-      (baseData.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(o.name); });
+      (baseData.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
     } else if(baseData.type==='combo'){
-      (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(o.name); });
+      (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
     }
     const meta = {
       options: [...cfg.optionalSelected],
