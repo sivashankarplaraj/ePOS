@@ -417,14 +417,35 @@
     // Product options
     const optWrap = document.getElementById('cfg-options');
     const optList = document.getElementById('cfg-options-list'); optList.innerHTML='';
-    if(data.options && data.options.length){
-      optWrap.classList.remove('d-none');
-      data.options.forEach(o=>{
-        const id=`opt-prod-${o.code}`;
-        optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name}</label></div>`);
-      });
-      optList.addEventListener('change', e=>{ const cb=e.target.closest('[data-opt-code]'); if(cb){ const code=parseInt(cb.dataset.optCode,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); }});
-    } else optWrap.classList.add('d-none');
+    const renderProductOptions = ()=>{
+      optList.innerHTML='';
+      if(data.options && data.options.length){
+        optWrap.classList.remove('d-none');
+        data.options.forEach(o=>{
+          const id=`opt-prod-${o.code}`;
+          optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name}</label></div>`);
+        });
+      } else {
+        optWrap.classList.add('d-none');
+      }
+    };
+    renderProductOptions();
+    optList.addEventListener('change', e=>{ const cb=e.target.closest('[data-opt-code]'); if(cb){ const code=parseInt(cb.dataset.optCode,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); }});
+    // Fallback: If product options missing in detail payload, fetch via API and render
+    if(data.type==='product' && (!data.options || data.options.length===0)){
+      fetch(`/api/product/${data.code}/options?band=${currentBand}`)
+        .then(r=>r.json())
+        .then(resp=>{
+          if(resp && Array.isArray(resp.options) && resp.options.length){
+            data.options = resp.options.map(o=>({ code:o.code, name:o.name, price_gross:o.price_gross }));
+            renderProductOptions();
+            const extrasTabBtn = document.getElementById('cfg-extras-tab');
+            if(extrasTabBtn){ extrasTabBtn.classList.toggle('d-none', false); }
+            syncConfigTabs();
+          }
+        })
+        .catch(()=>{});
+    }
     // Combo structure
     const comboStruct = document.getElementById('cfg-combo-structure');
     const compUL = document.getElementById('cfg-compulsory');
