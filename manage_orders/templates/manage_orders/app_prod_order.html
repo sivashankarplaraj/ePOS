@@ -129,14 +129,18 @@
               <label class="form-check-label ms-2" for="cfg-meal-toggle">Convert to Meal</label>
             </div>
             <div id="cfg-meal-components" class="row g-3 d-none">
-              <div class="col-md-6">
+              <div class="col-md-6 d-none" id="cfg-fries-wrap">
                 <label class="form-label fw-semibold" style="font-size:1.05rem;">Fries</label>
                 <select id="cfg-fries" class="form-select form-select-lg py-3" style="font-size:1.15rem;"></select>
               </div>
-              <div class="col-md-6">
+              <div class="col-md-6" id="cfg-drinks-wrap">
                 <label class="form-label fw-semibold" style="font-size:1.05rem;">Drink</label>
-                <select id="cfg-drink" class="form-select form-select-lg py-3" style="font-size:1.15rem;"></select>
+                <div id="cfg-drink-list" class="d-flex flex-wrap gap-2"></div>
               </div>
+            </div>
+            <div class="form-check form-switch mt-2 d-none" id="cfg-go-large-wrap" style="font-size:1.05rem;">
+              <input class="form-check-input" style="width:3rem;height:1.5rem;" type="checkbox" id="cfg-go-large" />
+              <label class="form-check-label ms-2" for="cfg-go-large">Go Large</label>
             </div>
           </div>
           <div id="cfg-options" class="mb-4 d-none">
@@ -402,17 +406,56 @@
     const mealSection = document.getElementById('cfg-meal-section');
     const mealToggle = document.getElementById('cfg-meal-toggle');
     const mealComp = document.getElementById('cfg-meal-components');
-    const friesSel = document.getElementById('cfg-fries');
-    const drinkSel = document.getElementById('cfg-drink'); friesSel.innerHTML=''; drinkSel.innerHTML='';
+  const friesSel = document.getElementById('cfg-fries');
+  const drinkList = document.getElementById('cfg-drink-list'); friesSel.innerHTML=''; if(drinkList) drinkList.innerHTML='';
+    const goLargeWrap = document.getElementById('cfg-go-large-wrap');
+    const goLargeToggle = document.getElementById('cfg-go-large');
+    const friesWrap = document.getElementById('cfg-fries-wrap');
+    const drinksWrap = document.getElementById('cfg-drinks-wrap');
     if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
-      mealSection.classList.remove('d-none'); mealToggle.checked=false; mealComp.classList.add('d-none');
-      mealToggle.onchange=()=>{ cfg.meal=mealToggle.checked; mealComp.classList.toggle('d-none', !cfg.meal); updateConfigPrice(); };
-  (data.meal_components.fries||[]).forEach(f=>{ const o=document.createElement('option'); o.value=f.code; o.textContent=`${f.name} ${money(f.price_gross)}`; friesSel.appendChild(o); });
-  (data.meal_components.drinks||[]).forEach(dr=>{ const o=document.createElement('option'); o.value=dr.code; o.textContent=`${dr.name} ${money(dr.price_gross)}`; drinkSel.appendChild(o); });
-  // set defaults (none selected -> discount not applied until user chooses)
-  friesSel.selectedIndex = -1; drinkSel.selectedIndex = -1; cfg.fries=null; cfg.drink=null;
-  friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
-  drinkSel.onchange=()=>{ cfg.drink=drinkSel.value? parseInt(drinkSel.value,10):null; updateConfigPrice(); };
+      mealSection.classList.remove('d-none');
+      mealToggle.checked=false; mealComp.classList.add('d-none');
+      goLargeWrap.classList.add('d-none'); goLargeToggle.checked=false;
+      friesWrap.classList.add('d-none');
+      // Populate fries (we'll auto-select regular when toggle on)
+      const friesList = (data.meal_components.fries||[]);
+      friesList.forEach(f=>{ const o=document.createElement('option'); o.value=f.code; o.textContent=`${f.name} ${money(f.price_gross)}`; friesSel.appendChild(o); });
+      // Filter drinks: only regular where T_DRINK_CD > 0
+      let regularDrinks = (data.meal_components.drinks||[]).filter(d=> (d.T_DRINK_CD||d.t_drink_cd||0) > 0);
+      if(regularDrinks.length===0){ regularDrinks = (data.meal_components.drinks||[]); }
+      // Render drink buttons (no price)
+      if(drinkList){
+        drinkList.innerHTML='';
+        regularDrinks.forEach(dr=>{
+          const b=document.createElement('button'); b.type='button'; b.className='btn btn-outline-info';
+          b.textContent = dr.name; b.dataset.code = dr.code; b.dataset.tDrinkCd = dr.T_DRINK_CD || dr.t_drink_cd || 0;
+          b.addEventListener('click', ()=>{
+            cfg.drink = parseInt(b.dataset.code,10);
+            // toggle active state
+            [...drinkList.children].forEach(c=> c.classList.remove('active'));
+            b.classList.add('active');
+            updateConfigPrice();
+          });
+          drinkList.appendChild(b);
+        });
+      }
+      // Defaults when toggled on: select first regular fries and require a drink choice
+  friesSel.selectedIndex = -1; cfg.fries=null; cfg.drink=null;
+      mealToggle.onchange=()=>{
+        cfg.meal=mealToggle.checked;
+        mealComp.classList.toggle('d-none', !cfg.meal);
+        goLargeWrap.classList.toggle('d-none', !cfg.meal);
+        if(cfg.meal){
+          // Auto-select regular fries (assume first option is Regular)
+          if(friesSel.options.length>0){ friesSel.selectedIndex=0; cfg.fries=parseInt(friesSel.value,10); }
+        } else {
+          cfg.fries=null; cfg.drink=null; goLargeToggle.checked=false;
+        }
+        updateConfigPrice();
+      };
+      friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
+  // drink selection handled via buttons above
+      goLargeToggle.onchange=()=>{ updateConfigPrice(); };
     } else mealSection.classList.add('d-none');
     // Product options
     const optWrap = document.getElementById('cfg-options');
@@ -571,8 +614,22 @@
         const chosenBurgerStd = variantObj? variantObj.price_gross : data.price_gross;
         const chosenBurgerMeal = variantObj? (variantObj.discounted_price_gross||0) : (data.discounted_price_gross||0);
         // Find fries & drink product objects from meal_components lists.
-        const friesObj = (data.meal_components?.fries||[]).find(f=> f.code==cfg.fries);
-        const drinkObj = (data.meal_components?.drinks||[]).find(d=> d.code==cfg.drink);
+  const friesList = (data.meal_components?.fries||[]);
+  const baseFriesObj = friesList.find(f=> f.code==cfg.fries);
+  const goLarge = document.getElementById('cfg-go-large')?.checked;
+  // If Go Large, pick the fries entry with the highest price (robust to naming)
+  const friesObj = goLarge ? (friesList.slice().sort((a,b)=> (b.price_gross||0)-(a.price_gross||0))[0] || baseFriesObj) : baseFriesObj;
+        // Drinks: if Go Large, use the T_DRINK_CD of selected drink (product code of large); else use selected regular
+        const allDrinks = (data.meal_components?.drinks||[]);
+        const regularDrinkObj = allDrinks.find(d=> d.code==cfg.drink);
+        let drinkObj = regularDrinkObj;
+        if(goLarge && regularDrinkObj){
+          const largeCode = regularDrinkObj.T_DRINK_CD || regularDrinkObj.t_drink_cd || 0;
+          if(largeCode){
+            const largeObj = allDrinks.find(d=> d.code==largeCode);
+            if(largeObj) drinkObj = largeObj;
+          }
+        }
         const friesStd = friesObj? friesObj.price_gross : 0;
         const drinkStd = drinkObj? drinkObj.price_gross : 0;
         const friesMeal = friesObj? (friesObj.discounted_price_gross||0) : 0;
@@ -636,13 +693,31 @@
     // Build display-friendly choice labels
     const displayChoices = [];
     const baseData = cfg.data;
+    // Compute effective fries/drink codes based on Go Large state
+    let effectiveFries = cfg.fries;
+    let effectiveDrink = cfg.drink;
+    const goLarge = document.getElementById('cfg-go-large')?.checked;
     if(cfg.meal){
-      if(cfg.fries){
-        const friesObj = (baseData.meal_components?.fries||[]).find(f=> f.code==cfg.fries);
+      const friesList = (baseData.meal_components?.fries||[]);
+      if(goLarge){
+        const baseFriesObj = friesList.find(f=> f.code==cfg.fries);
+        const largeFriesObj = friesList.find(f=> /large/i.test(String(f.name||'')));
+        effectiveFries = (largeFriesObj?.code) || (baseFriesObj?.code) || cfg.fries;
+      }
+      const drinksList = (baseData.meal_components?.drinks||[]);
+      const selDrink = drinksList.find(d=> d.code==cfg.drink);
+      if(goLarge && selDrink){
+        const largeCode = selDrink.T_DRINK_CD || selDrink.t_drink_cd || 0;
+        if(largeCode) effectiveDrink = largeCode;
+      }
+    }
+    if(cfg.meal){
+      if(effectiveFries){
+        const friesObj = (baseData.meal_components?.fries||[]).find(f=> f.code==effectiveFries);
         displayChoices.push(`Fries: ${friesObj? friesObj.name : '#'+cfg.fries}`);
       }
-      if(cfg.drink){
-        const drinkObj = (baseData.meal_components?.drinks||[]).find(d=> d.code==cfg.drink);
+      if(effectiveDrink){
+        const drinkObj = (baseData.meal_components?.drinks||[]).find(d=> d.code==effectiveDrink);
         displayChoices.push(`Drink: ${drinkObj? drinkObj.name : '#'+cfg.drink}`);
       }
     }
@@ -654,8 +729,8 @@
     }
     const meta = {
       options: [...cfg.optionalSelected],
-      fries: cfg.meal? cfg.fries : null,
-      drink: cfg.meal? cfg.drink : null,
+  fries: cfg.meal? effectiveFries : null,
+  drink: cfg.meal? effectiveDrink : null,
       variant_code: cfg.currentVariant || null,
       display_choices: displayChoices
     };
