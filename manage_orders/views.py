@@ -99,7 +99,7 @@ def dashboard(request):
 def app_prod_order(request):
     # GroupTb is the menu category
     context = {
-        'price_band': _price_band_map(),
+        # 'price_band': _price_band_map(),
         'menu_categories': GroupTb.objects.all()
     }
     return render(request, 'manage_orders/app_prod_order.html', context)
