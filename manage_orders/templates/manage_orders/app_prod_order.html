@@ -271,6 +271,10 @@
       const col = document.createElement('div');
       col.className='col-6 col-md-4 col-xl-3';
       const card = document.createElement('div'); card.className='card h-100 shadow-sm';
+      // Make card the click target
+      card.setAttribute('data-open', String(prod.code));
+      card.setAttribute('data-item-type', prod.type);
+      card.style.cursor = 'pointer';
       const basePrice = priceForDisplay(prod);
   const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
       const mealBadge = prod.meal_flag ? " <span class='badge bg-info text-dark'>Meal</span>" : '';
@@ -284,11 +288,8 @@
         <h6 class=\"card-title mb-1 text-truncate\" title=\"${prod.name}\">${prod.name}${mealBadge}</h6>
         <div class=\"small text-muted mb-2\">#${prod.code} ${prod.type==='combo'?'<span class=\"badge bg-secondary\">Combo</span>':''}</div>
         <div class=\"fw-semibold mb-2\">${priceHtml}${discountHtml}</div>
-        ${variantsHtml}
-        <div class=\"mt-auto d-flex gap-2\">
-          <button class=\"btn btn-primary flex-grow-1 fw-semibold py-2\" style=\"font-size:1rem;\" data-add=\"${prod.code}\" data-item-type=\"${prod.type}\">Add</button>
-          <button class=\"btn btn-outline-secondary fw-semibold py-2\" style=\"font-size:1rem;\" data-config=\"${prod.code}\" data-item-type=\"${prod.type}\">Config</button>
-        </div>
+  ${variantsHtml}
+  <div class="mt-auto"></div>
       </div>`;
       col.appendChild(card); itemsContainer.appendChild(col);
     });
@@ -379,10 +380,16 @@
   itemsContainer.addEventListener('click', (e)=>{
     const variant = e.target.closest('[data-var]');
     if(variant){ openConfig('product', variant.dataset.parent, variant.dataset.var); return; }
-    const configBtn = e.target.closest('[data-config]');
-    if(configBtn){ openConfig(configBtn.dataset.itemType, configBtn.dataset.config, null); return; }
-    const addBtn = e.target.closest('[data-add]');
-    if(addBtn){ const base=findItem(addBtn.dataset.itemType, addBtn.dataset.add); if(base){ addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type }); } }
+    const openCard = e.target.closest('[data-open]');
+    if(openCard){
+      const type = openCard.getAttribute('data-item-type');
+      const code = openCard.getAttribute('data-open');
+      const base = findItem(type, code);
+      const needsConfig = type==='combo' || (base && ((base.variants&&base.variants.length) || base.meal_flag || (base.options&&base.options.length)));
+      if(needsConfig){ openConfig(type, code, null); }
+      else if(base){ addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type }); }
+      return;
+    }
   });
 
   basketList.addEventListener('click', (e)=>{
