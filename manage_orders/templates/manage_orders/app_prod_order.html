@@ -189,7 +189,10 @@
   let currentBand = '1';
   let vatBasis = 'take'; // default
   let showNet = false;
-  let menuData = null;
+  // Lightweight data flow: fetch categories first, then items per selected category.
+  let categories = [];
+  const catItemsCache = {}; // { [catId]: items[] }
+  let currentItems = [];
   let activeCategoryId = null;
 
   const basket = { lines:[], total:0 };
@@ -203,32 +206,52 @@
   function money(pence){ return '£' + (pence/100).toFixed(2); }
 
   function fetchMenu(){
+    // Reset caches when band changes
+    categories = [];
+    currentItems = [];
+    for(const k of Object.keys(catItemsCache)) delete catItemsCache[k];
     itemsContainer.innerHTML='';
     categoryStrip.innerHTML='<div class="text-muted small">Loading...</div>';
-    fetch(`/api/menu?band=${currentBand}`)
+    fetch(`/api/menu/categories?band=${currentBand}`)
       .then(r=>r.json())
-      .then(data=>{ menuData = data; renderCategories(); autoSelectFirst(); })
-      .catch(err=>{ console.error('Menu load error', err); categoryStrip.innerHTML='<div class="text-danger small">Failed to load</div>'; });
+      .then(data=>{ categories = data.categories || []; renderCategories(); autoSelectFirst(); })
+      .catch(err=>{ console.error('Categories load error', err); categoryStrip.innerHTML='<div class="text-danger small">Failed to load</div>'; });
   }
 
   function renderCategories(){
     categoryStrip.innerHTML='';
-    (menuData?.categories||[]).forEach(cat=>{
+    (categories||[]).forEach(cat=>{
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline-secondary';
-      btn.textContent = cat.name;
+      btn.textContent = cat.name + (cat.item_count? ` (${cat.item_count})` : '');
       btn.dataset.catId = cat.id;
       if(cat.id === activeCategoryId) btn.classList.add('active');
-      btn.addEventListener('click', ()=>{ activeCategoryId = cat.id; renderCategories(); renderProducts(); });
+      btn.addEventListener('click', ()=>{ selectCategory(cat.id); });
       categoryStrip.appendChild(btn);
     });
   }
 
   function autoSelectFirst(){
-    if(!activeCategoryId && (menuData?.categories||[]).length){
-      activeCategoryId = menuData.categories[0].id;
+    if(!activeCategoryId && (categories||[]).length){
+      selectCategory(categories[0].id);
+    } else if(activeCategoryId){
+      selectCategory(activeCategoryId);
     }
-    renderProducts();
+  }
+
+  function selectCategory(catId){
+    activeCategoryId = catId;
+    renderCategories();
+    itemsContainer.innerHTML = '<div class="text-muted small">Loading items...</div>';
+    if(catItemsCache[catId]){
+      currentItems = catItemsCache[catId];
+      renderProducts();
+      return;
+    }
+    fetch(`/api/menu/category/${catId}/items?band=${currentBand}`)
+      .then(r=>r.json())
+      .then(data=>{ currentItems = data.items || []; catItemsCache[catId] = currentItems; renderProducts(); })
+      .catch(err=>{ console.error('Items load error', err); itemsContainer.innerHTML='<div class="text-danger small">Failed to load items</div>'; });
   }
 
   function priceForDisplay(prod){
@@ -243,9 +266,8 @@
 
   function renderProducts(){
     itemsContainer.innerHTML='';
-    const cat = (menuData?.categories||[]).find(c=>c.id===activeCategoryId);
-    if(!cat){ return; }
-    cat.items.forEach(prod=>{
+    if(!currentItems || currentItems.length===0){ return; }
+    currentItems.forEach(prod=>{
       const col = document.createElement('div');
       col.className='col-6 col-md-4 col-xl-3';
       const card = document.createElement('div'); card.className='card h-100 shadow-sm';
@@ -273,8 +295,11 @@
   }
 
   function findItem(type, code){
-    for(const cat of (menuData?.categories||[])){
-      for(const it of cat.items){ if(it.type===type && it.code==code) return it; }
+    // Search current items first, then any cached category
+    for(const it of (currentItems||[])){ if(it.type===type && it.code==code) return it; }
+    for(const catId of Object.keys(catItemsCache)){
+      const arr = catItemsCache[catId] || [];
+      for(const it of arr){ if(it.type===type && it.code==code) return it; }
     }
     return null;
   }
@@ -763,6 +788,7 @@
     currentBand = String(band);
     // Toggle active state
     [...bandButtonsWrap.querySelectorAll('[data-band]')].forEach(b=> b.classList.toggle('active', b===btn));
+    activeCategoryId = null; // reset selection on band change
     fetchMenu();
   });
   document.getElementById('toggle-net').addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });

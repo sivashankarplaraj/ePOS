@@ -280,6 +280,87 @@ def api_menu(request: HttpRequest):
 
 
 @require_GET
+def api_menu_categories(request: HttpRequest):
+    """Return only the list of menu categories for a given price band.
+
+    Query params:
+        band: required (1..6)
+        include_empty: optional (1/true)
+
+    Response: { "band": "1", "categories": [ { id, name, source_type, meal_group, item_count }, ... ] }
+    """
+    band = request.GET.get('band')
+    if band not in {'1','2','3','4','5','6'}:
+        return JsonResponse({'error': 'Invalid or missing band'}, status=400)
+    include_empty = request.GET.get('include_empty', '').lower() in {'1','true','yes'}
+
+    # Item counts (lightweight): based on AppProd/AppComb membership per group
+    app_products = list(AppProd.objects.all())
+    app_combos = list(AppComb.objects.all())
+    prod_count_by_group: dict[int, int] = {}
+    combo_count_by_group: dict[int, int] = {}
+    for ap in app_products:
+        prod_count_by_group[ap.GROUP_ID] = prod_count_by_group.get(ap.GROUP_ID, 0) + 1
+    for ac in app_combos:
+        combo_count_by_group[ac.GROUP_ID] = combo_count_by_group.get(ac.GROUP_ID, 0) + 1
+
+    categories = []
+    for grp in GroupTb.objects.all().order_by('GROUP_ID'):
+        count = prod_count_by_group.get(grp.GROUP_ID, 0) + combo_count_by_group.get(grp.GROUP_ID, 0)
+        if count or include_empty:
+            categories.append({
+                'id': grp.GROUP_ID,
+                'name': (grp.GROUP_NAME or '').strip(),
+                'source_type': grp.SOURCE_TYPE,
+                'meal_group': grp.MEAL_GROUP,
+                'item_count': count,
+            })
+
+    return JsonResponse({'band': band, 'categories': categories})
+
+
+@require_GET
+def api_category_items(request: HttpRequest, group_id: int):
+    """Return items (products + combos) for a single category/group for a given band.
+
+    Query params:
+        band: required (1..6)
+    Response: { "band": "1", "category": { id, name }, "items": [ {..}, ... ] }
+    """
+    band = request.GET.get('band')
+    if band not in {'1','2','3','4','5','6'}:
+        return JsonResponse({'error': 'Invalid or missing band'}, status=400)
+
+    vat_rates = _vat_rate_map()
+
+    grp = GroupTb.objects.filter(GROUP_ID=group_id).first()
+    if not grp:
+        return JsonResponse({'error': 'Category not found'}, status=404)
+
+    items: list[dict] = []
+    # Products in this group
+    app_products = list(AppProd.objects.filter(GROUP_ID=group_id))
+    if app_products:
+        pd_items_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=[ap.PRODNUMB for ap in app_products])}
+        for ap in app_products:
+            pd_item = pd_items_map.get(ap.PRODNUMB)
+            if pd_item:
+                items.append(_serialize_product(pd_item, band, app_meta=ap, vat_rates=vat_rates))
+
+    # Combos in this group
+    app_combos = list(AppComb.objects.filter(GROUP_ID=group_id))
+    if app_combos:
+        comb_map = {c.COMBONUMB: c for c in CombTb.objects.filter(COMBONUMB__in=[ac.COMBONUMB for ac in app_combos])}
+        for ac in app_combos:
+            comb = comb_map.get(ac.COMBONUMB)
+            if comb:
+                items.append(_serialize_combo(comb, band, app_meta=ac, vat_rates=vat_rates))
+
+    items = sorted(items, key=lambda x: x['name'])
+    return JsonResponse({'band': band, 'category': {'id': grp.GROUP_ID, 'name': (grp.GROUP_NAME or '').strip()}, 'items': items})
+
+
+@require_GET
 def api_product_options(request: HttpRequest, prod_code: int):
     """Return optional products (P_CHOICE) for a given product code.
 
