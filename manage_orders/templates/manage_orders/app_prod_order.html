@@ -353,7 +353,14 @@
           </div>
           <div class='text-end'>
             <div class='fw-semibold'>${money(l.price * (l.qty||1))}</div>
-            <button class='btn btn-sm btn-link text-danger p-0 mt-1' data-del='${idx}' title='Remove'>&times;</button>
+            <button class='btn btn-outline-danger mt-1 d-inline-flex align-items-center justify-content-center'
+                    style='width:40px;height:40px;border-width:2px;'
+                    data-del='${idx}' title='Remove' aria-label='Remove item'>
+              <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 16 16' fill='currentColor' aria-hidden='true'>
+                <path d='M5.5 5.5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v7a.5.5 0 0 0 1 0v-7z'/>
+                <path fill-rule='evenodd' d='M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2h4.118a1 1 0 0 1 .94.658L6.5 3h3l.442-1.342A1 1 0 0 1 10.882 2H15v1zM4.118 4 4 4v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4H4.118zM2.5 3V2h11v1h-11z'/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>`;
