@@ -205,6 +205,18 @@
 
   function money(pence){ return '£' + (pence/100).toFixed(2); }
 
+  // Deterministic, subtle color accents per item (improves scannability without harming contrast)
+  function colorAccentForItem(prod){
+    const s = String(prod.code ?? prod.name ?? '');
+    let hash = 0;
+    for(let i=0;i<s.length;i++){ hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
+    const hue = Math.abs(hash) % 360; // stable hue per item
+    // Pastel background and stronger border color for a clean accent
+    const bg = `hsl(${hue}, 85%, 97%)`;
+    const border = `hsl(${hue}, 65%, 45%)`;
+    return { bg, border };
+  }
+
   function fetchMenu(){
     // Reset caches when band changes
     categories = [];
@@ -270,7 +282,11 @@
     currentItems.forEach(prod=>{
       const col = document.createElement('div');
       col.className='col-6 col-md-4 col-xl-3';
-      const card = document.createElement('div'); card.className='card h-100 shadow-sm';
+  const card = document.createElement('div'); card.className='card h-100 shadow-sm';
+  // Apply subtle color accents per item (left border + light background)
+  const acc = colorAccentForItem(prod);
+  card.style.borderLeft = `6px solid ${acc.border}`;
+  card.style.backgroundColor = acc.bg;
       // Make card the click target
       card.setAttribute('data-open', String(prod.code));
       card.setAttribute('data-item-type', prod.type);
