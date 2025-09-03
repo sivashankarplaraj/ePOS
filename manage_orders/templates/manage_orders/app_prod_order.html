@@ -211,10 +211,18 @@
     let hash = 0;
     for(let i=0;i<s.length;i++){ hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
     const hue = Math.abs(hash) % 360; // stable hue per item
-    // Pastel background and stronger border color for a clean accent
-    const bg = `hsl(${hue}, 85%, 97%)`;
-    const border = `hsl(${hue}, 65%, 45%)`;
-    return { bg, border };
+    // Light theme: pastel bg + medium border. Dark theme: translucent tint + lighter border.
+    const bgLight = `hsl(${hue}, 85%, 97%)`;
+    const borderLight = `hsl(${hue}, 65%, 45%)`;
+    const bgDark = `hsla(${hue}, 80%, 60%, 0.08)`;
+    const borderDark = `hsl(${hue}, 70%, 60%)`;
+    return { bgLight, borderLight, bgDark, borderDark };
+  }
+
+  function isDarkTheme(){
+    const attr = document.documentElement.getAttribute('data-bs-theme');
+    if(attr){ return attr.toLowerCase() === 'dark'; }
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
 
   function fetchMenu(){
@@ -283,10 +291,11 @@
       const col = document.createElement('div');
       col.className='col-6 col-md-4 col-xl-3';
   const card = document.createElement('div'); card.className='card h-100 shadow-sm';
-  // Apply subtle color accents per item (left border + light background)
+  // Apply subtle color accents per item (left border + theme-aware background)
   const acc = colorAccentForItem(prod);
-  card.style.borderLeft = `6px solid ${acc.border}`;
-  card.style.backgroundColor = acc.bg;
+  const dark = isDarkTheme();
+  card.style.borderLeft = `6px solid ${dark ? acc.borderDark : acc.borderLight}`;
+  card.style.backgroundColor = dark ? acc.bgDark : acc.bgLight;
       // Make card the click target
       card.setAttribute('data-open', String(prod.code));
       card.setAttribute('data-item-type', prod.type);
