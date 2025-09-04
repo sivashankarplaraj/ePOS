@@ -79,9 +79,8 @@ def _price_band_map():
     }
 
 @ensure_csrf_cookie
-def index(request):
-    # Landing page could become a dashboard; for now redirect logic optional
-    return order(request)
+def index(request):    
+    return dashboard(request)
 
 @ensure_csrf_cookie
 def order(request):
