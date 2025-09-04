@@ -4,8 +4,9 @@ from django.utils import timezone
 
 class Order(models.Model):
 	created_at = models.DateTimeField(default=timezone.now)
+	packed_at = models.DateTimeField(null=True, blank=True)
 	completed_at = models.DateTimeField(null=True, blank=True)
-	status = models.CharField(max_length=12, default='pending', choices=[('pending','Pending'),('completed','Completed')])
+	status = models.CharField(max_length=12, default='preparing', choices=[('preparing','Preparing'),('packed','Packed'),('dispatched','Dispatched')])
 	price_band = models.IntegerField()
 	vat_basis = models.CharField(max_length=4, choices=[('take','Takeaway'),('eat','Eatin')])
 	show_net = models.BooleanField(default=False)

@@ -4,21 +4,27 @@
 <h4 class="mt-3 fw-bold">Store Dashboard</h4>
 <div class="row g-3 mb-3">
   <div class="col-sm-6 col-lg-3">
-    <div class="card shadow-sm text-center py-3 border-2" id="card-pending">
-      <div class="fw-semibold text-secondary small text-uppercase">Pending</div>
-      <div class="display-6 fw-bold" id="pending-count">0</div>
+    <div class="card shadow-sm text-center py-3 border-2">
+      <div class="fw-semibold text-secondary small text-uppercase">Preparing</div>
+      <div class="display-6 fw-bold" id="preparing-count">0</div>
     </div>
   </div>
   <div class="col-sm-6 col-lg-3">
-    <div class="card shadow-sm text-center py-3 border-2" id="card-completed">
-      <div class="fw-semibold text-secondary small text-uppercase">Completed</div>
-      <div class="display-6 fw-bold" id="completed-count">0</div>
+    <div class="card shadow-sm text-center py-3 border-2">
+      <div class="fw-semibold text-secondary small text-uppercase">Packed</div>
+      <div class="display-6 fw-bold" id="packed-count">0</div>
     </div>
   </div>
-  <div class="col-12 col-lg-6 d-flex align-items-stretch">
-    <div class="card shadow-sm flex-grow-1 py-3 px-3 border-2">
-      <div class="fw-semibold text-secondary small text-uppercase mb-1">Now</div>
-      <div id="clock" class="h2 mb-0"></div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center py-3 border-2">
+      <div class="fw-semibold text-secondary small text-uppercase">Dispatched</div>
+      <div class="display-6 fw-bold" id="dispatched-count">0</div>
+    </div>
+  </div>
+    <div class="col-sm-6 col-lg-3">
+    <div class="card shadow-sm text-center py-3 border-2">
+      <div class="fw-semibold text-secondary small text-uppercase">Now</div>
+      <div class="display-6" id="clock">0</div>
     </div>
   </div>
 </div>
@@ -34,7 +40,13 @@
     <input type="date" id="history-date" class="form-control" style="min-width: 200px;" />
   </div>
   <button class="btn btn-outline-secondary" id="reload-history">Reload</button>
-  <div class="ms-auto text-muted small" id="history-summary"></div>
+  <div class="ms-auto d-flex align-items-end gap-2 flex-wrap">
+    <div>
+      <label for="history-search" class="form-label small mb-1">Search</label>
+      <input type="text" id="history-search" class="form-control" placeholder="Order #, £, time" style="min-width: 220px;" />
+    </div>
+    <div class="text-muted small" id="history-summary"></div>
+  </div>
   
   
   
@@ -45,20 +57,51 @@
   
 </div>
 <div id="completed-orders" class="row g-3 mt-2"></div>
+<!-- Completed order details modal -->
+<div class="modal fade" id="completedDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title">Order Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="completed-detail-body"></div>
+      <div class="modal-footer py-2">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+</div>
 {% endblock %}
 {% block extra_js %}
 <script>
 (function(){
-  const pendingCountEl=document.getElementById('pending-count');
-  const completedCountEl=document.getElementById('completed-count');
+  const preparingCountEl=document.getElementById('preparing-count');
+  const packedCountEl=document.getElementById('packed-count');
+  const dispatchedCountEl=document.getElementById('dispatched-count');
   const pendingWrap=document.getElementById('pending-orders');
   const histWrap=document.getElementById('completed-orders');
+  const detailBody=document.getElementById('completed-detail-body');
   const histDate=document.getElementById('history-date');
   const reloadHistBtn=document.getElementById('reload-history');
   const histSummary=document.getElementById('history-summary');
+  let completedCache = [];
   function money(p){return '£'+(p/100).toFixed(2);}  
   function loadSummary(){
-    fetch('/api/orders/summary').then(r=>r.json()).then(d=>{ pendingCountEl.textContent=d.pending; completedCountEl.textContent=d.completed; });
+  fetch('/api/orders/summary').then(r=>r.json()).then(d=>{ preparingCountEl.textContent = d.preparing||0; packedCountEl.textContent = d.packed||0; dispatchedCountEl.textContent = d.dispatched||0; });
   }
   function loadPending(){
     fetch('/api/orders/pending').then(r=>r.json()).then(d=>{ renderPending(d.orders||[]); });
@@ -99,7 +142,13 @@
             <div class='text-muted small'>${new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
             <div class='mt-1'><span class='badge text-bg-light'>${o.payment_method || ''}</span>${o.crew_id? ` <span class='badge text-bg-light'>Crew ${o.crew_id}</span>`:''}</div>
           </div>
-          <div class='badge bg-danger fs-6 fw-semibold' data-timer='${o.id}' data-age='${o.age_seconds||0}'>--:--</div>
+          <div class='d-flex flex-column align-items-end gap-2'>
+            <div class='badge ${o.status==='packed'?'text-bg-warning':'bg-danger'} fs-6 fw-semibold' data-timer='${o.id}' data-age='${o.age_seconds||0}'>--:--</div>
+            <div>
+              ${o.status==='preparing' ? `<button class='btn btn-sm btn-outline-primary me-2' data-pack='${o.id}'>Mark Packed</button>` : ''}
+              ${o.status==='packed' ? `<button class='btn btn-sm btn-success' data-dispatch='${o.id}'>Dispatch</button>` : ''}
+            </div>
+          </div>
         </div>
         <div class='flex-grow-1 overflow-auto mb-2'>
           <ul class='list-unstyled mb-0 fs-6'>
@@ -108,7 +157,7 @@
         </div>
         <div class='mt-auto d-flex justify-content-between align-items-center'>
           <div class='fw-bold fs-5'>${money(o.total_gross)}</div>
-          <button class='btn btn-success btn-lg fw-bold px-4 py-2' data-complete='${o.id}'>Done</button>
+          <div class='small text-muted text-uppercase fw-semibold'>${o.status}</div>
         </div>
       </div>`;
       col.appendChild(card); pendingWrap.appendChild(col);
@@ -118,45 +167,126 @@
   function renderCompleted(list, dateLbl){
     histWrap.innerHTML='';
     histSummary.textContent = `${list.length} orders on ${dateLbl}`;
+    completedCache = list;
     if(!list.length){ histWrap.innerHTML='<div class="col-12 text-muted">No completed orders for the selected date.</div>'; return; }
-    list.forEach(o=>{
-      const col=document.createElement('div'); col.className='col-12 col-md-6 col-xl-4';
-      const card=document.createElement('div'); card.className='card shadow-sm border border-3 border-success position-relative';
-      const linesHtml = (o.lines||[]).map(l=>{
-        const hasChoices = l && l.meta && Array.isArray(l.meta.display_choices) && l.meta.display_choices.length>0;
-        let choicesHtml = '';
-        if(hasChoices){
-          choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${l.meta.display_choices.map(c=>`<li>${c}</li>`).join('')}</ul>`;
-        } else if (l && l.meta){
-          const d = [];
-          if(l.meta.fries) d.push(`Fries: #${l.meta.fries}`);
-          if(l.meta.drink) d.push(`Drink: #${l.meta.drink}`);
-          if(Array.isArray(l.meta.options) && l.meta.options.length){ d.push(`Options: ${l.meta.options.map(o=>`#${o}`).join(', ')}`); }
-          if(d.length){ choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${d.map(x=>`<li>${x}</li>`).join('')}</ul>`; }
-        }
-        const variantHtml = l.variant ? ` <span class='badge bg-secondary'> ${l.variant}</span>` : '';
-        const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
-        return `<li class='mb-1'><span class='fw-semibold'>${l.qty}x</span> ${l.name}${variantHtml}${mealHtml}${choicesHtml}</li>`;
-      }).join('');
-      card.innerHTML = `
-        <div class='card-body d-flex flex-column' style='min-height:220px;'>
-          <div class='d-flex justify-content-between align-items-start mb-2'>
-            <div>
-              <div class='fw-bold'>Order #${o.id}</div>
-              <div class='text-muted small'>Completed: ${o.completed_at ? new Date(o.completed_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''}</div>
-            </div>
-            <div class='badge text-bg-success'>Done</div>
-          </div>
-          <div class='flex-grow-1 overflow-auto mb-2'>
-            <ul class='list-unstyled mb-0 fs-6'>${linesHtml}</ul>
-          </div>
-          <div class='mt-auto d-flex justify-content-between align-items-center'>
-            <div class='fw-bold'>${money(o.total_gross)}</div>
-            <div class='small text-muted'>${o.payment_method || ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
-          </div>
-        </div>`;
-      col.appendChild(card); histWrap.appendChild(col);
+    // Build table
+    const tblHtml = `
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="completed-table">
+          <thead class="table-light">
+            <tr>
+              <th scope="col" data-sort="id" style="cursor:pointer">Order <span class="text-muted small">#</span></th>
+              <th scope="col" data-sort="created" style="cursor:pointer">Created</th>
+              <th scope="col" class="text-end" data-sort="total" style="cursor:pointer">Total</th>
+            </tr>
+          </thead>
+          <tbody id="completed-tbody"></tbody>
+        </table>
+      </div>`;
+    histWrap.innerHTML = tblHtml;
+    const tbody = document.getElementById('completed-tbody');
+    function renderRows(rows){
+      tbody.innerHTML = '';
+      rows.forEach(o=>{
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-oid', o.id);
+        tr.style.cursor='pointer';
+        const created = o.created_at ? new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+        tr.innerHTML = `
+          <td class="fw-semibold">#${o.id}</td>
+          <td>${created}</td>
+          <td class="text-end">${money(o.total_gross)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    // Sorting
+    let sortState = { key: 'created', dir: 'desc' };
+    function sortData(data){
+      const arr = [...data];
+      if(sortState.key==='id'){
+        arr.sort((a,b)=> sortState.dir==='asc' ? a.id-b.id : b.id-a.id);
+      } else if(sortState.key==='created'){
+        arr.sort((a,b)=>{
+          const ta = a.created_at ? Date.parse(a.created_at) : 0;
+          const tb = b.created_at ? Date.parse(b.created_at) : 0;
+          return sortState.dir==='asc' ? ta-tb : tb-ta;
+        });
+      } else if(sortState.key==='total'){
+        arr.sort((a,b)=> sortState.dir==='asc' ? (a.total_gross-b.total_gross) : (b.total_gross-a.total_gross));
+      }
+      return arr;
+    }
+    function applyFilterAndRender(){
+      const q = (document.getElementById('history-search').value||'').trim().toLowerCase();
+      let rows = sortData(completedCache);
+      if(q){
+        rows = rows.filter(o=>{
+          const idStr = String(o.id);
+          const totStr = money(o.total_gross).toLowerCase();
+          const timeStr = o.created_at ? new Date(o.created_at).toLocaleTimeString().toLowerCase() : '';
+          return idStr.includes(q) || totStr.includes(q) || timeStr.includes(q);
+        });
+      }
+      renderRows(rows);
+    }
+    // Initial render
+    applyFilterAndRender();
+    // Wire sort handlers
+    const thead = document.querySelector('#completed-table thead');
+    thead.addEventListener('click', (e)=>{
+      const th = e.target.closest('[data-sort]');
+      if(!th) return;
+      const key = th.getAttribute('data-sort');
+      if(sortState.key===key){ sortState.dir = sortState.dir==='asc' ? 'desc' : 'asc'; }
+      else { sortState.key = key; sortState.dir = (key==='id') ? 'desc' : 'asc'; }
+      applyFilterAndRender();
     });
+    // Wire search input
+    const searchEl = document.getElementById('history-search');
+    if(searchEl){ searchEl.removeEventListener('__input', ()=>{}); searchEl.addEventListener('input', applyFilterAndRender); }
+  }
+
+  function openCompletedModal(o){
+    // Build lines HTML including selected options/choices
+    const linesHtml = (o.lines||[]).map(l=>{
+      const hasChoices = l && l.meta && Array.isArray(l.meta.display_choices) && l.meta.display_choices.length>0;
+      let choicesHtml = '';
+      if(hasChoices){
+        choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${l.meta.display_choices.map(c=>`<li>${c}</li>`).join('')}</ul>`;
+      } else if (l && l.meta){
+        const d = [];
+        if(l.meta.fries) d.push(`Fries: #${l.meta.fries}`);
+        if(l.meta.drink) d.push(`Drink: #${l.meta.drink}`);
+        if(Array.isArray(l.meta.options) && l.meta.options.length){ d.push(`Options: ${l.meta.options.map(x=>`#${x}`).join(', ')}`); }
+        if(d.length){ choicesHtml = `<ul class='small text-muted mb-0 ms-4'>${d.map(x=>`<li>${x}</li>`).join('')}</ul>`; }
+      }
+      const variantHtml = l.variant ? ` <span class='badge bg-secondary'> ${l.variant}</span>` : '';
+      const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
+      return `<li class='mb-1'><span class='fw-semibold'>${l.qty}x</span> ${l.name}${variantHtml}${mealHtml}${choicesHtml}</li>`;
+    }).join('');
+  const created = o.created_at ? new Date(o.created_at).toLocaleString() : '';
+  const packed = o.packed_at ? new Date(o.packed_at).toLocaleString() : '';
+    const completed = o.completed_at ? new Date(o.completed_at).toLocaleString() : '';
+    detailBody.innerHTML = `
+      <div class='d-flex justify-content-between align-items-start mb-2'>
+        <div>
+          <div class='fw-bold fs-5'>Order #${o.id}</div>
+          <div class='text-muted small'>Created: ${created}</div>
+      <div class='text-muted small'>Packed: ${packed}</div>
+          <div class='text-muted small'>Completed: ${completed}</div>
+          <div class='mt-1 small text-muted'>${o.payment_method || ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
+        </div>
+        <div class='fw-bold fs-5 text-nowrap'>${money(o.total_gross)}</div>
+      </div>
+      <hr/>
+      <ul class='list-unstyled mb-0 fs-6'>${linesHtml}</ul>`;
+    ensureCompletedModal();
+    if(window.bootstrap && completedModal) completedModal.show();
+  }
+
+  let completedModal = null;
+  function ensureCompletedModal(){
+    if(!completedModal && window.bootstrap){ completedModal = new bootstrap.Modal(document.getElementById('completedDetailModal')); }
   }
   function startTimers(){
     // Initialize badges with current age provided by server
@@ -186,12 +316,28 @@
   reloadHistBtn.addEventListener('click', loadCompleted);
   histDate.addEventListener('change', loadCompleted);
   loadSummary(); loadPending(); loadCompleted();
+  // Click on completed order row to open modal
+  histWrap.addEventListener('click', (e)=>{
+    const tr = e.target.closest('tr[data-oid]');
+    if(!tr) return;
+    const id = parseInt(tr.getAttribute('data-oid'), 10);
+    const o = (completedCache||[]).find(x=>x.id===id);
+    if(o) openCompletedModal(o);
+  });
   pendingWrap.addEventListener('click', (e)=>{
-    const btn=e.target.closest('[data-complete]');
-    if(!btn) return;
-    const id=btn.dataset.complete;
-  fetch(`/api/order/${id}/complete`, {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken':getCsrf()}})
-      .then(r=>r.json()).then(()=>{ loadSummary(); loadPending(); });
+    const packBtn=e.target.closest('[data-pack]');
+    if(packBtn){
+      const id=packBtn.dataset.pack;
+      fetch(`/api/order/${id}/pack`, {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken':getCsrf()}})
+        .then(r=>r.json()).then(()=>{ loadSummary(); loadPending(); });
+      return;
+    }
+    const dispBtn=e.target.closest('[data-dispatch]');
+    if(dispBtn){
+      const id=dispBtn.dataset.dispatch;
+      fetch(`/api/order/${id}/complete`, {method:'POST', credentials:'same-origin', headers:{'X-CSRFToken':getCsrf()}})
+        .then(r=>r.json()).then(()=>{ loadSummary(); loadPending(); loadCompleted(); });
+    }
   });
   function getCsrf(){ const m=document.cookie.match(/csrftoken=([^;]+)/); return m? m[1]:''; }
 })();

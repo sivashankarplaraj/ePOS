@@ -672,9 +672,11 @@ def api_orders_summary(request: HttpRequest):
     from .models import Order
     today = timezone.now().date()
     qs = Order.objects.filter(created_at__date=today)
-    pending = qs.filter(status='pending').count()
-    completed = qs.filter(status='completed').count()
-    return JsonResponse({'date': str(today), 'pending': pending, 'completed': completed})
+    preparing = qs.filter(status='preparing').count()
+    packed = qs.filter(status='packed').count()
+    # Count dispatched (strict)
+    dispatched = qs.filter(status='dispatched').count()
+    return JsonResponse({'date': str(today), 'preparing': preparing, 'packed': packed, 'dispatched': dispatched})
 
 
 @require_GET
@@ -682,11 +684,12 @@ def api_orders_pending(request: HttpRequest):
     from .models import Order
     today = timezone.now().date()
     orders = []
-    for o in Order.objects.filter(status='pending', created_at__date=today).order_by('created_at').prefetch_related('lines'):
+    for o in Order.objects.filter(status__in=['preparing','packed'], created_at__date=today).order_by('created_at').prefetch_related('lines'):
         orders.append({
             'id': o.id,
             'created_at': o.created_at.isoformat(),
             'age_seconds': int((timezone.now()-o.created_at).total_seconds()),
+            'status': o.status,
             'payment_method': o.payment_method,
             'crew_id': o.crew_id,
             'total_gross': o.total_gross,
@@ -710,12 +713,33 @@ def api_order_complete(request: HttpRequest, order_id: int):
         order = Order.objects.get(pk=order_id)
     except Order.DoesNotExist:
         return JsonResponse({'error':'Not found'}, status=404)
-    if order.status == 'completed':
-        return JsonResponse({'status':'already_completed'})
-    order.status = 'completed'
+    # If already dispatched, no-op
+    if order.status == 'dispatched':
+        return JsonResponse({'status':'already_dispatched'})
+    # Optionally enforce valid transition (allow from preparing or packed)
+    if order.status not in {'preparing', 'packed'}:
+        return JsonResponse({'error': 'Invalid state transition'}, status=400)
+    order.status = 'dispatched'
     order.completed_at = timezone.now()
     order.save(update_fields=['status','completed_at'])
     return JsonResponse({'status':'ok'})
+
+
+@require_POST
+def api_order_pack(request: HttpRequest, order_id: int):
+    from .models import Order
+    try:
+        order = Order.objects.get(pk=order_id)
+    except Order.DoesNotExist:
+        return JsonResponse({'error':'Not found'}, status=404)
+    if order.status == 'packed':
+        return JsonResponse({'status': 'already_packed'})
+    if order.status not in {'preparing','packed'}:
+        return JsonResponse({'error': 'Invalid state transition'}, status=400)
+    order.status = 'packed'
+    order.packed_at = timezone.now()
+    order.save(update_fields=['status','packed_at'])
+    return JsonResponse({'status': 'ok'})
 
 
 @require_GET
@@ -737,11 +761,13 @@ def api_orders_completed(request: HttpRequest):
         target_date = timezone.now().date()
 
     orders = []
-    qs = Order.objects.filter(status='completed', completed_at__date=target_date).order_by('-completed_at').prefetch_related('lines')
+    # Only dispatched orders for the date
+    qs = Order.objects.filter(status='dispatched', completed_at__date=target_date).order_by('-completed_at').prefetch_related('lines')
     for o in qs:
         orders.append({
             'id': o.id,
             'created_at': o.created_at.isoformat(),
+            'packed_at': o.packed_at.isoformat() if o.packed_at else None,
             'completed_at': o.completed_at.isoformat() if o.completed_at else None,
             'total_gross': o.total_gross,
             'payment_method': o.payment_method,
