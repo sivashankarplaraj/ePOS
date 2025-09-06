@@ -6,7 +6,8 @@ from django.views.decorators.http import require_GET
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
-    PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro
+    PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
+    EposGroup, EposProd, EposFreeProd
 )
 from pathlib import Path
 import json
@@ -293,28 +294,23 @@ def api_menu_categories(request: HttpRequest):
         return JsonResponse({'error': 'Invalid or missing band'}, status=400)
     include_empty = request.GET.get('include_empty', '').lower() in {'1','true','yes'}
 
-    # Item counts (lightweight): based on AppProd/AppComb membership per group
-    app_products = list(AppProd.objects.all())
-    app_combos = list(AppComb.objects.all())
-    prod_count_by_group: dict[int, int] = {}
-    combo_count_by_group: dict[int, int] = {}
-    for ap in app_products:
-        prod_count_by_group[ap.GROUP_ID] = prod_count_by_group.get(ap.GROUP_ID, 0) + 1
-    for ac in app_combos:
-        combo_count_by_group[ac.GROUP_ID] = combo_count_by_group.get(ac.GROUP_ID, 0) + 1
+    # New source: EposGroup / EposProd mapping. Keep response shape stable.
+    # Count items per EPOS_GROUP_ID from EposProd.
+    prod_counts: dict[int, int] = {}
+    for ep in EposProd.objects.all().only('EPOS_GROUP'):
+        prod_counts[ep.EPOS_GROUP] = prod_counts.get(ep.EPOS_GROUP, 0) + 1
 
     categories = []
-    for grp in GroupTb.objects.all().order_by('GROUP_ID'):
-        count = prod_count_by_group.get(grp.GROUP_ID, 0) + combo_count_by_group.get(grp.GROUP_ID, 0)
+    for grp in EposGroup.objects.all().order_by('EPOS_GROUP_ID'):
+        count = prod_counts.get(grp.EPOS_GROUP_ID, 0)
         if count or include_empty:
             categories.append({
-                'id': grp.GROUP_ID,
-                'name': (grp.GROUP_NAME or '').strip(),
-                'source_type': grp.SOURCE_TYPE,
-                'meal_group': grp.MEAL_GROUP,
+                'id': grp.EPOS_GROUP_ID,  # maintain 'id' key expected by frontend
+                'name': (grp.EPOS_GROUP_TITLE or '').strip(),
+                'source_type': 'P',  # legacy field retained for frontend; items treated as products
+                'meal_group': 0,     # placeholder (legacy compatibility)
                 'item_count': count,
             })
-
     return JsonResponse({'band': band, 'categories': categories})
 
 
@@ -332,31 +328,29 @@ def api_category_items(request: HttpRequest, group_id: int):
 
     vat_rates = _vat_rate_map()
 
-    grp = GroupTb.objects.filter(GROUP_ID=group_id).first()
+    grp = EposGroup.objects.filter(EPOS_GROUP_ID=group_id).first()
     if not grp:
         return JsonResponse({'error': 'Category not found'}, status=404)
 
+    # Fetch ePOS products for this group ordered by EPOS_SEQUENCE then name.
+    epos_products = list(EposProd.objects.filter(EPOS_GROUP=group_id).order_by('EPOS_SEQUENCE'))
+    prod_nums = [p.PRODNUMB for p in epos_products]
+    # Map to PdItem for pricing; we ignore combos for this new source (can extend later).
+    pd_items_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=prod_nums)}
+    # For variants / meal flags we can still look up AppProd meta if present.
+    app_prod_meta = {ap.PRODNUMB: ap for ap in AppProd.objects.filter(PRODNUMB__in=prod_nums)}
     items: list[dict] = []
-    # Products in this group
-    app_products = list(AppProd.objects.filter(GROUP_ID=group_id))
-    if app_products:
-        pd_items_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=[ap.PRODNUMB for ap in app_products])}
-        for ap in app_products:
-            pd_item = pd_items_map.get(ap.PRODNUMB)
-            if pd_item:
-                items.append(_serialize_product(pd_item, band, app_meta=ap, vat_rates=vat_rates))
-
-    # Combos in this group
-    app_combos = list(AppComb.objects.filter(GROUP_ID=group_id))
-    if app_combos:
-        comb_map = {c.COMBONUMB: c for c in CombTb.objects.filter(COMBONUMB__in=[ac.COMBONUMB for ac in app_combos])}
-        for ac in app_combos:
-            comb = comb_map.get(ac.COMBONUMB)
-            if comb:
-                items.append(_serialize_combo(comb, band, app_meta=ac, vat_rates=vat_rates))
-
-    items = sorted(items, key=lambda x: x['name'])
-    return JsonResponse({'band': band, 'category': {'id': grp.GROUP_ID, 'name': (grp.GROUP_NAME or '').strip()}, 'items': items})
+    for ep in epos_products:
+        pd_item = pd_items_map.get(ep.PRODNUMB)
+        if not pd_item:
+            continue
+        items.append(_serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates))
+    # Already ordered by sequence; optional secondary name sort stable
+    return JsonResponse({
+        'band': band,
+        'category': {'id': grp.EPOS_GROUP_ID, 'name': (grp.EPOS_GROUP_TITLE or '').strip()},
+        'items': items
+    })
 
 
 @require_GET
@@ -431,6 +425,46 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
                 'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks],
             }
         base['meal_components'] = meal_components
+        # Free choice groups (EposFreeProd): each row may define FREE_CHOICE_1 / FREE_CHOICE_2 as comma lists.
+        free_rows = list(EposFreeProd.objects.filter(PRODNUMB=code))
+        free_choice_groups = []
+        if free_rows:
+            # Collect all codes to batch load pricing names
+            all_codes: set[int] = set()
+            parsed_groups: list[tuple[int, list[int]]] = []
+            for fr in free_rows:
+                for idx, field in enumerate(['FREE_CHOICE_1','FREE_CHOICE_2'], start=1):
+                    raw = getattr(fr, field, '') or ''
+                    if not raw.strip():
+                        continue
+                    codes: list[int] = []
+                    for part in raw.split(','):
+                        part = part.strip()
+                        if not part:
+                            continue
+                        try:
+                            val = int(part)
+                        except Exception:
+                            continue
+                        codes.append(val)
+                        all_codes.add(val)
+                    if codes:
+                        parsed_groups.append((idx, codes))
+            if parsed_groups:
+                pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=list(all_codes))}
+                for order_index, codes in parsed_groups:
+                    opts = []
+                    for c in codes:
+                        p = pd_map.get(c)
+                        if p:
+                            opts.append(_serialize_product(p, band, vat_rates=vat_rates))
+                    if opts:
+                        free_choice_groups.append({
+                            'group': order_index,
+                            'free_count': 1,  # exactly one free from the list
+                            'options': opts
+                        })
+        base['free_choice_groups'] = free_choice_groups
         detail = base
     elif item_type == 'combo':
         appc = AppComb.objects.filter(COMBONUMB=code).first()
