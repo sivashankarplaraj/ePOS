@@ -239,8 +239,25 @@
     categoryStrip.innerHTML='<div class="text-muted small">Loading...</div>';
     fetch(`/api/menu/categories?band=${currentBand}`)
       .then(r=>r.json())
-      .then(data=>{ categories = data.categories || []; renderCategories(); autoSelectFirst(); })
+      .then(data=>{ 
+        categories = data.categories || []; 
+        injectStaticCategories();
+        renderCategories(); 
+        autoSelectFirst(); 
+      })
       .catch(err=>{ console.error('Categories load error', err); categoryStrip.innerHTML='<div class="text-danger small">Failed to load</div>'; });
+  }
+
+  // --- Static custom categories (e.g. Toppings) ---
+  const TOPPINGS_CAT_ID = '__TOPPINGS__';
+  const TOPPINGS = [
+    'cheese','lettuce','tomato','onions','garlic','chilli','mayo','ketchup','mustard','dills'
+  ];
+  function injectStaticCategories(){
+    // Append toppings category (avoid duplicates on re-fetch)
+    if(!categories.find(c=> c.id===TOPPINGS_CAT_ID)){
+      categories.push({ id: TOPPINGS_CAT_ID, name: 'Toppings', item_count: TOPPINGS.length, source_type:'S' });
+    }
   }
 
   function renderCategories(){
@@ -268,6 +285,10 @@
     activeCategoryId = catId;
     renderCategories();
     itemsContainer.innerHTML = '<div class="text-muted small">Loading items...</div>';
+    if(catId === TOPPINGS_CAT_ID){
+      renderToppings();
+      return;
+    }
     if(catItemsCache[catId]){
       currentItems = catItemsCache[catId];
       renderProducts();
@@ -323,6 +344,18 @@
       </div>`;
       col.appendChild(card); itemsContainer.appendChild(col);
     });
+  }
+
+  function renderToppings(){
+    itemsContainer.innerHTML='';
+    const frag=document.createDocumentFragment();
+    TOPPINGS.forEach(name=>{
+      const norm = name.toLowerCase();
+      const col=document.createElement('div'); col.className='col-6 col-md-4 col-xl-3';
+      col.innerHTML = `\n        <div class='card h-100 shadow-sm border-2'>\n          <div class='card-body d-flex flex-column'>\n            <h6 class='card-title mb-2 text-truncate' title='${name}'>${name.charAt(0).toUpperCase()+name.slice(1)}</h6>\n            <div class='mt-auto d-flex flex-column gap-2'>\n              <button type='button' class='btn btn-outline-danger btn-sm' data-topping-action='remove' data-topping='${norm}'>Remove</button>\n              <button type='button' class='btn btn-outline-success btn-sm' data-topping-action='extra' data-topping='${norm}'>Extra Portion</button>\n            </div>\n          </div>\n        </div>`;
+      frag.appendChild(col);
+    });
+    itemsContainer.appendChild(frag);
   }
 
   function findItem(type, code){
@@ -415,6 +448,17 @@
   });
 
   itemsContainer.addEventListener('click', (e)=>{
+    const toppingBtn = e.target.closest('[data-topping-action]');
+    if(toppingBtn){
+      const topping = toppingBtn.getAttribute('data-topping');
+      const action = toppingBtn.getAttribute('data-topping-action');
+      if(topping && action){
+        const isRemove = action==='remove';
+        const lineName = (isRemove? 'No ' : 'Extra ') + topping.charAt(0).toUpperCase()+topping.slice(1);
+        addLine({ code: `TOPPING_${topping.toUpperCase()}_${isRemove? 'NO':'EXTRA'}`, name: lineName, price:0, type:'topping', meta:{ topping, action } });
+      }
+      return;
+    }
     const variant = e.target.closest('[data-var]');
     if(variant){ openConfig('product', variant.dataset.parent, variant.dataset.var); return; }
     const openCard = e.target.closest('[data-open]');
