@@ -183,6 +183,14 @@
 {% block extra_js %}
 <script>
 (function(){
+  // Custom lightweight style injection for topping buttons (touch friendly)
+  const styleId='topping-buttons-style';
+  if(!document.getElementById(styleId)){
+    const st=document.createElement('style'); st.id=styleId; st.textContent = `
+      .topping-btn { min-height:70px; font-size:1.15rem; letter-spacing:0.5px; }
+      @media (pointer:coarse){ .topping-btn { min-height:80px; font-size:1.25rem; } }
+    `; document.head.appendChild(st);
+  }
   const bandButtonsWrap = document.getElementById('band-buttons');
   const basisButtonsWrap = document.getElementById('basis-buttons');
   const categoryStrip = document.getElementById('category-strip');
@@ -352,7 +360,7 @@
     TOPPINGS.forEach(name=>{
       const norm = name.toLowerCase();
       const col=document.createElement('div'); col.className='col-6 col-md-4 col-xl-3';
-      col.innerHTML = `\n        <div class='card h-100 shadow-sm border-2'>\n          <div class='card-body d-flex flex-column'>\n            <h6 class='card-title mb-2 text-truncate' title='${name}'>${name.charAt(0).toUpperCase()+name.slice(1)}</h6>\n            <div class='mt-auto d-flex flex-column gap-2'>\n              <button type='button' class='btn btn-outline-danger btn-sm' data-topping-action='remove' data-topping='${norm}'>Remove</button>\n              <button type='button' class='btn btn-outline-success btn-sm' data-topping-action='extra' data-topping='${norm}'>Extra Portion</button>\n            </div>\n          </div>\n        </div>`;
+  col.innerHTML = `\n        <div class='card h-100 shadow-sm border-2'>\n          <div class='card-body d-flex flex-column'>\n            <h6 class='card-title mb-3 text-truncate fs-5' title='${name}'>${name.charAt(0).toUpperCase()+name.slice(1)}</h6>\n            <div class='mt-auto d-flex flex-column gap-3'>\n              <button type='button' class='btn btn-outline-danger btn-lg fw-semibold topping-btn' data-topping-action='remove' data-topping='${norm}'>Remove</button>\n              <button type='button' class='btn btn-outline-success btn-lg fw-semibold topping-btn' data-topping-action='extra' data-topping='${norm}'>Extra Portion</button>\n            </div>\n          </div>\n        </div>`;
       frag.appendChild(col);
     });
     itemsContainer.appendChild(frag);
