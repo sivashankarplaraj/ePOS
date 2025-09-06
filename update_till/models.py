@@ -322,3 +322,69 @@ class ShopsTb(models.Model):
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"Shop {self.SHOP_CODE} - Name: {self.SHOP_NAME}, Abbreviation: {self.SHOP_ABBREV}, Last Updated: {self.last_updated}"
+
+
+# Table 21: EXTRAS
+# Stores extra items (e.g. extra bacon) for products.(PRODNUMB,PRODNAME,ITEM_DESC,SEQ_ORDER)
+# CSV file: EXTRAS<n>.CSV
+# <n> is the shop number (1-15)
+class Extras(models.Model):
+    PRODNUMB = models.IntegerField(help_text="Product code.")
+    PRODNAME = models.CharField(max_length=16, help_text="Product name.")
+    ITEM_DESC = models.CharField(max_length=20, help_text="Description of extra item.")
+    SEQ_ORDER = models.IntegerField(help_text="ePOS sequence number.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Extra for Product {self.PRODNUMB} - Name: {self.PRODNAME}, Description: {self.ITEM_DESC}, Order: {self.SEQ_ORDER}, Last Updated: {self.last_updated}"
+# Note: The 'id' field is automatically added by Django as the primary key for each model.
+
+# Table 22: EPOS_PROD
+# Stores ePOS product details for each shop.(PRODNUMB,PRODNAME,ITEM_DESC,EPOS_GROUP,EPOS_SEQUENCE)
+# CSV file: EPOS_PROD<n>.CSV
+# <n> is the shop number (1-15)
+class EposProd(models.Model):
+    PRODNUMB = models.IntegerField(help_text="Product code.")
+    PRODNAME = models.CharField(max_length=16, help_text="Product name.")
+    ITEM_DESC = models.CharField(max_length=20, help_text="Description of item.")
+    EPOS_GROUP = models.IntegerField(help_text="ePOS group number.")
+    EPOS_SEQUENCE = models.IntegerField(help_text="ePOS sequence number.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Product {self.PRODNUMB} - Name: {self.PRODNAME}, Description: {self.ITEM_DESC}, ePOS Group: {self.EPOS_GROUP}, ePOS Sequence: {self.EPOS_SEQUENCE}, Last Updated: {self.last_updated}"
+
+# Table 23: EPOS_GROUP
+# Stores ePOS group details.(EPOS_GROUP_ID,EPOS_GROUP_TITLE)
+# CSV file: EPOS_GROUP<n>.CSV
+# <n> is the shop number (1-15)
+class EposGroup(models.Model):
+    EPOS_GROUP_ID = models.IntegerField(help_text="ePOS group number.")
+    EPOS_GROUP_TITLE = models.CharField(max_length=20, help_text="ePOS group title.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Group {self.EPOS_GROUP_ID} - Title: {self.EPOS_GROUP_TITLE}, Last Updated: {self.last_updated}"
+
+# Table 24: EPOS_FREE_PROD
+# Stores ePOS free product details for each shop.(PRODNUMB,PRODNAME,FREE_CHOICE_1,FREE_CHOICE_2)
+# CSV file: EPOS_FREE_PROD.CSV
+class EposFreeProd(models.Model):
+    PRODNUMB = models.IntegerField(help_text="Product code.")
+    PRODNAME = models.CharField(max_length=16, help_text="Product name.")
+    # FREE_CHOICE_1/2 is a list of free choice PRODNUMB separated by commas
+    FREE_CHOICE_1 = models.CharField(max_length=40, help_text="First free choice item.")
+    FREE_CHOICE_2 = models.CharField(max_length=40, help_text="Second free choice item.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Free Product {self.PRODNUMB} - Name: {self.PRODNAME}, Free Choice 1: {self.FREE_CHOICE_1}, Free Choice 2: {self.FREE_CHOICE_2}, Last Updated: {self.last_updated}"
+    
+# Table 25: EPOS_COMB_FREE_PROD
+# Stores ePOS free product details for combination products for each shop.(COMBONUMB,ITEM_DESC,FREE_CHOICE_1,FREE_CHOICE_2)
+# CSV file: EPOS_COMB_FREE_PROD.CSV
+class EposCombFreeProd(models.Model):
+    COMBONUMB = models.IntegerField(help_text="Combination product code.")
+    ITEM_DESC = models.CharField(max_length=20, help_text="Description of combination product.")
+    # FREE_CHOICE_1/2 is a list of free choice PRODNUMB separated by commas
+    FREE_CHOICE_1 = models.CharField(max_length=40, help_text="First free choice item.")
+    FREE_CHOICE_2 = models.CharField(max_length=40, help_text="Second free choice item.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Comb Free Product {self.COMBONUMB} - Desc: {self.ITEM_DESC}, Free Choice 1: {self.FREE_CHOICE_1}, Free Choice 2: {self.FREE_CHOICE_2}, Last Updated: {self.last_updated}"
