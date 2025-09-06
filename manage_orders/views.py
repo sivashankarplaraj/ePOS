@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
-    EposGroup, EposProd
+    EposGroup, EposProd, EposFreeProd
 )
 from pathlib import Path
 import json
@@ -425,6 +425,46 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
                 'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks],
             }
         base['meal_components'] = meal_components
+        # Free choice groups (EposFreeProd): each row may define FREE_CHOICE_1 / FREE_CHOICE_2 as comma lists.
+        free_rows = list(EposFreeProd.objects.filter(PRODNUMB=code))
+        free_choice_groups = []
+        if free_rows:
+            # Collect all codes to batch load pricing names
+            all_codes: set[int] = set()
+            parsed_groups: list[tuple[int, list[int]]] = []
+            for fr in free_rows:
+                for idx, field in enumerate(['FREE_CHOICE_1','FREE_CHOICE_2'], start=1):
+                    raw = getattr(fr, field, '') or ''
+                    if not raw.strip():
+                        continue
+                    codes: list[int] = []
+                    for part in raw.split(','):
+                        part = part.strip()
+                        if not part:
+                            continue
+                        try:
+                            val = int(part)
+                        except Exception:
+                            continue
+                        codes.append(val)
+                        all_codes.add(val)
+                    if codes:
+                        parsed_groups.append((idx, codes))
+            if parsed_groups:
+                pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=list(all_codes))}
+                for order_index, codes in parsed_groups:
+                    opts = []
+                    for c in codes:
+                        p = pd_map.get(c)
+                        if p:
+                            opts.append(_serialize_product(p, band, vat_rates=vat_rates))
+                    if opts:
+                        free_choice_groups.append({
+                            'group': order_index,
+                            'free_count': 1,  # exactly one free from the list
+                            'options': opts
+                        })
+        base['free_choice_groups'] = free_choice_groups
         detail = base
     elif item_type == 'combo':
         appc = AppComb.objects.filter(COMBONUMB=code).first()
