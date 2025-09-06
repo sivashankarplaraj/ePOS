@@ -88,6 +88,17 @@ def load_csv(file_name: str, table_name: str):
                 if not table_columns:
                     print(f"[WARN] Table {table_name} has no schema info; skipped")
                     return
+                # Map header names for known discrepancies (e.g., model uses SQE_ORDER typo)
+                header_map = {}
+                if table_name == 'update_till_EXTRAS':
+                    # CSV provides SEQ_ORDER but model has SQE_ORDER
+                    if 'SQE_ORDER' in table_columns and 'SEQ_ORDER' in headers:
+                        header_map['SEQ_ORDER'] = 'SQE_ORDER'
+                # Apply header mapping
+                effective_headers = []
+                for h in headers:
+                    effective_headers.append(header_map.get(h, h))
+                headers = effective_headers
                 # Inject id if necessary
                 if 'id' in table_columns and 'id' not in headers:
                     headers = ['id'] + headers
