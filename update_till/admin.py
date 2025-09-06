@@ -1,16 +1,12 @@
 from django.contrib import admin
-from .models import (
-    KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, ACodes, BCodes,
-    CompPro, OptPro, PChoice, StItems, AppComb, AppProd, GroupTb, MiscSec,
-    CombExt, ProdExt, ShopsTb
-)
-
+from .models import *
 
 # Register all models with list_display for all fields
 model_list = [
     KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, ACodes, BCodes,
     CompPro, OptPro, PChoice, StItems, AppComb, AppProd, GroupTb, MiscSec,
-    CombExt, ProdExt, ShopsTb
+    CombExt, ProdExt, ShopsTb, Extras, EposProd, EposGroup, EposFreeProd,
+    EposCombFreeProd
 ]
 
 for model in model_list:
