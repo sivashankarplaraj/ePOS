@@ -104,6 +104,10 @@ def app_prod_order(request):
     }
     return render(request, 'manage_orders/app_prod_order.html', context)
 
+@ensure_csrf_cookie
+def reports(request):
+    return render(request, 'manage_orders/reports.html')
+
 def _price_column_name(band: str, discounted: bool) -> str:
     """Return model field name for given band and discounted flag.
 
