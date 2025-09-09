@@ -10,12 +10,15 @@ from django.db import models
 # Table K_PRO is a template for PD. There is a record for each product at 
 # the shop in table K_Meal.
 class KMeal(models.Model):
+    stat_date = models.DateField(help_text="Statistics date (business day)")
     PRODNUMB = models.IntegerField(help_text="Product code.")
     TAKEAWAY = models.IntegerField(help_text="Total number sold as takeaway meals on the given date.")
     EATIN = models.IntegerField(help_text="Total number sold as eatin meals on the given date.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    class Meta:
+        unique_together = (('stat_date','PRODNUMB'),)
     def __str__(self):
-        return f"Meal {self.PRODNUMB} - Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}, Last Updated: {self.last_updated}"
+        return f"{self.stat_date} Meal {self.PRODNUMB} - Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}"
 
 # Table 2: K_PRO
 # Tracks product and combination product sales and related stats per date.
@@ -24,6 +27,7 @@ class KMeal(models.Model):
 # There is a record for each product at the shop in table PD<dd/mm/yy>. 
 # There is a record for each combination product at the shop in table PD<dd/mm/yy>.
 class KPro(models.Model):
+    stat_date = models.DateField(help_text="Statistics date (business day)")
     PRODNUMB = models.IntegerField(help_text="Product or combination product code.")
     COMBO = models.BooleanField(help_text="True if combination product, else False.")
     TAKEAWAY = models.IntegerField(help_text="Total number sold as takeaway on the given date.")
@@ -32,8 +36,10 @@ class KPro(models.Model):
     STAFF = models.IntegerField(help_text="Total entered as Crew Food on the given date.")
     OPTION = models.IntegerField(help_text="Total chosen as optional product for products on the given date.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    class Meta:
+        unique_together = (('stat_date','PRODNUMB','COMBO'),)
     def __str__(self):
-        return f"Product {self.PRODNUMB} - Combo: {self.COMBO}, Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}, Waste: {self.WASTE}, Staff: {self.STAFF}, Option: {self.OPTION}, Last Updated: {self.last_updated}"
+        return f"{self.stat_date} Product {self.PRODNUMB} - Combo: {self.COMBO}, Takeaway: {self.TAKEAWAY}, Eatin: {self.EATIN}, Waste: {self.WASTE}, Staff: {self.STAFF}, Option: {self.OPTION}"
 
 # Table 3: K_REV
 # Tracks POS financials for a given date.
@@ -41,6 +47,7 @@ class KPro(models.Model):
 # For example, Table RV210725 is for date 21/07/25. 
 # There is only one record in table RV<dd/mm/yy>.
 class KRev(models.Model):
+    stat_date = models.DateField(help_text="Statistics date (business day)")
     TCASHVAL = models.BigIntegerField(help_text="Cash in drawer (pence) recorded by POS.")
     TCHQVAL = models.BigIntegerField(help_text="Cheques in drawer (pence) recorded by POS.")
     TCARDVAL = models.BigIntegerField(help_text="Card payments (pence) recorded by POS.")
@@ -64,8 +71,10 @@ class KRev(models.Model):
     VAT = models.BigIntegerField(help_text="Total VAT due (pence) on the given date.")
     XPV = models.BigIntegerField(help_text="Extended product value (pence) on the given date. Not required.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    class Meta:
+        unique_together = (('stat_date',),)
     def __str__(self):
-        return f"Revenue - Cash: {self.TCASHVAL}, Cheque: {self.TCHQVAL}, Card: {self.TCARDVAL}, On Account: {self.TONACCOUNT}, Last Updated: {self.last_updated}"
+        return f"{self.stat_date} Revenue - Cash: {self.TCASHVAL}, Cheque: {self.TCHQVAL}, Card: {self.TCARDVAL}, On Account: {self.TONACCOUNT}"
 
 # Table 4: K_WK_VAT
 # Tracks VAT rates and totals for each day of the week.
