@@ -6,7 +6,7 @@ model_list = [
     KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, ACodes, BCodes,
     CompPro, OptPro, PChoice, StItems, AppComb, AppProd, GroupTb, MiscSec,
     CombExt, ProdExt, ShopsTb, Extras, EposProd, EposGroup, EposFreeProd,
-    EposCombFreeProd
+    EposCombFreeProd, EposComb
 ]
 
 for model in model_list:

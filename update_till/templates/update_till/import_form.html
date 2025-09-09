@@ -1,0 +1,42 @@
+{% extends 'manage_orders/index.html' %}
+{% load static %}
+{% block content %}
+    <div class="container">
+        <h1 class="mb-3">Update Till – Import CSVs</h1>
+    <form method="post" class="row gy-2 align-items-center">
+            {% csrf_token %}
+            <div class="col-12 col-md-8">
+                <label for="csv_dir" class="form-label">CSV Directory Path</label>
+                <input type="text" id="csv_dir" name="csv_dir" class="form-control" placeholder="C:\\path\\to\\csvs" value="{{ provided_dir }}" required />
+                <div class="form-text">All required files must exist in this directory. They will be copied to: <code>{{ download_target }}</code></div>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Validate & Import</button>
+            </div>
+        </form>
+    {% if missing %}
+            <div class="alert alert-danger">
+                <strong>Missing/Invalid:</strong>
+                <ul>
+                    {% for m in missing %}
+                        <li class="missing">{{ m }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+    {% if output %}
+            <h5 class="mt-4">Import Output</h5>
+            <pre>{{ output }}</pre>
+        {% endif %}
+        <hr />
+    <h5>Expected CSV files (Total: {{ expected_files|length }})</h5>
+        <div class="mb-3">
+            <span>
+            {% for f in expected_files %}
+                <code>{{ f }}</code>{% if not forloop.last %} | {% endif %}
+            {% endfor %}
+            </span>
+        </div>
+    </div>
+{% endblock %}
