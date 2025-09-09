@@ -388,3 +388,17 @@ class EposCombFreeProd(models.Model):
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"ePOS Comb Free Product {self.COMBONUMB} - Desc: {self.ITEM_DESC}, Free Choice 1: {self.FREE_CHOICE_1}, Free Choice 2: {self.FREE_CHOICE_2}, Last Updated: {self.last_updated}"
+    
+# Table 26: EPOS_COMB
+# Stores ePOS combination product details for each shop.(COMBONUMB,DESC,ITEM_DESC,EPOS_GROUP,EPOS_SEQUENCE)
+# CSV file: EPOS_COMB<n>.CSV
+# <n> is the shop number (1-15)
+class EposComb(models.Model):
+    COMBONUMB = models.IntegerField(help_text="Combination product code.")
+    DESC = models.CharField(max_length=16, help_text="Name of combination product.")
+    ITEM_DESC = models.CharField(max_length=20, help_text="Description of combination product.")
+    EPOS_GROUP = models.IntegerField(help_text="ePOS group number.")
+    EPOS_SEQUENCE = models.IntegerField(help_text="ePOS sequence number.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Combination {self.COMBONUMB} - Desc: {self.DESC}, Description: {self.ITEM_DESC}, ePOS Group: {self.EPOS_GROUP}, ePOS Sequence: {self.EPOS_SEQUENCE}, Last Updated: {self.last_updated}"
