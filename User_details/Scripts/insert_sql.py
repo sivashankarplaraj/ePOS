@@ -12,11 +12,13 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# Explicitly load .env from project root to work in hosted environments
+dotenv.load_dotenv(BASE_DIR / '.env')
+
 # Resolve paths and environment once on import (safe; no DB I/O here)
-dotenv.load_dotenv()
 shop_number = os.getenv('SHOP_NUMBER') or '1'  # fallback to '1' if unset
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sql_db_path = BASE_DIR / 'db.sqlite3'
 # Directory where downloaded CSV files are stored
 script_dir = Path(__file__).resolve().parent

@@ -3,15 +3,21 @@
 {% block content %}
     <div class="container">
         <h1 class="mb-3">Update Till – Import CSVs</h1>
-    <form method="post" class="row gy-2 align-items-center">
+    <form method="post" enctype="multipart/form-data" class="row gy-3 align-items-start">
             {% csrf_token %}
-            <div class="col-12 col-md-8">
-                <label for="csv_dir" class="form-label">CSV Directory Path</label>
-                <input type="text" id="csv_dir" name="csv_dir" class="form-control" placeholder="C:\\path\\to\\csvs" value="{{ provided_dir }}" required />
-                <div class="form-text">All required files must exist in this directory. They will be copied to: <code>{{ download_target }}</code></div>
+            <div class="col-12 col-lg-6">
+                <label for="csv_dir" class="form-label">CSV Directory Path (on server)</label>
+                <input type="text" id="csv_dir" name="csv_dir" class="form-control" placeholder="/home/youruser/csvs" value="{{ provided_dir }}" />
+                <div class="form-text">Provide a directory that exists on this server (e.g. PythonAnywhere). Files will be copied to: <code>{{ download_target }}</code></div>
             </div>
-            <div class="col-12 col-md-4 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">Validate & Import</button>
+            <div class="col-12 col-lg-1 d-none d-lg-flex align-items-center justify-content-center">or</div>
+            <div class="col-12 col-lg-5">
+                <label for="csv_zip" class="form-label">Or upload a ZIP of the CSV files</label>
+                <input type="file" id="csv_zip" name="csv_zip" accept=".zip" class="form-control" />
+                <div class="form-text">We will extract the ZIP and import from it.</div>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Validate & Import</button>
             </div>
         </form>
     {% if missing %}
