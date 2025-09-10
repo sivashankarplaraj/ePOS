@@ -5,7 +5,7 @@ from .models import *
 model_list = [
     KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, ACodes, BCodes,
     CompPro, OptPro, PChoice, StItems, AppComb, AppProd, GroupTb, MiscSec,
-    CombExt, ProdExt, ShopsTb, Extras, EposProd, EposGroup, EposFreeProd,
+    CombExt, ProdExt, ShopsTb, EposProd, EposGroup, EposFreeProd,
     EposCombFreeProd, EposComb
 ]
 

@@ -25,7 +25,7 @@ script_dir = Path(__file__).resolve().parent
 downloaded_files_dir = script_dir / 'downloaded_files'
 
 # Mappings for CSV -> table. Some use shop suffix <n>.
-# We include new models: EXTRAS<n>, EPOS_PROD<n>, EPOS_GROUP<n>, EPOS_FREE_PROD.CSV, EPOS_COMB_FREE_PROD.CSV
+# Included: EPOS_PROD<n>, EPOS_GROUP<n>, EPOS_FREE_PROD.CSV, EPOS_COMB_FREE_PROD.CSV (Extras removed)
 csv_to_table = {
     f"PDITEM{shop_number}.CSV": "update_till_PDITEM",
     f"COMBTB{shop_number}.CSV": "update_till_COMBTB",
