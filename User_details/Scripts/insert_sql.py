@@ -44,7 +44,6 @@ csv_to_table = {
     "PROD_EXT.CSV": "update_till_PRODEXT",
     "SHOPS_TB.CSV": "update_till_SHOPSTB",
     # New tables (with shop number where applicable)
-    f"EXTRAS{shop_number}.CSV": "update_till_EXTRAS",
     f"EPOS_PROD{shop_number}.CSV": "update_till_EPOSPROD",
     f"EPOS_GROUP{shop_number}.CSV": "update_till_EPOSGROUP",
     "EPOS_FREE_PROD.CSV": "update_till_EPOSFREEPROD",
