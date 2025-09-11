@@ -11,28 +11,28 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav me-auto">
+  <ul class="navbar-nav me-auto">
         <!-- <li class="nav-item">
           <a class="nav-link {% if request.path == '/' %}active{% endif %}" aria-current="page" href="/">Home</a>
         </li> -->
         <li class="nav-item">
-          <a class="nav-link {% if '/manage_orders/dashboard' in request.path %}active{% endif %}" href="/manage_orders/dashboard/">Dashboard</a>
+          <a class="nav-link rounded px-3 py-2 {% if '/manage_orders/dashboard' in request.path %}nav-active{% endif %}" href="/manage_orders/dashboard/">Dashboard</a>
         </li>
         <!-- <li class="nav-item">
           <a class="nav-link {% if '/manage_orders/order' in request.path %}active{% endif %}" href="/manage_orders/order/">Orders</a>
         </li> -->
         <li class="nav-item">
-          <a class="nav-link {% if '/manage_orders/app_prod_order' in request.path %}active{% endif %}" href="/manage_orders/app_prod_order/">Products</a>
+          <a class="nav-link rounded px-3 py-2 {% if '/manage_orders/app_prod_order' in request.path %}nav-active{% endif %}" href="/manage_orders/app_prod_order/">Products</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#">Sales</a>
+          <a class="nav-link rounded px-3 py-2 {% if '/manage_orders/sales' in request.path %}nav-active{% endif %}" href="#">Sales</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/manage_orders/reports/">Reports</a>
+          <a class="nav-link rounded px-3 py-2 {% if '/manage_orders/reports' in request.path %}nav-active{% endif %}" href="/manage_orders/reports/">Reports</a>
         </li>
         {% if request.user.is_staff %}
         <li class="nav-item">
-          <a class="nav-link {% if '/update_till/' in request.path %}active{% endif %}" href="{% url 'update_till_import' %}">Update Till</a>
+          <a class="nav-link rounded px-3 py-2 {% if '/update_till/' in request.path %}nav-active{% endif %}" href="{% url 'update_till_import' %}">Update Till</a>
         </li>
         {% endif %}
       </ul>
@@ -52,3 +52,11 @@
     </div>
   </div>
 </nav>
+<style>
+/* Active nav styling (supports light & dark) */
+.navbar .nav-link.nav-active { background: var(--bs-primary); color:#fff !important; font-weight:600; box-shadow:0 0 0 .15rem rgba(var(--bs-primary-rgb), .25); }
+@media (prefers-color-scheme: dark) {
+  .navbar .nav-link.nav-active { box-shadow:0 0 0 .15rem rgba(var(--bs-primary-rgb), .4); }
+}
+.navbar .nav-link.nav-active:hover { color:#fff; }
+</style>
