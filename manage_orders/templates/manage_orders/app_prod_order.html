@@ -937,23 +937,40 @@
 
   function submitOrder(extra){
     if(!basket.lines.length) return;
+    // Filter out client-side only topping adjustment pseudo-lines.
+    const coreLines = basket.lines.filter(l=> l.type !== 'topping');
+    if(!coreLines.length){
+      alert('Add at least one product/combo before saving (toppings alone are not sent).');
+      return;
+    }
     checkoutBtn.disabled = true; checkoutBtn.textContent='Saving...';
-  const payload = {
+    // Build payload only with numeric codes; skip any line whose code cannot parse to int.
+    const apiLines = coreLines.map(l=>{
+      const numeric = parseInt(l.code,10);
+      if(Number.isNaN(numeric)) return null; // drop invalid codes
+      return {
+        code: numeric,
+        type: (l.type==='combo') ? 'combo' : 'product',
+        name: l.name,
+        variant: l.variant,
+        meal: !!l.meal,
+        qty: l.qty||1,
+        price_gross: l.price,
+        meta: l.meta || {}
+      };
+    }).filter(Boolean);
+    if(!apiLines.length){
+      alert('No valid product lines to submit.');
+      checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout';
+      return;
+    }
+    const payload = {
       price_band: currentBand,
       vat_basis: vatBasis,
       show_net: showNet,
       payment_method: extra?.payment_method || 'Cash',
       crew_id: extra?.crew_id || '0',
-      lines: basket.lines.map(l=>({
-        code: l.code,
-        type: l.type || 'product',
-        name: l.name,
-        variant: l.variant,
-        meal: !!l.meal,
-        qty: l.qty||1,
-    price_gross: l.price,
-    meta: l.meta || {}
-      }))
+      lines: apiLines
     };
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
