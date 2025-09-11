@@ -81,7 +81,8 @@ def _price_band_map():
 
 @ensure_csrf_cookie
 def index(request):    
-    return dashboard(request)
+    # return app_prod_order.html template
+    return render(request, 'manage_orders/app_prod_order.html')
 
 @ensure_csrf_cookie
 def order(request):
