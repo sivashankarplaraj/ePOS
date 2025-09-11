@@ -209,6 +209,8 @@
   let activeCategoryId = null;
 
   const basket = { lines:[], total:0 };
+  // Track the signature of the last added non-topping line so toppings can attach to it
+  let lastProductSignature = null;
 
   // Modal / config state
   const cfgModalEl = document.getElementById('itemConfigModal');
@@ -383,6 +385,9 @@
     const existing = basket.lines.find(l=> l.signature === sig);
     if(existing){ existing.qty = (existing.qty||1)+ (line.qty||1); }
     else basket.lines.push({...line, qty: line.qty||1, signature: sig});
+    if(line.type !== 'topping'){
+      lastProductSignature = sig; // remember for subsequent toppings
+    }
     renderBasket();
   }
   function createLineSignature(line){
@@ -461,9 +466,13 @@
       const topping = toppingBtn.getAttribute('data-topping');
       const action = toppingBtn.getAttribute('data-topping-action');
       if(topping && action){
+        if(!lastProductSignature){
+          alert('Add a product before applying toppings.');
+          return;
+        }
         const isRemove = action==='remove';
         const lineName = (isRemove? 'No ' : 'Extra ') + topping.charAt(0).toUpperCase()+topping.slice(1);
-        addLine({ code: `TOPPING_${topping.toUpperCase()}_${isRemove? 'NO':'EXTRA'}`, name: lineName, price:0, type:'topping', meta:{ topping, action } });
+        addLine({ code: `TOPPING_${topping.toUpperCase()}_${isRemove? 'NO':'EXTRA'}`, name: lineName, price:0, type:'topping', meta:{ topping, action, targetSig: lastProductSignature } });
       }
       return;
     }
@@ -937,18 +946,42 @@
 
   function submitOrder(extra){
     if(!basket.lines.length) return;
-    // Filter out client-side only topping adjustment pseudo-lines.
-    const coreLines = basket.lines.filter(l=> l.type !== 'topping');
-    if(!coreLines.length){
-      alert('Add at least one product/combo before saving (toppings alone are not sent).');
+    checkoutBtn.disabled = true; checkoutBtn.textContent='Saving...';
+    // Separate topping pseudo-lines and real lines
+    const toppingLines = basket.lines.filter(l=> l.type === 'topping');
+    const coreLinesRaw = basket.lines.filter(l=> l.type !== 'topping');
+    if(!coreLinesRaw.length){
+      alert('Add a product/combo before saving.');
+      checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout';
       return;
     }
-    checkoutBtn.disabled = true; checkoutBtn.textContent='Saving...';
-    // Build payload only with numeric codes; skip any line whose code cannot parse to int.
-    const apiLines = coreLines.map(l=>{
+    // Group toppings by target signature
+    const toppingsBySig = {};
+    toppingLines.forEach(t=>{
+      const target = t.meta?.targetSig;
+      if(!target) return;
+      (toppingsBySig[target] ||= []).push(t);
+    });
+    // Build API lines, merging toppings into meta of their target product
+    const apiLines = [];
+    coreLinesRaw.forEach(l=>{
       const numeric = parseInt(l.code,10);
-      if(Number.isNaN(numeric)) return null; // drop invalid codes
-      return {
+      if(Number.isNaN(numeric)) return; // skip invalid
+      const meta = {...(l.meta||{})};
+      const attached = toppingsBySig[l.signature] || [];
+      if(attached.length){
+        const remove = [], extra = [], displayChoices = meta.display_choices ? [...meta.display_choices] : [];
+        attached.forEach(tl=>{
+          const top = tl.meta?.topping;
+            if(!top) return;
+          if(tl.meta?.action==='remove'){ remove.push(top); displayChoices.push('No ' + top); }
+          else if(tl.meta?.action==='extra'){ extra.push(top); displayChoices.push('Extra ' + top); }
+        });
+        if(remove.length) meta.toppings_remove = remove;
+        if(extra.length) meta.toppings_extra = extra;
+        if(displayChoices.length) meta.display_choices = displayChoices;
+      }
+      apiLines.push({
         code: numeric,
         type: (l.type==='combo') ? 'combo' : 'product',
         name: l.name,
@@ -956,22 +989,15 @@
         meal: !!l.meal,
         qty: l.qty||1,
         price_gross: l.price,
-        meta: l.meta || {}
-      };
-    }).filter(Boolean);
+        meta
+      });
+    });
     if(!apiLines.length){
       alert('No valid product lines to submit.');
       checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout';
       return;
     }
-    const payload = {
-      price_band: currentBand,
-      vat_basis: vatBasis,
-      show_net: showNet,
-      payment_method: extra?.payment_method || 'Cash',
-      crew_id: extra?.crew_id || '0',
-      lines: apiLines
-    };
+    const payload = { price_band: currentBand, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', lines: apiLines };
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
       .then(resp=>{
