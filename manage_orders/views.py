@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
-    EposGroup, EposProd, EposFreeProd, EposComb
+    EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd
 )
 from pathlib import Path
 import json
@@ -520,6 +520,45 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
         # Free optional allowances heuristic: look for dips keyword or infer from documentation (hard to derive generically) -> placeholder free_opt_count=2 if 'dip' in any optional name and len(optional)>1
         dip_like = [o for o in base['optional'] if 'dip' in o['name'].lower()]
         base['free_optional_count'] = 2 if dip_like else 0
+        # Free choice groups for combo (EposCombFreeProd) mirroring product free choices
+        free_rows = list(EposCombFreeProd.objects.filter(COMBONUMB=code))
+        free_choice_groups = []
+        if free_rows:
+            all_codes: set[int] = set()
+            parsed_groups: list[tuple[int, list[int]]] = []
+            for fr in free_rows:
+                for idx, field in enumerate(['FREE_CHOICE_1','FREE_CHOICE_2'], start=1):
+                    raw = getattr(fr, field, '') or ''
+                    if not raw.strip():
+                        continue
+                    codes: list[int] = []
+                    for part in raw.split(','):
+                        part = part.strip()
+                        if not part:
+                            continue
+                        try:
+                            val = int(part)
+                        except Exception:
+                            continue
+                        codes.append(val)
+                        all_codes.add(val)
+                    if codes:
+                        parsed_groups.append((idx, codes))
+            if parsed_groups:
+                pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=list(all_codes))}
+                for order_index, codes in parsed_groups:
+                    opts = []
+                    for c in codes:
+                        p = pd_map.get(c)
+                        if p:
+                            opts.append(_serialize_product(p, band, vat_rates=vat_rates))
+                    if opts:
+                        free_choice_groups.append({
+                            'group': order_index,
+                            'free_count': 1,
+                            'options': opts
+                        })
+        base['free_choice_groups'] = free_choice_groups
         detail = base
     else:
         return JsonResponse({'error': 'Invalid item_type'}, status=400)
