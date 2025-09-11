@@ -669,7 +669,8 @@
       comboStruct.classList.remove('d-none');
       (data.compulsory||[]).forEach(c=>{ compUL.insertAdjacentHTML('beforeend', `<li>${c.name} ${money(c.price_gross)}</li>`); });
       if(data.optional && data.optional.length){
-        freeLbl.textContent = data.free_optional_count? `(First ${data.free_optional_count} free)` : '';
+        // Extras for combos are not free; suppress any '(First N free)' text
+        freeLbl.textContent = '';
         data.optional.forEach(o=>{
           const id=`opt-combo-${o.code}`;
           optDiv.insertAdjacentHTML('beforeend', `<div class='form-check'><input class='form-check-input' type='checkbox' id='${id}' data-combo-opt='${o.code}'><label class='form-check-label small' for='${id}'>${o.name} ${money(o.price_gross)}</label></div>`);
