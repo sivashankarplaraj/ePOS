@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
-    EposGroup, EposProd, EposFreeProd
+    EposGroup, EposProd, EposFreeProd, EposComb
 )
 from pathlib import Path
 import json
@@ -298,22 +298,29 @@ def api_menu_categories(request: HttpRequest):
         return JsonResponse({'error': 'Invalid or missing band'}, status=400)
     include_empty = request.GET.get('include_empty', '').lower() in {'1','true','yes'}
 
-    # New source: EposGroup / EposProd mapping. Keep response shape stable.
-    # Count items per EPOS_GROUP_ID from EposProd.
+    # New source: EposGroup / EposProd / EposComb mapping. Keep response shape stable.
+    # Count products per EPOS_GROUP_ID from EposProd.
     prod_counts: dict[int, int] = {}
     for ep in EposProd.objects.all().only('EPOS_GROUP'):
         prod_counts[ep.EPOS_GROUP] = prod_counts.get(ep.EPOS_GROUP, 0) + 1
+    # Count combos per EPOS_GROUP from EposComb (e.g. Special Offers group 9)
+    combo_counts: dict[int, int] = {}
+    for ec in EposComb.objects.all().only('EPOS_GROUP'):
+        combo_counts[ec.EPOS_GROUP] = combo_counts.get(ec.EPOS_GROUP, 0) + 1
 
     categories = []
     for grp in EposGroup.objects.all().order_by('EPOS_GROUP_ID'):
-        count = prod_counts.get(grp.EPOS_GROUP_ID, 0)
-        if count or include_empty:
+        prod_count = prod_counts.get(grp.EPOS_GROUP_ID, 0)
+        comb_count = combo_counts.get(grp.EPOS_GROUP_ID, 0)
+        total = prod_count + comb_count
+        if total or include_empty:
             categories.append({
                 'id': grp.EPOS_GROUP_ID,  # maintain 'id' key expected by frontend
                 'name': (grp.EPOS_GROUP_TITLE or '').strip(),
-                'source_type': 'P',  # legacy field retained for frontend; items treated as products
+                'source_type': 'P',  # legacy field retained for frontend
                 'meal_group': 0,     # placeholder (legacy compatibility)
-                'item_count': count,
+                'item_count': total,
+                'has_combos': comb_count > 0,
             })
     return JsonResponse({'band': band, 'categories': categories})
 
@@ -336,20 +343,45 @@ def api_category_items(request: HttpRequest, group_id: int):
     if not grp:
         return JsonResponse({'error': 'Category not found'}, status=404)
 
-    # Fetch ePOS products for this group ordered by EPOS_SEQUENCE then name.
+    # Fetch ePOS products for this group ordered by EPOS_SEQUENCE
     epos_products = list(EposProd.objects.filter(EPOS_GROUP=group_id).order_by('EPOS_SEQUENCE'))
     prod_nums = [p.PRODNUMB for p in epos_products]
-    # Map to PdItem for pricing; we ignore combos for this new source (can extend later).
     pd_items_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=prod_nums)}
-    # For variants / meal flags we can still look up AppProd meta if present.
     app_prod_meta = {ap.PRODNUMB: ap for ap in AppProd.objects.filter(PRODNUMB__in=prod_nums)}
+
     items: list[dict] = []
     for ep in epos_products:
         pd_item = pd_items_map.get(ep.PRODNUMB)
         if not pd_item:
             continue
         items.append(_serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates))
-    # Already ordered by sequence; optional secondary name sort stable
+
+    # Add combination products from EposComb for this group (e.g., Special Offers / group 9)
+    epos_combos = list(EposComb.objects.filter(EPOS_GROUP=group_id).order_by('EPOS_SEQUENCE'))
+    if epos_combos:
+        # Map COMBONUMB to CombTb to pull pricing/VAT where available
+        comb_details = {c.COMBONUMB: c for c in CombTb.objects.filter(COMBONUMB__in=[ec.COMBONUMB for ec in epos_combos])}
+        for ec in epos_combos:
+            detail = comb_details.get(ec.COMBONUMB)
+            if detail:
+                items.append(_serialize_combo(detail, band, vat_rates=vat_rates))
+            else:
+                # Fallback minimal serialization (price 0 if no CombTb pricing row)
+                items.append({
+                    'type': 'combo',
+                    'code': ec.COMBONUMB,
+                    'name': (ec.DESC or '').strip(),
+                    'band': band,
+                    'price_gross': 0,
+                    'price_net_take': 0,
+                    'price_net_eat': 0,
+                    'take_vat_rate': 0.0,
+                    'eat_vat_rate': 0.0,
+                    'variants': [],
+                    'meal_flag': False,
+                    'has_discount': False
+                })
+    # Keep insertion order: products then combos (mirrors legacy behaviour)
     return JsonResponse({
         'band': band,
         'category': {'id': grp.EPOS_GROUP_ID, 'name': (grp.EPOS_GROUP_TITLE or '').strip()},
