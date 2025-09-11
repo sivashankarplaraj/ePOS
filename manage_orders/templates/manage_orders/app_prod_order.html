@@ -63,16 +63,37 @@
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label class="form-label fw-semibold" for="pay-method" style="font-size:1.1rem;">Payment Method</label>
-          <select id="pay-method" class="form-select form-select-lg py-3" style="font-size:1.15rem;">
-            <option>Cash</option>
-            <option>Card</option>
-            <option>On Account</option>
-            <option>Voucher</option>
-            <option>Paid Out</option>
-            <option>Crew Food</option>
-            <option>Waste food</option>
-          </select>
+          <span class="form-label fw-semibold d-block mb-2" style="font-size:1.1rem;">Payment Method</span>
+          <div id="pay-method" class="d-flex flex-wrap gap-3" role="radiogroup" aria-label="Payment Method">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-cash" value="Cash" checked>
+              <label class="form-check-label" for="pay-cash">Cash</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-card" value="Card">
+              <label class="form-check-label" for="pay-card">Card</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-account" value="On Account">
+              <label class="form-check-label" for="pay-account">On Account</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-voucher" value="Voucher">
+              <label class="form-check-label" for="pay-voucher">Voucher</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-paidout" value="Paid Out">
+              <label class="form-check-label" for="pay-paidout">Paid Out</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-crew" value="Crew Food">
+              <label class="form-check-label" for="pay-crew">Crew Food</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="pay-method" id="pay-waste" value="Waste food">
+              <label class="form-check-label" for="pay-waste">Waste food</label>
+            </div>
+          </div>
         </div>
         <div class="mb-2">
           <label class="form-label fw-semibold" for="crew-id" style="font-size:1.1rem;">Crew ID</label>
@@ -450,7 +471,8 @@
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
   checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
   document.getElementById('confirm-checkout').addEventListener('click', ()=>{
-    const payMethod = document.getElementById('pay-method').value;
+  const payMethodEl = document.querySelector('input[name="pay-method"]:checked');
+  const payMethod = payMethodEl ? payMethodEl.value : 'Cash';
     const crewId = (document.getElementById('crew-id').value||'').trim();
     if(crewId===''){
       document.getElementById('crew-id-error').classList.remove('d-none');
