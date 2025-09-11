@@ -64,35 +64,14 @@
       <div class="modal-body">
         <div class="mb-3">
           <span class="form-label fw-semibold d-block mb-2" style="font-size:1.1rem;">Payment Method</span>
-          <div id="pay-method" class="d-flex flex-wrap gap-3" role="radiogroup" aria-label="Payment Method">
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-cash" value="Cash" checked>
-              <label class="form-check-label" for="pay-cash">Cash</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-card" value="Card">
-              <label class="form-check-label" for="pay-card">Card</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-account" value="On Account">
-              <label class="form-check-label" for="pay-account">On Account</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-voucher" value="Voucher">
-              <label class="form-check-label" for="pay-voucher">Voucher</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-paidout" value="Paid Out">
-              <label class="form-check-label" for="pay-paidout">Paid Out</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-crew" value="Crew Food">
-              <label class="form-check-label" for="pay-crew">Crew Food</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="radio" name="pay-method" id="pay-waste" value="Waste food">
-              <label class="form-check-label" for="pay-waste">Waste food</label>
-            </div>
+          <div id="pay-method-buttons" class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-primary pay-method-btn active" data-pay-method="Cash">Cash</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Card">Card</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="On Account">On Account</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Voucher">Voucher</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Paid Out">Paid Out</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Crew Food">Crew Food</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Waste food">Waste food</button>
           </div>
         </div>
         <div class="mb-2">
@@ -470,9 +449,18 @@
   // Checkout flow opens modal to collect payment method and crew ID
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
   checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
+  // Payment method button group (touch friendly)
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.pay-method-btn');
+    if(btn && btn.closest('#pay-method-buttons')){
+      const wrap = document.getElementById('pay-method-buttons');
+      wrap.querySelectorAll('.pay-method-btn').forEach(b=> b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  });
   document.getElementById('confirm-checkout').addEventListener('click', ()=>{
-  const payMethodEl = document.querySelector('input[name="pay-method"]:checked');
-  const payMethod = payMethodEl ? payMethodEl.value : 'Cash';
+  const activePayBtn = document.querySelector('#pay-method-buttons .pay-method-btn.active');
+  const payMethod = activePayBtn ? activePayBtn.getAttribute('data-pay-method') : 'Cash';
     const crewId = (document.getElementById('crew-id').value||'').trim();
     if(crewId===''){
       document.getElementById('crew-id-error').classList.remove('d-none');
