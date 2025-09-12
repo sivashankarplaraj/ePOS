@@ -32,24 +32,43 @@
   <div id="category-strip" class="d-flex flex-nowrap overflow-auto gap-3 py-3" style="font-size:1.35rem; -webkit-overflow-scrolling: touch;"></div>
 </div>
 
-<!-- Main layout: Items (60%) | Basket (40%) -->
-<div class="row" id="order-workspace">
-  <div class="col-12 col-lg-7" id="items-pane" style="max-height:70vh; overflow:auto;">
+<!-- Items Pane (full width); basket now floating/offcanvas -->
+<div id="order-workspace">
+  <div id="items-pane" style="max-height:72vh; overflow:auto;">
     <div class="fw-semibold small text-uppercase text-secondary mb-2">Items</div>
-    <div id="items-container" class="row g-3">
-      <!-- Items injected via JS -->
-    </div>
+    <div id="items-container" class="row g-3"><!-- Items injected via JS --></div>
   </div>
-  <div class="col-12 col-lg-5 border-start" id="basket-pane" style="max-height:70vh; overflow:auto;">
-    <div class="fw-semibold small text-uppercase text-secondary mb-2">Basket</div>
-    <ul class="list-group" id="basket-list" style="font-size:1.15rem;"></ul>
-    <div class="mt-3 d-flex justify-content-between align-items-center">
-      <span class="fw-semibold">Total</span>
-      <span id="basket-total" class="fs-5">£0.00</span>
+</div>
+
+<!-- Floating Basket Button -->
+<button id="basket-fab" type="button" class="btn btn-primary rounded-pill shadow-lg position-fixed d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#basketOffcanvas" aria-controls="basketOffcanvas" style="bottom:1rem; right:1rem; z-index:1080; padding:.9rem 1.2rem; font-size:1.15rem;">
+  <span class="badge text-bg-light text-dark" id="basket-fab-count" style="font-size:.95rem; min-width:2rem;">0</span>
+  <span>Basket</span>
+  <span id="basket-fab-total" class="fw-semibold">£0.00</span>
+</button>
+
+<!-- Basket Offcanvas (overlay) -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="basketOffcanvas" aria-labelledby="basketOffcanvasLabel" data-bs-scroll="true">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="basketOffcanvasLabel">Basket</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body d-flex flex-column p-0">
+    <div class="p-3 border-bottom">
+      <div class="small text-uppercase text-secondary fw-semibold">Current Items</div>
     </div>
-    <div class="mt-4 text-end">
-      <button class="btn btn-lg btn-outline-secondary px-4 py-2 me-2" id="clear-basket" disabled>Clear</button>
-      <button class="btn btn-lg btn-primary px-4 py-2" id="checkout" disabled>Checkout</button>
+    <div class="flex-grow-1 overflow-auto p-3">
+      <ul class="list-group" id="basket-list" style="font-size:1.15rem;"></ul>
+    </div>
+    <div class="border-top p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="fw-semibold">Total</span>
+        <span id="basket-total" class="fs-4">£0.00</span>
+      </div>
+      <div class="d-flex justify-content-end gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary btn-lg px-4 py-2" id="clear-basket" disabled>Clear</button>
+        <button class="btn btn-primary btn-lg px-4 py-2" id="checkout" disabled data-bs-dismiss="offcanvas">Checkout</button>
+      </div>
     </div>
   </div>
 </div>
@@ -191,6 +210,12 @@
       @media (pointer:coarse){ .topping-btn { min-height:80px; font-size:1.25rem; } }
     `; document.head.appendChild(st);
   }
+  // Hide floating basket button while any offcanvas is open (Bootstrap adds body.offcanvas-open)
+  if(!document.getElementById('basket-fab-hide-style')){
+    const st2=document.createElement('style'); st2.id='basket-fab-hide-style';
+    st2.textContent = `body.offcanvas-open #basket-fab{display:none !important;}`; // must override Bootstrap .d-flex !important
+    document.head.appendChild(st2);
+  }
   const bandButtonsWrap = document.getElementById('band-buttons');
   const basisButtonsWrap = document.getElementById('basis-buttons');
   const categoryStrip = document.getElementById('category-strip');
@@ -199,6 +224,14 @@
   const basketTotal = document.getElementById('basket-total');
   const clearBtn = document.getElementById('clear-basket');
   const checkoutBtn = document.getElementById('checkout');
+  const basketFab = document.getElementById('basket-fab');
+  const basketFabCount = document.getElementById('basket-fab-count');
+  const basketFabTotal = document.getElementById('basket-fab-total');
+  const basketOffcanvasEl = document.getElementById('basketOffcanvas');
+  if(basketOffcanvasEl){
+    basketOffcanvasEl.addEventListener('show.bs.offcanvas', ()=>{ if(basketFab) basketFab.classList.add('d-none'); });
+    basketOffcanvasEl.addEventListener('hidden.bs.offcanvas', ()=>{ if(basketFab) basketFab.classList.remove('d-none'); });
+  }
   let currentBand = '1';
   let vatBasis = 'take'; // default
   let showNet = false;
@@ -444,6 +477,14 @@
     });
     basketTotal.textContent = money(basket.total);
     clearBtn.disabled = basket.lines.length===0; checkoutBtn.disabled = basket.lines.length===0;
+    // Floating button updates
+    const totalQty = basket.lines.reduce((s,l)=> s + (l.qty||1),0);
+    if(basketFabCount) basketFabCount.textContent = totalQty;
+    if(basketFabTotal) basketFabTotal.textContent = money(basket.total);
+    if(basketFab){
+      basketFab.classList.toggle('btn-outline-secondary', basket.lines.length===0);
+      basketFab.disabled = basket.lines.length===0;
+    }
   }
   clearBtn.addEventListener('click', ()=>{ basket.lines=[]; renderBasket(); });
   // Checkout flow opens modal to collect payment method and crew ID
