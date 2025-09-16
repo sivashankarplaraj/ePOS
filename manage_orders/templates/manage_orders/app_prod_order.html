@@ -2,6 +2,14 @@
 {% load static %}
 {% block content %}
 <h5 class="mt-3">Create Order</h5>
+<style>
+  .basket-pinned-wrapper{ position:fixed; top:0; right:0; width:380px; max-width:95vw; height:100vh; background:var(--bs-body-bg); border-left:1px solid var(--bs-border-color); z-index:1075; display:flex; flex-direction:column; box-shadow:-2px 0 8px rgba(0,0,0,.15); }
+  .basket-pinned-wrapper .offcanvas-header{ border-bottom:1px solid var(--bs-border-color); }
+  .basket-pinned-wrapper .offcanvas-body{ flex:1 1 auto; overflow:hidden; }
+  .basket-pinned-wrapper .offcanvas-body .flex-grow-1{ overflow:auto; }
+  body.basket-pinned #basket-fab{ display:none !important; }
+  .basket-line-active{ outline:2px solid var(--bs-primary); outline-offset:2px; border-radius:6px; }
+</style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Select Price Band</label>
@@ -51,7 +59,12 @@
 <div class="offcanvas offcanvas-end" tabindex="-1" id="basketOffcanvas" aria-labelledby="basketOffcanvasLabel" data-bs-scroll="true">
   <div class="offcanvas-header">
     <h5 class="offcanvas-title" id="basketOffcanvasLabel">Basket</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="basket-pin-toggle" title="Pin basket" aria-label="Pin basket">
+        <span data-pin-icon>📌</span>
+      </button>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
   </div>
   <div class="offcanvas-body d-flex flex-column p-0">
     <div class="p-3 border-bottom">
@@ -244,6 +257,10 @@
   const basket = { lines:[], total:0 };
   // Track the signature of the last added non-topping line so toppings can attach to it
   let lastProductSignature = null;
+  // Incrementing counter to create unique topping groups
+  let toppingGroupCounter = 1;
+  let lastRemovedTopping = null; // last removed topping line for undo
+  let undoTimer = null;
 
   // Modal / config state
   const cfgModalEl = document.getElementById('itemConfigModal');
@@ -412,29 +429,54 @@
   }
 
   function addLine(line){
-    // Compute a signature so we only merge identical configuration (code, variant, meal, choices)
-    const sig = createLineSignature(line);
-    line.signature = sig;
-    const existing = basket.lines.find(l=> l.signature === sig);
-    if(existing){ existing.qty = (existing.qty||1)+ (line.qty||1); }
-    else basket.lines.push({...line, qty: line.qty||1, signature: sig});
+    // For non-topping lines compute a baseSignature (without toppings) used for merging.
     if(line.type !== 'topping'){
-      lastProductSignature = sig; // remember for subsequent toppings
+      line.baseSignature = createBaseSignature(line);
+      // Attempt merge only if there is an existing line with same baseSignature and no toppings yet.
+      const existing = basket.lines.find(l=> l.type !== 'topping' && l.baseSignature === line.baseSignature && !lineHasToppings(l));
+      if(existing){
+        existing.qty = (existing.qty||1) + (line.qty||1);
+        lastProductSignature = existing.signature; // keep pointing to the merged line
+      } else {
+        // New line: assign toppingGroup null initially; signature == baseSignature
+        line.toppingGroup = null;
+        line.signature = line.baseSignature;
+        basket.lines.push({...line, qty: line.qty||1});
+        lastProductSignature = line.signature;
+      }
+    } else {
+      // Topping pseudo-line: signature derived from target product signature to keep uniqueness
+      line.signature = createLineSignature(line);
+      basket.lines.push({...line, qty:1});
     }
     renderBasket();
   }
-  function createLineSignature(line){
+  function createBaseSignature(line){
     const meta = line.meta || {};
     const opts = (meta.options||[]).slice().sort((a,b)=>a-b).join('-');
     const fries = meta.fries || '';
     const drink = meta.drink || '';
     const variant = line.variant || '';
-    // For topping pseudo-lines include target signature so toppings for different products never merge
+    return [line.code, variant, line.meal?1:0, fries, drink, opts].join('|');
+  }
+  function lineHasToppings(prodLine){
+    return basket.lines.some(t=> t.type==='topping' && t.meta?.targetSig === prodLine.signature);
+  }
+  function ensureToppingGroup(prodLine){
+    if(prodLine.toppingGroup == null){
+      prodLine.toppingGroup = toppingGroupCounter++;
+      prodLine.signature = prodLine.baseSignature + '|T' + prodLine.toppingGroup;
+    }
+    return prodLine.toppingGroup;
+  }
+  function createLineSignature(line){
     if(line.type === 'topping'){
+      const meta = line.meta || {};
       const target = meta.targetSig || 'NONE';
       return [line.code, 'TOPPING', target].join('|');
     }
-    return [line.code, variant, line.meal?1:0, fries, drink, opts].join('|');
+    // Non-topping lines rely on existing signature
+    return line.signature || line.baseSignature;
   }
   function renderBasket(){
     basket.total = basket.lines.reduce((s,l)=> s + (l.price * (l.qty||1)), 0);
@@ -444,6 +486,8 @@
     displayLines.forEach((l,idx)=>{
       const li=document.createElement('li');
       li.className='list-group-item';
+      li.dataset.lineSig = l.signature;
+      if(l.signature === lastProductSignature){ li.classList.add('basket-line-active'); }
       // Build choices/details list
       let details = [];
       const meta = l.meta || {};
@@ -469,9 +513,10 @@
         });
         toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
       }
+      const customBadge = attachedToppings.length? " <span class='badge bg-warning text-dark ms-1' style='font-size:0.65rem;'>CUSTOM</span>" : '';
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
-          <div>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}</div>
+          <div class='basket-line-main' data-select-line='${l.signature}' role='button'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}${customBadge}</div>
           ${detailsHtml}
           ${toppingsHtml}
         </div>
@@ -506,7 +551,42 @@
       basketFab.disabled = displayLines.length===0;
     }
   }
-  clearBtn.addEventListener('click', ()=>{ basket.lines=[]; renderBasket(); });
+  clearBtn.addEventListener('click', ()=>{ basket.lines=[]; lastProductSignature=null; renderBasket(); });
+  // Pin / Unpin basket logic
+  const pinToggleBtn = document.getElementById('basket-pin-toggle');
+  let basketPinned = false;
+  const offcanvasEl = document.getElementById('basketOffcanvas');
+  function applyPinState(){
+    if(basketPinned){
+      document.body.classList.add('basket-pinned');
+      offcanvasEl.classList.add('basket-pinned-wrapper','show');
+      offcanvasEl.style.visibility='visible';
+      offcanvasEl.style.transform='none';
+      offcanvasEl.removeAttribute('aria-hidden');
+      // Remove existing backdrop & body lock
+      document.querySelectorAll('.offcanvas-backdrop').forEach(b=> b.remove());
+      document.body.classList.remove('offcanvas-open');
+      pinToggleBtn.title='Unpin basket'; pinToggleBtn.setAttribute('aria-label','Unpin basket');
+      pinToggleBtn.querySelector('[data-pin-icon]').textContent='📍';
+      if(basketFab){ basketFab.classList.add('d-none'); basketFab.style.display='none'; }
+    } else {
+      document.body.classList.remove('basket-pinned');
+      offcanvasEl.classList.remove('basket-pinned-wrapper');
+      offcanvasEl.style.transform='';
+      pinToggleBtn.title='Pin basket'; pinToggleBtn.setAttribute('aria-label','Pin basket');
+      pinToggleBtn.querySelector('[data-pin-icon]').textContent='📌';
+      // Hide the offcanvas immediately (user can reopen with FAB)
+      offcanvasEl.classList.remove('show');
+      offcanvasEl.setAttribute('aria-hidden','true');
+      offcanvasEl.style.visibility='';
+      if(basketFab){ basketFab.classList.remove('d-none'); basketFab.style.display=''; }
+    }
+  }
+  if(pinToggleBtn){
+    pinToggleBtn.addEventListener('click', ()=>{ basketPinned = !basketPinned; applyPinState(); });
+  }
+  // Prevent Bootstrap auto-dismiss when pinned
+  offcanvasEl.addEventListener('hide.bs.offcanvas', (e)=>{ if(basketPinned){ e.preventDefault(); } });
   // Checkout flow opens modal to collect payment method and crew ID
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
   checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
@@ -543,7 +623,18 @@
         }
         const isRemove = action==='remove';
         const lineName = (isRemove? 'No ' : 'Extra ') + topping.charAt(0).toUpperCase()+topping.slice(1);
-        addLine({ code: `TOPPING_${topping.toUpperCase()}_${isRemove? 'NO':'EXTRA'}`, name: lineName, price:0, type:'topping', meta:{ topping, action, targetSig: lastProductSignature } });
+        const targetLine = basket.lines.find(l=> l.signature === lastProductSignature && l.type !== 'topping');
+        if(!targetLine){ return; }
+        if(targetLine.qty > 1){
+          targetLine.qty -= 1;
+          const clone = { ...targetLine, qty:1 };
+          basket.lines.push(clone);
+          lastProductSignature = clone.signature; // operate on clone for toppings
+        }
+        ensureToppingGroup(targetLine);
+        lastProductSignature = targetLine.signature;
+        const toppingLine = { code: `TOPPING_${topping.toUpperCase()}_${isRemove? 'NO':'EXTRA'}`, name: lineName, price:0, type:'topping', meta:{ topping, action, targetSig: targetLine.signature } };
+        addLine(toppingLine);
       }
       return;
     }
@@ -569,8 +660,38 @@
     const del = e.target.closest('[data-del]');
     if(del){ const i=parseInt(del.dataset.del,10); const lineToDelete=basket.lines[i]; if(lineToDelete && lineToDelete.signature){ basket.lines = basket.lines.filter(l=> l!==lineToDelete && !(l.type==='topping' && l.meta?.targetSig===lineToDelete.signature)); } else { basket.lines.splice(i,1);} renderBasket(); return; }
     const removeTopBtn = e.target.closest('[data-remove-topping]');
-    if(removeTopBtn){ const idx=parseInt(removeTopBtn.dataset.removeTopping,10); if(!isNaN(idx) && basket.lines[idx] && basket.lines[idx].type==='topping'){ basket.lines.splice(idx,1); renderBasket(); } return; }
+    if(removeTopBtn){ const idx=parseInt(removeTopBtn.dataset.removeTopping,10); if(!isNaN(idx) && basket.lines[idx] && basket.lines[idx].type==='topping'){ const removed = basket.lines.splice(idx,1)[0]; lastRemovedTopping = removed; maybeRevertCustomizedLine(removed.meta?.targetSig); showUndoToast(); renderBasket(); } return; }
+    const selectLine = e.target.closest('[data-select-line]');
+    if(selectLine){ lastProductSignature = selectLine.dataset.selectLine; renderBasket(); return; }
   });
+
+  function maybeRevertCustomizedLine(sig){
+    if(!sig) return;
+    const prod = basket.lines.find(l=> l.signature === sig && l.type !== 'topping');
+    if(!prod) return;
+    const stillHas = basket.lines.some(t=> t.type==='topping' && t.meta?.targetSig === sig);
+    if(!stillHas && prod.toppingGroup != null){
+      prod.toppingGroup = null;
+      prod.signature = prod.baseSignature;
+      const existing = basket.lines.find(l=> l!==prod && l.type!=='topping' && l.signature===prod.baseSignature && !lineHasToppings(l));
+      if(existing){ existing.qty += prod.qty; basket.lines = basket.lines.filter(l=> l!==prod); }
+    }
+  }
+  function showUndoToast(){
+    clearTimeout(undoTimer);
+    let toast = document.getElementById('undo-toast');
+    if(!toast){
+      toast = document.createElement('div');
+      toast.id='undo-toast';
+      toast.className='alert alert-secondary shadow-sm d-flex align-items-center gap-3 py-2 px-3';
+      Object.assign(toast.style,{position:'fixed',bottom:'1rem',left:'50%',transform:'translateX(-50%)',zIndex:2000});
+      toast.innerHTML = `<span class='small flex-grow-1'>Topping removed</span><button type='button' class='btn btn-sm btn-outline-primary' id='undo-btn'>Undo</button>`;
+      document.body.appendChild(toast);
+    }
+    toast.classList.remove('d-none');
+    document.getElementById('undo-btn').onclick = ()=>{ if(lastRemovedTopping){ basket.lines.push(lastRemovedTopping); lastRemovedTopping=null; toast.classList.add('d-none'); renderBasket(); } };
+    undoTimer = setTimeout(()=>{ if(toast){ toast.classList.add('d-none'); lastRemovedTopping=null; } },5000);
+  }
 
   function openConfig(type, code, preVariant){
     ensureModal();
