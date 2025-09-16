@@ -25,8 +25,8 @@
 		<p class="fs-5">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
 		<div class="row g-3 mb-3">
 			<div class="col-12 col-lg-6">
-				<div class="border rounded p-2 h-100">
-					<canvas id="paymentMethodChart" height="200" aria-label="Payment method sales chart" role="img"></canvas>
+				<div class="border rounded p-2 h-100" style="min-height:320px;display:flex;align-items:center;justify-content:center;">
+					<canvas id="paymentMethodChart" aria-label="Payment method sales chart" role="img" style="max-width:100%;max-height:100%;"></canvas>
 				</div>
 			</div>
 			<div class="col-12 col-lg-6">
@@ -47,12 +47,28 @@
 	</div>
 
 	<div id="download-status" class="small text-muted"></div>
+
+	<div id="hourly-section" style="display:none;" class="mt-4">
+		<h5 class="mb-2">Hourly Trend (<span id="hourly-date"></span>)</h5>
+		<div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+			<div class="btn-group btn-group-sm" role="group" aria-label="Metric selector" id="hourly-metric-group">
+				<button type="button" class="btn btn-outline-secondary active" data-metric="orders">Orders</button>
+				<button type="button" class="btn btn-outline-secondary" data-metric="gross">Sales £</button>
+			</div>
+			<small class="text-muted">Hover points for values</small>
+		</div>
+		<div class="border rounded p-2 position-relative" style="min-height:260px;">
+			<canvas id="hourlyChart" height="240" aria-label="Hourly sales/orders chart" role="img"></canvas>
+		</div>
+	</div>
 </div>
 
-<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script src="{% static 'chart.js-4.5.0/chart.umd.min.js' %}"></script>
 <script>
 (() => {
 	const dateInput = document.getElementById('report-date');
+	// Shared number formatter for GBP
+	const gbpFmt = new Intl.NumberFormat('en-GB', {style:'currency', currency:'GBP', minimumFractionDigits:2});
 	const refreshBtn = document.getElementById('refresh-btn');
 		const downloadBtn = document.getElementById('download-csv-btn');
 	const salesSummary = document.getElementById('sales-summary');
@@ -61,6 +77,11 @@
 	const pmTableBody = document.querySelector('#pm-breakdown-table tbody');
 	const statusDiv = document.getElementById('download-status');
   let pmChart = null;
+	let hourlyChart = null;
+	const hourlySection = document.getElementById('hourly-section');
+	const hourlyDateLbl = document.getElementById('hourly-date');
+	const hourlyMetricGroup = document.getElementById('hourly-metric-group');
+	let hourlyDataCache = null; // store last fetched hourly structure
 
 	// Default date = today
 	const todayStr = new Date().toISOString().slice(0,10);
@@ -93,6 +114,11 @@
 				if (ctx) {
 					const labels = methods.map(m => m.method);
 					const values = methods.map(m => m.total_gross/100.0); // convert to pounds for scale
+					console.log('[PaymentChart] labels:', labels, 'values:', values);
+					if(!values.length) {
+						ctx.parentNode.innerHTML = '<div class="text-center text-muted py-5">No payment method data for this date.</div>';
+						return;
+					}
 					const background = labels.map((_, i) => {
 						// Simple palette rotation
 						const colors = ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#20c997','#fd7e14','#6610f2','#0dcaf0','#adb5bd'];
@@ -104,23 +130,54 @@
 						pmChart.data.datasets[0].backgroundColor = background;
 						pmChart.update();
 					} else {
+						// Reusable centerText plugin (works with Chart.js 4.5.0) after datasets drawn
+						const centerTextPlugin = {
+							id: 'centerText',
+							afterDraw(chart, args, opts) {
+								if(chart.config.type !== 'doughnut') return;
+								const ds = chart.data?.datasets?.[0];
+								if(!ds || !Array.isArray(ds.data) || !ds.data.length) return;
+								const total = ds.data.reduce((a,b)=> a + (Number(b)||0), 0);
+								const {ctx, chartArea} = chart;
+								if(!chartArea) return; // layout not ready yet
+								const centerX = (chartArea.left + chartArea.right)/2;
+								const centerY = (chartArea.top + chartArea.bottom)/2;
+								ctx.save();
+								ctx.font = '600 14px system-ui, sans-serif';
+								ctx.fillStyle = '#222';
+								ctx.textAlign = 'center';
+								ctx.textBaseline = 'middle';
+								ctx.fillText(gbpFmt.format(total), centerX, centerY);
+								ctx.restore();
+							}
+						};
+						console.log('[PaymentChart] creating new chart with dataset length', values.length);
 						pmChart = new Chart(ctx, {
 							type: 'doughnut',
-							data: { labels, datasets: [{ label: 'Sales (£)', data: values, backgroundColor: background }] },
+							data: { labels, datasets: [{ label: 'Sales (£)', data: values, backgroundColor: background, hoverOffset: 6 }] },
 							options: {
+								responsive: true,
+								maintainAspectRatio: false,
+								cutout: '55%',
+								interaction: { mode: 'nearest', intersect: true },
 								plugins: {
-									legend: { position: 'bottom' },
+									legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle' } },
 									title: { display: true, text: 'Payment Method Share (£)' },
-									tooltip: { callbacks: { label: (ctx) => `${ctx.label}: £${ctx.parsed.toFixed(2)}` } }
+									tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${gbpFmt.format(Number(ctx.parsed))}` } }
 								},
-								animation: { duration: 400 }
-							}
+								animation: { duration: 450 },
+								onResize(chart, size){ console.log('[PaymentChart] resized', size); }
+							},
+							plugins: [centerTextPlugin]
 						});
+						console.log('[PaymentChart] chart instance created', pmChart.id);
 					}
 				}
-			} catch(chartErr) { console.warn('Chart error', chartErr); }
+				} catch(chartErr) { console.warn('Chart error', chartErr); }
 			salesSummary.style.display = 'block';
 			if (downloadBtn) downloadBtn.disabled = false;
+			// After successful daily summary, load hourly trend
+			loadHourly();
 		} catch (e) {
 			console.error(e);
 			salesSummary.style.display = 'none';
@@ -157,6 +214,105 @@
 	refreshBtn.addEventListener('click', loadSummary);
 	dateInput.addEventListener('change', loadSummary);
 		if (downloadBtn) downloadBtn.addEventListener('click', downloadCsvZip);
+
+	async function loadHourly() {
+		const d = dateInput.value || todayStr;
+		try {
+			const resp = await fetch(`/api/daily-sales-hourly?date=${encodeURIComponent(d)}`);
+			if(!resp.ok) throw new Error('Hourly fetch failed');
+			const data = await resp.json();
+			hourlyDataCache = data.hours || [];
+			hourlyDateLbl.textContent = data.date;
+			hourlySection.style.display = 'block';
+			renderHourlyChart();
+		} catch(err) {
+			console.warn('Hourly error', err);
+			hourlySection.style.display = 'none';
+		}
+	}
+
+	function renderHourlyChart() {
+		if(!hourlyDataCache) return;
+		const metric = hourlyMetricGroup.querySelector('button.active')?.dataset.metric || 'orders';
+		const labels = hourlyDataCache.map(h => h.hour.toString().padStart(2,'0'));
+		const values = hourlyDataCache.map(h => metric==='orders' ? h.order_count : (h.total_gross/100.0));
+		const label = metric==='orders' ? 'Orders' : 'Sales £';
+		const color = metric==='orders' ? '#198754' : '#0d6efd';
+		const canvas = document.getElementById('hourlyChart');
+		if(!canvas) return;
+		if(hourlyChart) {
+			hourlyChart.data.labels = labels;
+			hourlyChart.data.datasets[0].data = values;
+			hourlyChart.data.datasets[0].borderColor = color;
+			hourlyChart.data.datasets[0].pointBackgroundColor = color;
+			hourlyChart.update();
+		} else {
+				hourlyChart = new Chart(canvas, {
+					type: 'line',
+					data: { 
+						labels, 
+						datasets: [{ 
+							label, 
+							data: values, 
+							borderColor: color, 
+							pointBackgroundColor: color, 
+							tension: 0.15, 
+							pointRadius: 4,
+							pointHoverRadius: 6
+						} ] 
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						interaction: { mode: 'index', intersect: false },
+						scales: {
+							y: {
+								beginAtZero: true,
+								title: { display: true, text: label },
+								ticks: {
+									callback: (val) => metric==='gross' ? gbpFmt.format(val).replace('GBP','').trim() : val
+								}
+							},
+							x: { }
+						},
+						plugins: {
+							legend: { display: false },
+							tooltip: { callbacks: { label: (ctx) => metric==='gross' ? `Hour ${ctx.label}: ${gbpFmt.format(ctx.parsed.y)}` : `Hour ${ctx.label}: ${ctx.parsed.y} orders` } }
+						}
+					}
+				});
+		}
+	}
+
+	hourlyMetricGroup.addEventListener('click', (e)=>{
+		const btn = e.target.closest('button[data-metric]');
+		if(!btn) return;
+		hourlyMetricGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+		btn.classList.add('active');
+		// Re-render with new metric (updates dataset + axis + tooltip)
+		if(hourlyDataCache && hourlyChart){
+			const metric = btn.dataset.metric;
+			const labels = hourlyDataCache.map(h => h.hour.toString().padStart(2,'0'));
+			const values = hourlyDataCache.map(h => metric==='orders' ? h.order_count : (h.total_gross/100.0));
+			const label = metric==='orders' ? 'Orders' : 'Sales £';
+			const color = metric==='orders' ? '#198754' : '#0d6efd';
+			hourlyChart.data.labels = labels;
+			const ds = hourlyChart.data.datasets[0];
+			ds.data = values;
+			ds.label = label;
+			ds.borderColor = color;
+			ds.pointBackgroundColor = color;
+			// Update axis title & tick callback
+			const yScale = hourlyChart.options.scales.y;
+			yScale.title.text = label;
+			yScale.ticks.callback = (val) => metric==='gross' ? gbpFmt.format(val).replace('GBP','').trim() : val;
+			// Update tooltip formatter
+			hourlyChart.options.plugins.tooltip.callbacks.label = (ctx) => metric==='gross' ? `Hour ${ctx.label}: ${gbpFmt.format(ctx.parsed.y)}` : `Hour ${ctx.label}: ${ctx.parsed.y} orders`;
+			hourlyChart.update();
+		} else {
+			renderHourlyChart();
+		}
+	});
 	loadSummary();
 })();
 </script>

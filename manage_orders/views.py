@@ -935,6 +935,36 @@ def api_daily_sales(request: HttpRequest):
 
 
 @require_GET
+def api_daily_sales_hourly(request: HttpRequest):
+    """Return hourly breakdown of orders for a given date.
+
+    Response:
+      { "date": "YYYY-MM-DD", "hours": [ {"hour":0, "order_count": 3, "total_gross": 1234}, ..., {"hour":23,...} ] }
+    Hours are 0-23 inclusive. Missing hours have zero counts.
+    """
+    from .models import Order
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            return JsonResponse({'error': 'Invalid date format, expected YYYY-MM-DD'}, status=400)
+    else:
+        target_date = timezone.now().date()
+    # Filter orders on that date
+    qs = Order.objects.filter(created_at__date=target_date).only('created_at','total_gross')
+    buckets = {h: {'hour': h, 'order_count': 0, 'total_gross': 0} for h in range(24)}
+    for o in qs:
+        h = o.created_at.hour
+        b = buckets.get(h)
+        if b:
+            b['order_count'] += 1
+            b['total_gross'] += o.total_gross
+    ordered = [buckets[h] for h in range(24)]
+    return JsonResponse({'date': str(target_date), 'hours': ordered})
+
+
+@require_GET
 @staff_member_required
 def export_daily_csvs_zip(request: HttpRequest):
     """Generate daily CSVs (MP/PD/RV) via management command and return them zipped.
