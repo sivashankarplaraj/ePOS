@@ -460,8 +460,20 @@
       const attachedToppings = basket.lines.filter(t=> t.type==='topping' && t.meta?.targetSig === l.signature);
       let toppingsHtml='';
       if(attachedToppings.length){
-        const tops = attachedToppings.map(t=> `<li>${t.name}</li>`).join('');
-        toppingsHtml = `<ul class='small text-info mb-1 ms-2 list-unstyled'>${tops}</ul>`;
+        const TOPPING_COLLAPSE_THRESHOLD = 3;
+        const topsLi = [];
+        attachedToppings.forEach((t,i)=>{
+          const isExtra = /extra/i.test(t.name);
+          const isRemove = /(^|\s)no\s/i.test(t.name);
+          const cls = isExtra? 'text-success' : (isRemove? 'text-danger' : 'text-info');
+          const hiddenClass = (i >= TOPPING_COLLAPSE_THRESHOLD) ? 'd-none topping-overflow' : '';
+          const idxRef = basket.lines.indexOf(t);
+          topsLi.push(`<li class='${cls} ${hiddenClass}' data-topping-line='${idxRef}'>${t.name} <button type='button' class='btn btn-sm btn-link p-0 ms-1 text-decoration-none text-muted' data-remove-topping='${idxRef}' aria-label='Remove topping' title='Remove'>&times;</button></li>`);
+        });
+        if(attachedToppings.length > TOPPING_COLLAPSE_THRESHOLD){
+          topsLi.push(`<li><button type='button' class='btn btn-sm btn-outline-secondary py-0 px-2' data-expand-toppings='1'>+ More</button></li>`);
+        }
+        toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
       }
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
@@ -561,7 +573,11 @@
     const dec = e.target.closest('[data-dec]');
     if(dec){ const i=parseInt(dec.dataset.dec,10); basket.lines[i].qty--; if(basket.lines[i].qty<=0) basket.lines.splice(i,1); renderBasket(); return; }
     const del = e.target.closest('[data-del]');
-    if(del){ const i=parseInt(del.dataset.del,10); basket.lines.splice(i,1); renderBasket(); return; }
+    if(del){ const i=parseInt(del.dataset.del,10); const lineToDelete=basket.lines[i]; if(lineToDelete && lineToDelete.signature){ basket.lines = basket.lines.filter(l=> l!==lineToDelete && !(l.type==='topping' && l.meta?.targetSig===lineToDelete.signature)); } else { basket.lines.splice(i,1);} renderBasket(); return; }
+    const expandBtn = e.target.closest('[data-expand-toppings]');
+    if(expandBtn){ const list = expandBtn.closest('.toppings-list'); if(list){ list.querySelectorAll('.topping-overflow').forEach(li=> li.classList.remove('d-none')); expandBtn.remove(); } return; }
+    const removeTopBtn = e.target.closest('[data-remove-topping]');
+    if(removeTopBtn){ const idx=parseInt(removeTopBtn.dataset.removeTopping,10); if(!isNaN(idx) && basket.lines[idx] && basket.lines[idx].type==='topping'){ basket.lines.splice(idx,1); renderBasket(); } return; }
   });
 
   function openConfig(type, code, preVariant){
