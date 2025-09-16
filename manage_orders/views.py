@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.views.decorators.http import require_GET
+from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
@@ -108,7 +109,7 @@ def app_prod_order(request):
 
 @ensure_csrf_cookie
 def reports(request):
-    return render(request, 'manage_orders/reports.html')
+    return render(request, 'manage_orders/reports.html', {'is_staff': getattr(request.user, 'is_staff', False)})
 
 def _price_column_name(band: str, discounted: bool) -> str:
     """Return model field name for given band and discounted flag.
@@ -934,6 +935,7 @@ def api_daily_sales(request: HttpRequest):
 
 
 @require_GET
+@staff_member_required
 def export_daily_csvs_zip(request: HttpRequest):
     """Generate daily CSVs (MP/PD/RV) via management command and return them zipped.
 

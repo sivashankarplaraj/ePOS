@@ -11,9 +11,11 @@
 		<div class="col-auto">
 			<button id="refresh-btn" class="btn btn-primary" type="button">Load Summary</button>
 		</div>
-		<div class="col-auto">
-			<button id="download-csv-btn" class="btn btn-outline-success" type="button" disabled>Download Daily CSVs (Zip)</button>
-		</div>
+			{% if is_staff %}
+			<div class="col-auto">
+				<button id="download-csv-btn" class="btn btn-outline-success" type="button" disabled>Download Daily CSVs (Zip)</button>
+			</div>
+			{% endif %}
 	</form>
 
 	<hr />
@@ -42,7 +44,7 @@
 (() => {
 	const dateInput = document.getElementById('report-date');
 	const refreshBtn = document.getElementById('refresh-btn');
-	const downloadBtn = document.getElementById('download-csv-btn');
+		const downloadBtn = document.getElementById('download-csv-btn');
 	const salesSummary = document.getElementById('sales-summary');
 	const summaryDateLbl = document.getElementById('summary-date');
 	const totalGrossLbl = document.getElementById('total-gross-lbl');
@@ -73,18 +75,18 @@
 				pmTableBody.appendChild(tr);
 			});
 			salesSummary.style.display = 'block';
-			downloadBtn.disabled = false;
+			if (downloadBtn) downloadBtn.disabled = false;
 		} catch (e) {
 			console.error(e);
 			salesSummary.style.display = 'none';
-			downloadBtn.disabled = true;
+			if (downloadBtn) downloadBtn.disabled = true;
 			alert('Error loading summary');
 		}
 	}
 
 	async function downloadCsvZip() {
 		const d = dateInput.value || todayStr;
-		downloadBtn.disabled = true;
+		if (downloadBtn) downloadBtn.disabled = true;
 		statusDiv.textContent = 'Generating CSVs...';
 		try {
 			const resp = await fetch(`/reports/export-daily-csvs?date=${encodeURIComponent(d)}`);
@@ -103,13 +105,13 @@
 			statusDiv.textContent = 'Download failed';
 			alert('Failed to generate CSVs');
 		} finally {
-			downloadBtn.disabled = false;
+			if (downloadBtn) downloadBtn.disabled = false;
 		}
 	}
 
 	refreshBtn.addEventListener('click', loadSummary);
 	dateInput.addEventListener('change', loadSummary);
-	downloadBtn.addEventListener('click', downloadCsvZip);
+		if (downloadBtn) downloadBtn.addEventListener('click', downloadCsvZip);
 	loadSummary();
 })();
 </script>
