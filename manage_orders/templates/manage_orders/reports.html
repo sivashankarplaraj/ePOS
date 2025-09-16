@@ -23,6 +23,13 @@
 	<div id="sales-summary" class="mb-4" style="display:none;">
 		<h5>Sales Summary (<span id="summary-date"></span>)</h5>
 		<p class="fs-5">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
+		<div class="row g-3 mb-3">
+			<div class="col-12 col-lg-6">
+				<div class="border rounded p-2 h-100">
+					<canvas id="paymentMethodChart" height="200" aria-label="Payment method sales chart" role="img"></canvas>
+				</div>
+			</div>
+			<div class="col-12 col-lg-6">
 		<div class="table-responsive">
 			<table class="table table-sm table-striped align-middle mb-0" id="pm-breakdown-table">
 				<thead>
@@ -35,11 +42,14 @@
 				<tbody></tbody>
 			</table>
 		</div>
+			</div>
+		</div>
 	</div>
 
 	<div id="download-status" class="small text-muted"></div>
 </div>
 
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 (() => {
 	const dateInput = document.getElementById('report-date');
@@ -50,6 +60,7 @@
 	const totalGrossLbl = document.getElementById('total-gross-lbl');
 	const pmTableBody = document.querySelector('#pm-breakdown-table tbody');
 	const statusDiv = document.getElementById('download-status');
+  let pmChart = null;
 
 	// Default date = today
 	const todayStr = new Date().toISOString().slice(0,10);
@@ -68,12 +79,46 @@
 			// Build payment method breakdown
 			pmTableBody.innerHTML = '';
 			const total = data.total_gross || 0;
-			(data.payment_methods || []).forEach(row => {
+			const methods = data.payment_methods || [];
+			methods.forEach(row => {
 				const tr = document.createElement('tr');
 				const share = total ? ((row.total_gross/total)*100).toFixed(1) : '0.0';
 				tr.innerHTML = `<td>${row.method}</td><td class="text-end">${formatPence(row.total_gross)}</td><td class="text-end">${share}</td>`;
 				pmTableBody.appendChild(tr);
 			});
+
+			// Update / create chart
+			try {
+				const ctx = document.getElementById('paymentMethodChart');
+				if (ctx) {
+					const labels = methods.map(m => m.method);
+					const values = methods.map(m => m.total_gross/100.0); // convert to pounds for scale
+					const background = labels.map((_, i) => {
+						// Simple palette rotation
+						const colors = ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#20c997','#fd7e14','#6610f2','#0dcaf0','#adb5bd'];
+						return colors[i % colors.length];
+					});
+					if (pmChart) {
+						pmChart.data.labels = labels;
+						pmChart.data.datasets[0].data = values;
+						pmChart.data.datasets[0].backgroundColor = background;
+						pmChart.update();
+					} else {
+						pmChart = new Chart(ctx, {
+							type: 'doughnut',
+							data: { labels, datasets: [{ label: 'Sales (£)', data: values, backgroundColor: background }] },
+							options: {
+								plugins: {
+									legend: { position: 'bottom' },
+									title: { display: true, text: 'Payment Method Share (£)' },
+									tooltip: { callbacks: { label: (ctx) => `${ctx.label}: £${ctx.parsed.toFixed(2)}` } }
+								},
+								animation: { duration: 400 }
+							}
+						});
+					}
+				}
+			} catch(chartErr) { console.warn('Chart error', chartErr); }
 			salesSummary.style.display = 'block';
 			if (downloadBtn) downloadBtn.disabled = false;
 		} catch (e) {
