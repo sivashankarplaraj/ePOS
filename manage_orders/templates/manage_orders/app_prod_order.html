@@ -429,12 +429,19 @@
     const fries = meta.fries || '';
     const drink = meta.drink || '';
     const variant = line.variant || '';
+    // For topping pseudo-lines include target signature so toppings for different products never merge
+    if(line.type === 'topping'){
+      const target = meta.targetSig || 'NONE';
+      return [line.code, 'TOPPING', target].join('|');
+    }
     return [line.code, variant, line.meal?1:0, fries, drink, opts].join('|');
   }
   function renderBasket(){
     basket.total = basket.lines.reduce((s,l)=> s + (l.price * (l.qty||1)), 0);
     basketList.innerHTML='';
-    basket.lines.forEach((l,idx)=>{
+    // Exclude topping pseudo-lines from direct display
+    const displayLines = basket.lines.filter(l=> l.type !== 'topping');
+    displayLines.forEach((l,idx)=>{
       const li=document.createElement('li');
       li.className='list-group-item';
       // Build choices/details list
@@ -449,22 +456,30 @@
         if(meta.options && meta.options.length){ details.push(`<li>Options: ${meta.options.map(o=>'#'+o).join(', ')}</li>`); }
       }
       const detailsHtml = details.length? `<ul class='small text-muted mb-1 ms-2 list-unstyled'>${details.join('')}</ul>` : '';
+      // Attach any toppings referencing this line's signature
+      const attachedToppings = basket.lines.filter(t=> t.type==='topping' && t.meta?.targetSig === l.signature);
+      let toppingsHtml='';
+      if(attachedToppings.length){
+        const tops = attachedToppings.map(t=> `<li>${t.name}</li>`).join('');
+        toppingsHtml = `<ul class='small text-info mb-1 ms-2 list-unstyled'>${tops}</ul>`;
+      }
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
           <div>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}</div>
           ${detailsHtml}
+          ${toppingsHtml}
         </div>
         <div class='d-flex align-items-center gap-2'>
           <div class='btn-group btn-group-sm' role='group'>
-            <button class='btn btn-outline-secondary' data-dec='${idx}'>&minus;</button>
+            <button class='btn btn-outline-secondary' data-dec='${basket.lines.indexOf(l)}'>&minus;</button>
             <span class='px-2'>${l.qty||1}</span>
-            <button class='btn btn-outline-secondary' data-inc='${idx}'>&plus;</button>
+            <button class='btn btn-outline-secondary' data-inc='${basket.lines.indexOf(l)}'>&plus;</button>
           </div>
           <div class='text-end'>
             <div class='fw-semibold'>${money(l.price * (l.qty||1))}</div>
             <button class='btn btn-outline-danger mt-1 d-inline-flex align-items-center justify-content-center'
                     style='width:40px;height:40px;border-width:2px;'
-                    data-del='${idx}' title='Remove' aria-label='Remove item'>
+                    data-del='${basket.lines.indexOf(l)}' title='Remove' aria-label='Remove item'>
               <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 16 16' fill='currentColor' aria-hidden='true'>
                 <path d='M5.5 5.5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v7a.5.5 0 0 0 1 0v-7z'/>
                 <path fill-rule='evenodd' d='M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2h4.118a1 1 0 0 1 .94.658L6.5 3h3l.442-1.342A1 1 0 0 1 10.882 2H15v1zM4.118 4 4 4v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4H4.118zM2.5 3V2h11v1h-11z'/>
@@ -476,14 +491,13 @@
       basketList.appendChild(li);
     });
     basketTotal.textContent = money(basket.total);
-    clearBtn.disabled = basket.lines.length===0; checkoutBtn.disabled = basket.lines.length===0;
-    // Floating button updates
-    const totalQty = basket.lines.reduce((s,l)=> s + (l.qty||1),0);
+    clearBtn.disabled = displayLines.length===0; checkoutBtn.disabled = displayLines.length===0;
+    const totalQty = displayLines.reduce((s,l)=> s + (l.qty||1),0);
     if(basketFabCount) basketFabCount.textContent = totalQty;
     if(basketFabTotal) basketFabTotal.textContent = money(basket.total);
     if(basketFab){
-      basketFab.classList.toggle('btn-outline-secondary', basket.lines.length===0);
-      basketFab.disabled = basket.lines.length===0;
+      basketFab.classList.toggle('btn-outline-secondary', displayLines.length===0);
+      basketFab.disabled = displayLines.length===0;
     }
   }
   clearBtn.addEventListener('click', ()=>{ basket.lines=[]; renderBasket(); });
