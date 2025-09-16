@@ -1,6 +1,116 @@
 {% extends 'manage_orders/index.html' %}
 {% load static %}
 {% block content %}
-<!-- Report Generation -->
-<h2>Generate Reports</h2>
+<div class="container py-3">
+	<h2 class="mb-3">Daily Sales & Exports</h2>
+	<form class="row g-3 align-items-end" onsubmit="return false;">
+		<div class="col-auto">
+			<label for="report-date" class="form-label mb-0">Business Date</label>
+			<input type="date" id="report-date" class="form-control" />
+		</div>
+		<div class="col-auto">
+			<button id="refresh-btn" class="btn btn-primary" type="button">Load Summary</button>
+		</div>
+		<div class="col-auto">
+			<button id="download-csv-btn" class="btn btn-outline-success" type="button" disabled>Download Daily CSVs (Zip)</button>
+		</div>
+	</form>
+
+	<hr />
+
+	<div id="sales-summary" class="mb-4" style="display:none;">
+		<h5>Sales Summary (<span id="summary-date"></span>)</h5>
+		<p class="fs-5">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
+		<div class="table-responsive">
+			<table class="table table-sm table-striped align-middle mb-0" id="pm-breakdown-table">
+				<thead>
+					<tr>
+						<th style="width:45%;">Payment Method</th>
+						<th style="width:30%;" class="text-end">Gross (£)</th>
+						<th class="text-end">Share %</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+
+	<div id="download-status" class="small text-muted"></div>
+</div>
+
+<script>
+(() => {
+	const dateInput = document.getElementById('report-date');
+	const refreshBtn = document.getElementById('refresh-btn');
+	const downloadBtn = document.getElementById('download-csv-btn');
+	const salesSummary = document.getElementById('sales-summary');
+	const summaryDateLbl = document.getElementById('summary-date');
+	const totalGrossLbl = document.getElementById('total-gross-lbl');
+	const pmTableBody = document.querySelector('#pm-breakdown-table tbody');
+	const statusDiv = document.getElementById('download-status');
+
+	// Default date = today
+	const todayStr = new Date().toISOString().slice(0,10);
+	dateInput.value = todayStr;
+
+	function formatPence(p) { return (p/100).toFixed(2); }
+
+	async function loadSummary() {
+		const d = dateInput.value || todayStr;
+		try {
+			const resp = await fetch(`/api/daily-sales?date=${encodeURIComponent(d)}`);
+			if (!resp.ok) throw new Error('Failed to fetch summary');
+			const data = await resp.json();
+			summaryDateLbl.textContent = data.date;
+			totalGrossLbl.textContent = formatPence(data.total_gross);
+			// Build payment method breakdown
+			pmTableBody.innerHTML = '';
+			const total = data.total_gross || 0;
+			(data.payment_methods || []).forEach(row => {
+				const tr = document.createElement('tr');
+				const share = total ? ((row.total_gross/total)*100).toFixed(1) : '0.0';
+				tr.innerHTML = `<td>${row.method}</td><td class="text-end">${formatPence(row.total_gross)}</td><td class="text-end">${share}</td>`;
+				pmTableBody.appendChild(tr);
+			});
+			salesSummary.style.display = 'block';
+			downloadBtn.disabled = false;
+		} catch (e) {
+			console.error(e);
+			salesSummary.style.display = 'none';
+			downloadBtn.disabled = true;
+			alert('Error loading summary');
+		}
+	}
+
+	async function downloadCsvZip() {
+		const d = dateInput.value || todayStr;
+		downloadBtn.disabled = true;
+		statusDiv.textContent = 'Generating CSVs...';
+		try {
+			const resp = await fetch(`/reports/export-daily-csvs?date=${encodeURIComponent(d)}`);
+			if (!resp.ok) throw new Error('Failed export');
+			const blob = await resp.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `daily_csvs_${d.replace(/-/g,'')}.zip`;
+			document.body.appendChild(a);
+			a.click();
+			setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+			statusDiv.textContent = 'Download started.';
+		} catch (e) {
+			console.error(e);
+			statusDiv.textContent = 'Download failed';
+			alert('Failed to generate CSVs');
+		} finally {
+			downloadBtn.disabled = false;
+		}
+	}
+
+	refreshBtn.addEventListener('click', loadSummary);
+	dateInput.addEventListener('change', loadSummary);
+	downloadBtn.addEventListener('click', downloadCsvZip);
+	loadSummary();
+})();
+</script>
 {% endblock %}

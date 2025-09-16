@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import JsonResponse, HttpRequest
+from django.http import HttpResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.views.decorators.http import require_GET
@@ -893,3 +894,81 @@ def api_orders_completed(request: HttpRequest):
             ]
         })
     return JsonResponse({'date': str(target_date), 'orders': orders})
+
+
+@require_GET
+def api_daily_sales(request: HttpRequest):
+    """Return total sales (gross) and breakdown by payment_method for a given date.
+
+    Query params:
+      - date: optional ISO date (YYYY-MM-DD); defaults to today (server TZ)
+
+    Response JSON:
+      { "date": "YYYY-MM-DD", "total_gross": 12345, "currency": "GBP", "payment_methods": [ {"method": "Cash", "total_gross": 1000}, ... ] }
+
+    All monetary values are integer pence (aligning with Order.total_gross storage). Frontend can divide by 100 for £ display.
+    """
+    from .models import Order
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            return JsonResponse({'error': 'Invalid date format, expected YYYY-MM-DD'}, status=400)
+    else:
+        target_date = timezone.now().date()
+
+    qs = Order.objects.filter(created_at__date=target_date)
+    # Aggregate totals grouped by payment_method; treat blank as 'Unspecified'
+    from collections import defaultdict
+    by_method: dict[str, int] = defaultdict(int)
+    total = 0
+    for o in qs.only('total_gross', 'payment_method'):
+        m = (o.payment_method or '').strip() or 'Unspecified'
+        by_method[m] += o.total_gross
+        total += o.total_gross
+    breakdown = [
+        {'method': m, 'total_gross': amt} for m, amt in sorted(by_method.items(), key=lambda x: (-x[1], x[0]))
+    ]
+    return JsonResponse({'date': str(target_date), 'total_gross': total, 'currency': 'GBP', 'payment_methods': breakdown})
+
+
+@require_GET
+def export_daily_csvs_zip(request: HttpRequest):
+    """Generate daily CSVs (MP/PD/RV) via management command and return them zipped.
+
+    Query params:
+      - date: optional ISO date (YYYY-MM-DD); defaults to today.
+
+    Response: application/zip with filename daily_csvs_<yyyymmdd>.zip
+    Cleans up temporary files after streaming.
+    """
+    import io, zipfile, tempfile, os
+    from django.core import management
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            return JsonResponse({'error': 'Invalid date format, expected YYYY-MM-DD'}, status=400)
+    else:
+        target_date = timezone.now().date()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Run management command to produce CSV files in tmpdir
+        management.call_command('export_daily_csvs', date=str(target_date), outdir=tmpdir, verbosity=0)
+        # Collect expected filenames
+        mp = f"MP{target_date:%d%m%y}.CSV"
+        pd = f"PD{target_date:%d%m%y}.CSV"
+        rv = f"RV{target_date:%d%m%y}.CSV"
+        filenames = [mp, pd, rv]
+        memfile = io.BytesIO()
+        with zipfile.ZipFile(memfile, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for name in filenames:
+                path = os.path.join(tmpdir, name)
+                if os.path.exists(path):
+                    zf.write(path, arcname=name)
+        memfile.seek(0)
+        resp = HttpResponse(memfile.read(), content_type='application/zip')
+        resp['Content-Disposition'] = f'attachment; filename="daily_csvs_{target_date:%Y%m%d}.zip"'
+        return resp
