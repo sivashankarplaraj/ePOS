@@ -919,7 +919,8 @@ def api_daily_sales(request: HttpRequest):
     else:
         target_date = timezone.now().date()
 
-    qs = Order.objects.filter(created_at__date=target_date)
+    # Use dispatched orders completed on the target date for sales reporting
+    qs = Order.objects.filter(status='dispatched', completed_at__date=target_date)
     # Aggregate totals grouped by payment_method; treat blank as 'Unspecified'
     from collections import defaultdict
     by_method: dict[str, int] = defaultdict(int)
@@ -952,10 +953,11 @@ def api_daily_sales_hourly(request: HttpRequest):
     else:
         target_date = timezone.now().date()
     # Filter orders on that date
-    qs = Order.objects.filter(created_at__date=target_date).only('created_at','total_gross')
+    # Use dispatched orders completed on the target date for hourly reporting
+    qs = Order.objects.filter(status='dispatched', completed_at__date=target_date).only('completed_at','total_gross')
     buckets = {h: {'hour': h, 'order_count': 0, 'total_gross': 0} for h in range(24)}
     for o in qs:
-        h = o.created_at.hour
+        h = o.completed_at.hour
         b = buckets.get(h)
         if b:
             b['order_count'] += 1

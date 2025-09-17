@@ -25,8 +25,9 @@
 		<p class="fs-5">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
 		<div class="row g-3 mb-3">
 			<div class="col-12 col-lg-6">
-				<div class="border rounded p-2 h-100" style="min-height:320px;display:flex;align-items:center;justify-content:center;">
+				<div class="border rounded p-2 h-100 position-relative" style="min-height:320px;display:flex;align-items:center;justify-content:center;">
 					<canvas id="paymentMethodChart" aria-label="Payment method sales chart" role="img" style="max-width:100%;max-height:100%;"></canvas>
+					<div id="pm-empty" class="position-absolute top-50 start-50 translate-middle text-muted" style="display:none;">No payment method data for this date.</div>
 				</div>
 			</div>
 			<div class="col-12 col-lg-6">
@@ -115,10 +116,11 @@
 					const labels = methods.map(m => m.method);
 					const values = methods.map(m => m.total_gross/100.0); // convert to pounds for scale
 					console.log('[PaymentChart] labels:', labels, 'values:', values);
-					if(!values.length) {
-						ctx.parentNode.innerHTML = '<div class="text-center text-muted py-5">No payment method data for this date.</div>';
-						return;
-					}
+					const emptyDiv = document.getElementById('pm-empty');
+					const hasData = values.length > 0;
+					if (emptyDiv) emptyDiv.style.display = hasData ? 'none' : 'block';
+					ctx.style.display = hasData ? 'block' : 'none';
+					if(!hasData) { return; }
 					const background = labels.map((_, i) => {
 						// Simple palette rotation
 						const colors = ['#0d6efd','#198754','#ffc107','#dc3545','#6f42c1','#20c997','#fd7e14','#6610f2','#0dcaf0','#adb5bd'];
