@@ -1106,6 +1106,7 @@
       fries: cfg.meal? effectiveFries : null,
       drink: cfg.meal? effectiveDrink : null,
       variant_code: cfg.currentVariant || null,
+      go_large: cfg.meal ? (document.getElementById('cfg-go-large')?.checked || false) : false,
   display_choices: displayChoices,
   free_choices: freeChosen
     };

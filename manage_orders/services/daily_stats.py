@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Optional
 
 from django.db import transaction
 from django.utils import timezone
 
 from manage_orders.models import Order
-from update_till.models import KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb
+from update_till.models import KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, CompPro, OptPro
 
 
 @dataclass
@@ -34,33 +34,186 @@ def _aggregate_orders(export_date: date) -> DailyStats:
         'TMEAL_DISCNT': 0, 'ACTCASH': 0, 'ACTCHQ': 0, 'ACTCARD': 0, 'VAT': 0, 'XPV': 0,
     }
 
+    # Map UI payment method labels (from app_prod_order checkout buttons) to revenue accumulator fields.
+    # Front-end sends the literal button text (e.g. "On Account", "Crew Food", "Waste food").
+    # We normalise to lowercase and allow either spaces or underscores when mapping.
     pay_map = {
-        'cash': 'TCASHVAL',
-        'card': 'TCARDVAL',
-        'cheque': 'TCHQVAL',
-        'on_account': 'TONACCOUNT',
+        'cash': 'TCASHVAL',            # Cash sales
+        'card': 'TCARDVAL',            # Card sales
+        'cheque': 'TCHQVAL',           # (Not currently exposed in UI, retained for completeness)
+        'on account': 'TONACCOUNT',    # UI button: On Account
+        'on_account': 'TONACCOUNT',    # underscore variant (defensive)
+        'voucher': 'TCOUPVAL',         # UI button: Voucher (treated as coupon value)
+        'paid out': 'TPAYOUTVA',       # UI button: Paid Out
+        'paid_out': 'TPAYOUTVA',
+        'crew food': 'TSTAFFVAL',      # UI button: Crew Food (staff meals)
+        'crew_food': 'TSTAFFVAL',
+        'waste food': 'TWASTEVAL',     # UI button: Waste food
+        'waste_food': 'TWASTEVAL',
+        # Additional potential future mappings could include tokens or discounts if UI adds them:
+        # 'token': 'TTOKENVAL', 'discount': 'TDISCNTVA'
     }
 
+    # Preload product price columns needed for meal discount computation.
+    # We only need standard and discounted price in the active order's price band, but price band varies per order.
+    # Strategy: when computing a meal discount, dynamically fetch required product records (burger, fries, drink) once and cache.
+    pditem_cache: Dict[int, PdItem] = {}
+    comb_cache: Dict[int, CombTb] = {}
+
+    def _get_pditem(code: int) -> Optional[PdItem]:
+        if code in pditem_cache:
+            return pditem_cache[code]
+        obj = PdItem.objects.filter(PRODNUMB=code).first()
+        if obj:
+            pditem_cache[code] = obj
+        return obj
+
+    def _meal_component_prices(band: int, burger_code: int, fries_code: int, drink_code: int) -> tuple[int,int,int,int,int]:
+        """Return (burger_std, burger_meal, fries_std, fries_meal, drink_std, drink_meal) in pence for given price band.
+
+        Falls back meal price component to standard if discounted component (DC_*) is zero.
+        """
+        # Column name helpers (reuse logic from views without importing to avoid circulars)
+        def std_col(n: int) -> str:
+            return 'VATPR' if n == 1 else f'VATPR_{n}'
+        def dc_col(n: int) -> str:
+            return 'DC_VATPR' if n == 1 else f'DC_VATPR_{n}'
+        std = std_col(band)
+        dc = dc_col(band)
+        def comp(code: int) -> tuple[int,int]:
+            it = _get_pditem(code)
+            if not it:
+                return 0,0
+            std_val = getattr(it, std, 0) or 0
+            dc_val = getattr(it, dc, 0) or 0
+            eff_meal = dc_val if dc_val and dc_val > 0 else std_val
+            return std_val, eff_meal
+        b_std, b_meal = comp(burger_code)
+        f_std, f_meal = comp(fries_code)
+        d_std, d_meal = comp(drink_code)
+        return b_std, b_meal, f_std, f_meal, d_std, d_meal
+
+    # Preload combination component mappings (compulsory / optional) for combination discount computation.
+    comp_pro_map: Dict[int, List[int]] = {}
+    opt_pro_map: Dict[int, List[int]] = {}
+    for cp in CompPro.objects.all().only('COMBONUMB','PRODNUMB'):
+        comp_pro_map.setdefault(cp.COMBONUMB, []).append(cp.PRODNUMB)
+    for op in OptPro.objects.all().only('COMBONUMB','PRODNUMB'):
+        opt_pro_map.setdefault(op.COMBONUMB, []).append(op.PRODNUMB)
+
+    def _combo_component_codes(combo_code: int) -> tuple[List[int], List[int]]:
+        return comp_pro_map.get(combo_code, []), opt_pro_map.get(combo_code, [])
+
     for o in orders:
-        pay_key = pay_map.get((o.payment_method or '').lower())
+        raw_method = (o.payment_method or '').strip().lower()
+        # Normalise multiple internal whitespace to single space for robust matching
+        norm_method = ' '.join(raw_method.split())
+        pay_key = pay_map.get(norm_method) or pay_map.get(norm_method.replace(' ', '_'))
         if pay_key:
             rev[pay_key] += o.total_gross or 0
+        is_staff_order = norm_method in {'crew food','crew_food'}
+        is_waste_order = norm_method in {'waste food','waste_food'}
+
         for line in o.lines.all():
             basis = 'TAKEAWAY' if o.vat_basis == 'take' else 'EATIN'
             key = (line.item_code, line.item_type == 'combo')
             if key not in kpro_counts:
                 kpro_counts[key] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
             kpro_counts[key][basis] += line.qty
+            if is_staff_order:
+                kpro_counts[key]['STAFF'] += line.qty
+            if is_waste_order:
+                kpro_counts[key]['WASTE'] += line.qty
             if line.is_meal:
                 m = meal_counts.setdefault(line.item_code, {'TAKEAWAY': 0, 'EATIN': 0})
                 m[basis] += line.qty
+                # Meal discount accumulation (TMEAL_DISCNT): (Sum singles standard) - (Sum meal components) * qty
+                meta = line.meta or {}
+                burger_code = line.item_code
+                fries_code = meta.get('fries') or 0
+                drink_code = meta.get('drink') or 0
+                try:
+                    fries_code = int(fries_code) if fries_code else 0
+                    drink_code = int(drink_code) if drink_code else 0
+                except Exception:
+                    fries_code = 0; drink_code = 0
+                if fries_code and drink_code:
+                    b_std, b_meal, f_std, f_meal, d_std, d_meal = _meal_component_prices(o.price_band, burger_code, fries_code, drink_code)
+                    singles_total = b_std + f_std + d_std
+                    meal_total = b_meal + f_meal + d_meal
+                    discount = singles_total - meal_total
+                    if discount > 0:
+                        rev['TMEAL_DISCNT'] += discount * line.qty
+                # Go Large count (TGOLARGENU): meta.go_large flag set by frontend when applied
+                if (line.meta or {}).get('go_large'):
+                    rev['TGOLARGENU'] += line.qty
             if line.item_type == 'product':
-                opt = (line.meta or {}).get('option_code')
+                meta = line.meta or {}
+                # Legacy single option_code handling
+                opt = meta.get('option_code')
                 if opt:
-                    key_opt = (int(opt), False)
-                    if key_opt not in kpro_counts:
-                        kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                    kpro_counts[key_opt]['OPTION'] += line.qty
+                    try:
+                        opt_int = int(opt)
+                        key_opt = (opt_int, False)
+                        if key_opt not in kpro_counts:
+                            kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        kpro_counts[key_opt]['OPTION'] += line.qty
+                    except Exception:
+                        pass
+                # Multiple optional products (OPTIONAL_PROD spec): increment OPTION count for each optional product chosen.
+                # Definition: OPTION is total number of this product chosen as optional product for products on the date.
+                opt_list: List[int] = []
+                raw_opts = meta.get('options') or []
+                if isinstance(raw_opts, list):
+                    for oc in raw_opts:
+                        try:
+                            opt_list.append(int(oc))
+                        except Exception:
+                            continue
+                for oc in opt_list:
+                    key_opt2 = (oc, False)
+                    if key_opt2 not in kpro_counts:
+                        kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                    kpro_counts[key_opt2]['OPTION'] += line.qty  # count appearances
+            elif line.item_type == 'combo':
+                # Combination discount (TDISCNTVA): (Sum compulsory standard prices + sum selected optional prices considered free) - combo price.
+                # Spec: A = amount due for all compulsory + chosen optional products; B = amount due for combo product; discount = A - B.
+                # NOTE: Free allowance (e.g., first N options free) not yet parameterized; we treat ALL selected options as included in A.
+                meta = line.meta or {}
+                selected_opts = []
+                raw_opts = meta.get('options') or []
+                if isinstance(raw_opts, list):
+                    for oc in raw_opts:
+                        try:
+                            selected_opts.append(int(oc))
+                        except Exception:
+                            continue
+                # Increment OPTION counts for selected optional products within the combo as they are chosen as optional items.
+                for oc in selected_opts:
+                    key_opt_combo = (oc, False)
+                    if key_opt_combo not in kpro_counts:
+                        kpro_counts[key_opt_combo] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                    kpro_counts[key_opt_combo]['OPTION'] += line.qty
+                compulsory, possible_optional = _combo_component_codes(line.item_code)
+                comp_codes = compulsory[:]  # copy
+                # Only include selected optional codes that are defined as optional for this combo
+                for oc in selected_opts:
+                    if oc in possible_optional:
+                        comp_codes.append(oc)
+                if comp_codes:
+                    # Sum standard prices for each component in the order's price band
+                    def std_col(n: int) -> str:
+                        return 'VATPR' if n == 1 else f'VATPR_{n}'
+                    std_name = std_col(o.price_band)
+                    total_components = 0
+                    for code in comp_codes:
+                        item_obj = _get_pditem(code)
+                        if item_obj:
+                            total_components += getattr(item_obj, std_name, 0) or 0
+                    combo_price = line.unit_price_gross or 0
+                    discount = total_components - combo_price
+                    if discount > 0:
+                        rev['TDISCNTVA'] += discount * line.qty
 
     return DailyStats(export_date, meal_counts, kpro_counts, rev)
 
@@ -98,6 +251,7 @@ def build_daily_stats(export_date: date) -> DailyStats:
         stat_date=stats.export_date,
         defaults={k: 0 for k in ['TCASHVAL','TCHQVAL','TCARDVAL','TONACCOUNT','TSTAFFVAL','TWASTEVAL','TCOUPVAL','TPAYOUTVA','TTOKENVAL','TDISCNTVA','TTOKENNOVR','TGOLARGENU','TMEAL_DISCNT','ACTCASH','ACTCHQ','ACTCARD','VAT','XPV']},
     )
+    # At this point VAT, ACT* may still be zero; we'll set VAT after the VAT pass below.
     for k, v in rev.items():
         setattr(obj, k, v)
     obj.save(update_fields=list(rev.keys()) + ['last_updated'])
@@ -143,4 +297,19 @@ def build_daily_stats(export_date: date) -> DailyStats:
         setattr(kw, f'T_VAL_EXCLVAT_{weekday}', float(net_pounds))
         kw.save(update_fields=['VAT_RATE', f'TOT_VAT_{weekday}', f'T_VAL_EXCLVAT_{weekday}', 'last_updated'])
 
+    # After KWkVat update, compute total VAT (exclude staff & waste per spec of KWkVat, but KRev wants total VAT due overall).
+    # We already computed vat_due_by_class in pence above; sum them.
+    total_vat = sum(vat_due_by_class.values()) if vat_due_by_class else 0
+    # Refresh / update KRev VAT & ACT* if unset
+    krevc = KRev.objects.select_for_update().get(stat_date=export_date)
+    if krevc.VAT != total_vat:
+        krevc.VAT = total_vat
+    # Mirror ACTCASH/ACTCARD/ACTCHQ to transactional totals if they are zero (no manual reconciliation captured).
+    if krevc.ACTCASH == 0:
+        krevc.ACTCASH = krevc.TCASHVAL
+    if krevc.ACTCARD == 0:
+        krevc.ACTCARD = krevc.TCARDVAL
+    if krevc.ACTCHQ == 0:
+        krevc.ACTCHQ = krevc.TCHQVAL
+    krevc.save(update_fields=['VAT','ACTCASH','ACTCARD','ACTCHQ','last_updated'])
     return stats
