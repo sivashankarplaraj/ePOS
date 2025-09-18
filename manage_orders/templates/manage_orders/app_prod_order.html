@@ -17,6 +17,10 @@
   .product-card-compact .price-line { font-size:.8rem; }
   .product-card-compact .badge { font-size:.55rem; }
   @media (min-width: 992px){ .product-card-compact h6 { font-size:.95rem; } }
+  /* Basket change pulse */
+  @keyframes basketPulse { 0%{ transform:scale(1); box-shadow:0 0 0 0 var(--bs-primary); } 40%{ transform:scale(1.03); box-shadow:0 0 0 .35rem rgba(var(--bs-primary-rgb), .15); } 100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(var(--bs-primary-rgb), 0); } }
+  .basket-pulse { animation:basketPulse 550ms ease-out; }
+  @media (prefers-reduced-motion: reduce){ .basket-pulse { animation:none; } }
 </style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
@@ -94,7 +98,7 @@
   </div>
 </div>
 <!-- Checkout Modal -->
-<div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-modal="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header py-3">
@@ -127,8 +131,10 @@
     </div>
   </div>
   </div>
+<!-- Focus sentinel (kept early to shift focus away before any modal hide sets aria-hidden) -->
+<button type="button" id="focus-sentinel" class="visually-hidden" tabindex="-1" aria-hidden="true">Sentinel</button>
 <!-- Item Configuration Modal -->
-<div class="modal fade" id="itemConfigModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="itemConfigModal" tabindex="-1" aria-modal="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header py-3">
@@ -557,6 +563,10 @@
       basketFab.classList.toggle('btn-outline-secondary', displayLines.length===0);
       basketFab.disabled = displayLines.length===0;
     }
+    // Animate basket changes (FAB + list container pulse)
+    const pulse = (el)=>{ if(!el) return; el.classList.remove('basket-pulse'); void el.offsetWidth; el.classList.add('basket-pulse'); setTimeout(()=> el.classList.remove('basket-pulse'), 600); };
+    pulse(basketFab);
+    pulse(document.getElementById('basketOffcanvas'));
   }
   clearBtn.addEventListener('click', ()=>{ basket.lines=[]; lastProductSignature=null; renderBasket(); });
   // Pin / Unpin basket logic
@@ -1146,6 +1156,47 @@
 
   // Initial
   fetchMenu();
+
+  // Accessibility: improve modal focus/inert handling to prevent aria-hidden warnings.
+  (function manageModalA11y(){
+    const modalIds = ['itemConfigModal','checkoutModal'];
+    const focusSentinel = document.getElementById('focus-sentinel');
+    modalIds.forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      // Ensure we control aria-hidden purely via Bootstrap; remove any stale attributes.
+      el.removeAttribute('aria-hidden');
+      let prevFocused = null;
+      el.addEventListener('show.bs.modal', () => {
+        el.removeAttribute('inert');
+        prevFocused = (document.activeElement instanceof HTMLElement) ? document.activeElement : null;
+      });
+      el.addEventListener('hide.bs.modal', (ev) => {
+        // If a descendant still has focus, move focus out before Bootstrap toggles aria-hidden.
+        const active = document.activeElement;
+        if(active && el.contains(active)){
+          // Prefer sentinel for deterministic off-modal focus; fall back to body if unavailable.
+            if(focusSentinel){
+              try { focusSentinel.removeAttribute('aria-hidden'); focusSentinel.tabIndex = -1; focusSentinel.focus({preventScroll:true}); } catch(e){}
+            } else {
+              try { document.body.focus(); } catch(e){}
+            }
+        }
+      });
+      el.addEventListener('hidden.bs.modal', () => {
+        el.setAttribute('inert','');
+        // Clean up sentinel state
+        if(focusSentinel){ focusSentinel.setAttribute('aria-hidden','true'); }
+        // Restore previous focus if still present and not inside another open modal
+        if(prevFocused && document.contains(prevFocused) && !prevFocused.closest('.modal.show')){
+          try { prevFocused.focus({preventScroll:true}); } catch(e){}
+        }
+      });
+      if(getComputedStyle(el).display === 'none'){
+        el.setAttribute('inert','');
+      }
+    });
+  })();
 
   function submitOrder(extra){
     if(!basket.lines.length) return;
