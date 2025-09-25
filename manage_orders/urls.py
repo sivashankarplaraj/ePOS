@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/menu/category/<int:group_id>/items', views.api_category_items, name='mo_api_category_items'),
     # API: options for a given product (P_CHOICE relationships)
     path('api/product/<int:prod_code>/options', views.api_product_options, name='mo_api_product_options'),
+    path('api/product/<int:prod_code>/toppings', views.api_product_toppings, name='mo_api_product_toppings'),
     # Unified item detail (product or combo)
     path('api/item/<str:item_type>/<int:code>/detail', views.api_item_detail, name='mo_api_item_detail'),
     # API: submit order

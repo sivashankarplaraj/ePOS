@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
-    EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd
+    EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes
 )
 from pathlib import Path
 import json
@@ -409,6 +409,37 @@ def api_product_options(request: HttpRequest, prod_code: int):
     items = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=opt_codes)}
     options = [_serialize_product(items[c], band) for c in opt_codes if c in items]
     return JsonResponse({'product': prod_code, 'band': band, 'options': options})
+
+
+@require_GET
+def api_product_toppings(request: HttpRequest, prod_code: int):
+    """Return list of topping MENU_DESC values for a given product code.
+
+    This joins ACodes (product -> stock component) to ToppingDel (topping metadata).
+    Response JSON:
+      { "product": <int>, "toppings": [ { "acode": <int>, "desc": str, "menu_desc": str } ... ],
+        "menu_desc_joined": "A, B, C" }
+    If none found returns empty list.
+    """
+    # Fetch ACodes rows for the product
+    a_rows = list(ACodes.objects.filter(PRODNUMB=prod_code).only('ST_CODENUM'))
+    if not a_rows:
+        return JsonResponse({'product': prod_code, 'toppings': [], 'menu_desc_joined': ''})
+    acode_nums = [a.ST_CODENUM for a in a_rows]
+    # Get toppings metadata
+    trows = {t.ACODE: t for t in ToppingDel.objects.filter(ACODE__in=acode_nums)}
+    toppings = []
+    for st_code in acode_nums:
+        t = trows.get(st_code)
+        if not t:
+            continue
+        toppings.append({
+            'acode': t.ACODE,
+            'desc': (t.DESC or '').strip(),
+            'menu_desc': (t.MENU_DESC or '').strip()
+        })
+    joined = ', '.join([tp['menu_desc'] for tp in toppings if tp['menu_desc']])
+    return JsonResponse({'product': prod_code, 'toppings': toppings, 'menu_desc_joined': joined})
 
 
 def _variant_map_for_product(app_meta: AppProd):
