@@ -1194,14 +1194,19 @@
           if(cb && !cb.checked) unchecked.push(name);
         });
         if(unchecked.length){
-          // Ensure topping group on the newly added product line
+          // Ensure topping group on the newly added or merged product line
           const productLine = basket.lines.find(l=> l.signature===lastProductSignature && l.type!=='topping');
-          if(productLine){ ensureToppingGroup(productLine); }
-          unchecked.forEach(name=>{
-            const norm = name.toLowerCase();
-            const toppingLine = { code: `TOPPING_${norm.replace(/\s+/g,'_').toUpperCase()}_NO`, name: 'No ' + name, price:0, type:'topping', meta:{ topping: norm, action:'remove', targetSig: lastProductSignature } };
-            addLine(toppingLine);
-          });
+          if(productLine){
+            ensureToppingGroup(productLine);
+            // Update lastProductSignature to new signature if changed by ensureToppingGroup
+            lastProductSignature = productLine.signature;
+            const targetSig = productLine.signature;
+            unchecked.forEach(name=>{
+              const norm = name.toLowerCase();
+              const toppingLine = { code: `TOPPING_${norm.replace(/\s+/g,'_').toUpperCase()}_NO`, name: 'No ' + name, price:0, type:'topping', meta:{ topping: norm, action:'remove', targetSig } };
+              addLine(toppingLine);
+            });
+          }
         }
       }
     } catch(e){ console.warn('Topping removal generation failed', e); }
