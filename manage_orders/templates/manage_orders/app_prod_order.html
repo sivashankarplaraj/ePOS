@@ -23,17 +23,19 @@
   @media (prefers-reduced-motion: reduce){ .basket-pulse { animation:none; } }
 </style>
 <style>
-  /* Toppings (Modify tab) touch-friendly styling */
-  #cfg-toppings-list .form-check{position:relative;display:flex;align-items:center;gap:.85rem;padding:.65rem .8rem;border:1px solid var(--bs-border-color);border-radius:.6rem;cursor:pointer;user-select:none;transition:background-color .15s,border-color .15s;}
-  #cfg-toppings-list .form-check:hover{background:var(--bs-tertiary-bg);}
-  #cfg-toppings-list .form-check-input{width:1.45rem;height:1.45rem;margin-top:0;flex:0 0 auto;}
-  #cfg-toppings-list .form-check-label{flex:1 1 auto;font-size:1.05rem;cursor:pointer;}
-  #cfg-toppings-list .form-check:focus-within{outline:2px solid var(--bs-primary);outline-offset:2px;}
+  /* Toppings (Modify tab) redesigned as chip toggles */
+  #cfg-toppings-list{display:flex;flex-wrap:wrap;gap:.55rem;}
+  .topping-chip{--_pad-x:0.9rem;--_pad-y:.55rem;position:relative;border:1px solid var(--bs-border-color);border-radius:2rem;padding:var(--_pad-y) var(--_pad-x);background:var(--bs-body-bg);font-size:.95rem;line-height:1.1;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:.4rem;transition:background-color .15s,border-color .15s,color .15s, box-shadow .15s;}
+  .topping-chip:hover{background:var(--bs-tertiary-bg);}
+  .topping-chip:focus-visible{outline:2px solid var(--bs-primary);outline-offset:2px;}
+  .topping-chip.removed{background:rgba(var(--bs-danger-rgb), .08);border-color:rgba(var(--bs-danger-rgb), .6);color:var(--bs-danger-text,#dc3545);text-decoration:line-through;}
+  .topping-chip.removed::after{content:'✕';font-size:.8rem;opacity:.85;}
+  .topping-chip[data-pressed="true"]{box-shadow:0 0 0 .12rem rgba(var(--bs-primary-rgb), .35);} /* accessibility state */
   @media (pointer:coarse){
-    #cfg-toppings-list .form-check{padding:.85rem .95rem;}
-    #cfg-toppings-list .form-check-label{font-size:1.15rem;}
-    #cfg-toppings-list .form-check-input{width:1.65rem;height:1.65rem;}
+    .topping-chip{--_pad-x:1.05rem;--_pad-y:.75rem;font-size:1.05rem;}
   }
+  #cfg-toppings-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.35rem;margin-bottom:.25rem;}
+  #cfg-toppings-actions .btn-sm{font-size:.7rem;letter-spacing:.5px;text-transform:uppercase;}
 </style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
@@ -208,9 +210,15 @@
             <div id="cfg-options-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
           </div>
           <div id="cfg-toppings" class="mb-4 d-none">
-            <label class="form-label fw-semibold" style="font-size:1.15rem;">Modify Toppings</label>
-            <div id="cfg-toppings-list" class="d-flex flex-column gap-1 small"></div>
-            <div id="cfg-toppings-note" class="form-text">Uncheck any toppings you want removed.</div>
+            <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+              <label class="form-label fw-semibold mb-0" style="font-size:1.15rem;">Modify Toppings</label>
+              <div id="cfg-toppings-actions" class="d-none">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="cfg-top-restore">Restore All</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="cfg-top-remove-all">Remove All</button>
+              </div>
+            </div>
+            <div id="cfg-toppings-list"></div>
+            <div id="cfg-toppings-note" class="form-text">Tap to toggle. Strikethrough = will be removed.</div>
           </div>
           <div id="cfg-combo-structure" class="mb-4 d-none">
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Combination Components</label>
@@ -888,46 +896,34 @@
         .then(r=> r.ok? r.json(): Promise.reject())
         .then(resp=>{
           const tops = resp.toppings || [];
-          cfg.toppings = tops;
+          cfg.toppings = tops.map((t,i)=> ({ ...t, idx:i, removed:false }));
           cfg.toppingsLoaded = true;
-          if(tops.length){
+          if(cfg.toppings.length){
             modifyTabBtn?.classList.remove('d-none');
-            // Build checkbox list (all checked initially -> means keep)
-            tops.forEach((t,i)=>{
-              const name = (t.menu_desc || t.desc || '').trim();
+            const actionsBar = document.getElementById('cfg-toppings-actions');
+            actionsBar?.classList.remove('d-none');
+            cfg.toppings.forEach(tp=>{
+              const name = (tp.menu_desc || tp.desc || '').trim();
               if(!name) return;
-              const id = `cfg-top-${data.code}-${i}`;
-              const row = document.createElement('div');
-              row.className='form-check';
-              row.setAttribute('role','checkbox');
-              row.setAttribute('aria-checked','true');
-              row.tabIndex = 0;
-              row.innerHTML = `<input class='form-check-input' type='checkbox' id='${id}' data-top-name='${name.replace(/'/g,"&#39;")}' checked><label for='${id}' class='form-check-label mb-0'>${name}</label>`;
-              // Click / key handlers to toggle when clicking anywhere on row
-              row.addEventListener('click', (ev)=>{
-                const cb = row.querySelector('input[type=checkbox]');
-                if(!cb) return;
-                if(ev.target !== cb){ cb.checked = !cb.checked; }
-                row.setAttribute('aria-checked', cb.checked?'true':'false');
-              });
-              row.addEventListener('keydown', (ev)=>{
-                if(ev.key===' ' || ev.key==='Enter'){
-                  ev.preventDefault();
-                  const cb = row.querySelector('input[type=checkbox]');
-                  if(cb){ cb.checked = !cb.checked; row.setAttribute('aria-checked', cb.checked?'true':'false'); }
-                }
-              });
-              toppingsList.appendChild(row);
+              const chip = document.createElement('button');
+              chip.type='button';
+              chip.className='topping-chip';
+              chip.textContent = name;
+              chip.dataset.topIndex = String(tp.idx);
+              chip.setAttribute('aria-pressed','false');
+              chip.addEventListener('click',()=> toggleChip(chip));
+              chip.addEventListener('keydown',(ev)=>{ if(ev.key===' '||ev.key==='Enter'){ ev.preventDefault(); toggleChip(chip);} });
+              toppingsList.appendChild(chip);
             });
-          } else {
-            // Hide modify tab if no toppings
-            modifyTabBtn?.classList.add('d-none');
-          }
+            // Actions: Remove All / Restore All
+            const btnRestore = document.getElementById('cfg-top-restore');
+            const btnRemoveAll = document.getElementById('cfg-top-remove-all');
+            if(btnRestore){ btnRestore.onclick = ()=>{ cfg.toppings.forEach(tp=> tp.removed=false); refreshChips(); }; }
+            if(btnRemoveAll){ btnRemoveAll.onclick = ()=>{ cfg.toppings.forEach(tp=> tp.removed=true); refreshChips(); }; }
+          } else modifyTabBtn?.classList.add('d-none');
         })
         .catch(()=>{ modifyTabBtn?.classList.add('d-none'); });
-    } else {
-      modifyTabBtn?.classList.add('d-none');
-    }
+    } else modifyTabBtn?.classList.add('d-none');
     // Fallback: If product options missing in detail payload, fetch via API and render
     if(data.type==='product' && (!data.options || data.options.length===0)){
       fetch(`/api/product/${data.code}/options?band=${currentBand}`)
@@ -1038,6 +1034,24 @@
         if(comboStruct) comboStruct.classList.add('d-none');
       }
     }
+  }
+  function toggleChip(chip){
+    const idx = parseInt(chip.dataset.topIndex||'-1',10);
+    const tp = cfg.toppings.find(t=> t.idx===idx);
+    if(!tp) return;
+    tp.removed = !tp.removed;
+    refreshChip(chip, tp);
+  }
+  function refreshChips(){
+    document.querySelectorAll('#cfg-toppings-list .topping-chip').forEach(ch=>{
+      const idx = parseInt(ch.dataset.topIndex||'-1',10);
+      const tp = cfg.toppings.find(t=> t.idx===idx);
+      if(tp) refreshChip(ch, tp);
+    });
+  }
+  function refreshChip(chip, tp){
+    chip.classList.toggle('removed', !!tp.removed);
+    chip.setAttribute('aria-pressed', tp.removed? 'true':'false');
   }
 
   // Tab click handler
@@ -1216,22 +1230,15 @@
     // After adding base line, if user unchecked toppings (Modify tab) create removal topping lines
     try {
       if(cfg.toppings && cfg.toppings.length){
-        const unchecked = [];
-        cfg.toppings.forEach((t,i)=>{
-          const name = (t.menu_desc || t.desc || '').trim();
-          if(!name) return;
-          const cb = document.getElementById(`cfg-top-${cfg.data.code}-${i}`);
-          if(cb && !cb.checked) unchecked.push(name);
-        });
-        if(unchecked.length){
-          // Ensure topping group on the newly added or merged product line
+        const removed = cfg.toppings.filter(t=> t.removed);
+        if(removed.length){
           const productLine = basket.lines.find(l=> l.signature===lastProductSignature && l.type!=='topping');
           if(productLine){
             ensureToppingGroup(productLine);
-            // Update lastProductSignature to new signature if changed by ensureToppingGroup
             lastProductSignature = productLine.signature;
             const targetSig = productLine.signature;
-            unchecked.forEach(name=>{
+            removed.forEach(tp=>{
+              const name = (tp.menu_desc || tp.desc || '').trim();
               const norm = name.toLowerCase();
               const toppingLine = { code: `TOPPING_${norm.replace(/\s+/g,'_').toUpperCase()}_NO`, name: 'No ' + name, price:0, type:'topping', meta:{ topping: norm, action:'remove', targetSig } };
               addLine(toppingLine);
