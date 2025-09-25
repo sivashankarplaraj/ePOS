@@ -397,3 +397,14 @@ class EposComb(models.Model):
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"ePOS Combination {self.COMBONUMB} - Desc: {self.DESC}, Description: {self.ITEM_DESC}, ePOS Group: {self.EPOS_GROUP}, ePOS Sequence: {self.EPOS_SEQUENCE}, Last Updated: {self.last_updated}"
+    
+# Table 26: TOPPING_DEL
+# Stores ePOS product topping details (ACODE,DESC,MENU_DESC)
+# CSV file: TOPPING_DEL.CSV
+class ToppingDel(models.Model):
+    ACODE = models.IntegerField(help_text="Topping code.")
+    DESC = models.CharField(max_length=20, help_text="Description of topping.")
+    MENU_DESC = models.CharField(max_length=20, help_text="Menu description of topping.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Topping {self.ACODE} - Desc: {self.DESC}, Menu Description: {self.MENU_DESC}, Last Updated: {self.last_updated}"
