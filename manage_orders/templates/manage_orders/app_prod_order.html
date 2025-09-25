@@ -22,6 +22,19 @@
   .basket-pulse { animation:basketPulse 550ms ease-out; }
   @media (prefers-reduced-motion: reduce){ .basket-pulse { animation:none; } }
 </style>
+<style>
+  /* Toppings (Modify tab) touch-friendly styling */
+  #cfg-toppings-list .form-check{position:relative;display:flex;align-items:center;gap:.85rem;padding:.65rem .8rem;border:1px solid var(--bs-border-color);border-radius:.6rem;cursor:pointer;user-select:none;transition:background-color .15s,border-color .15s;}
+  #cfg-toppings-list .form-check:hover{background:var(--bs-tertiary-bg);}
+  #cfg-toppings-list .form-check-input{width:1.45rem;height:1.45rem;margin-top:0;flex:0 0 auto;}
+  #cfg-toppings-list .form-check-label{flex:1 1 auto;font-size:1.05rem;cursor:pointer;}
+  #cfg-toppings-list .form-check:focus-within{outline:2px solid var(--bs-primary);outline-offset:2px;}
+  @media (pointer:coarse){
+    #cfg-toppings-list .form-check{padding:.85rem .95rem;}
+    #cfg-toppings-list .form-check-label{font-size:1.15rem;}
+    #cfg-toppings-list .form-check-input{width:1.65rem;height:1.65rem;}
+  }
+</style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Select Price Band</label>
@@ -886,7 +899,24 @@
               const id = `cfg-top-${data.code}-${i}`;
               const row = document.createElement('div');
               row.className='form-check';
-              row.innerHTML = `<input class='form-check-input' type='checkbox' id='${id}' data-top-name='${name.replace(/'/g,"&#39;")}' checked><label for='${id}' class='form-check-label'>${name}</label>`;
+              row.setAttribute('role','checkbox');
+              row.setAttribute('aria-checked','true');
+              row.tabIndex = 0;
+              row.innerHTML = `<input class='form-check-input' type='checkbox' id='${id}' data-top-name='${name.replace(/'/g,"&#39;")}' checked><label for='${id}' class='form-check-label mb-0'>${name}</label>`;
+              // Click / key handlers to toggle when clicking anywhere on row
+              row.addEventListener('click', (ev)=>{
+                const cb = row.querySelector('input[type=checkbox]');
+                if(!cb) return;
+                if(ev.target !== cb){ cb.checked = !cb.checked; }
+                row.setAttribute('aria-checked', cb.checked?'true':'false');
+              });
+              row.addEventListener('keydown', (ev)=>{
+                if(ev.key===' ' || ev.key==='Enter'){
+                  ev.preventDefault();
+                  const cb = row.querySelector('input[type=checkbox]');
+                  if(cb){ cb.checked = !cb.checked; row.setAttribute('aria-checked', cb.checked?'true':'false'); }
+                }
+              });
               toppingsList.appendChild(row);
             });
           } else {
