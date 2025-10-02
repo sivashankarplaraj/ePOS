@@ -187,6 +187,20 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     if key_opt2 not in kpro_counts:
                         kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
                     kpro_counts[key_opt2]['OPTION'] += line.qty  # count appearances
+                # Free choices (free_choices list) should also contribute to OPTION counts per spec (chosen as free item for a product)
+                free_list: List[int] = []
+                raw_free = meta.get('free_choices') or []
+                if isinstance(raw_free, list):
+                    for fc in raw_free:
+                        try:
+                            free_list.append(int(fc))
+                        except Exception:
+                            continue
+                for fc in free_list:
+                    key_free = (fc, False)
+                    if key_free not in kpro_counts:
+                        kpro_counts[key_free] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                    kpro_counts[key_free]['OPTION'] += line.qty
             elif line.item_type == 'combo':
                 # Combination discount (TDISCNTVA): (Sum compulsory standard prices + sum selected optional prices considered free) - combo price.
                 # Spec: A = amount due for all compulsory + chosen optional products; B = amount due for combo product; discount = A - B.
@@ -206,6 +220,21 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     if key_opt_combo not in kpro_counts:
                         kpro_counts[key_opt_combo] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
                     kpro_counts[key_opt_combo]['OPTION'] += line.qty
+                # Free choices in combo context
+                meta = line.meta or {}
+                free_list_combo: List[int] = []
+                raw_free_combo = meta.get('free_choices') or []
+                if isinstance(raw_free_combo, list):
+                    for fc in raw_free_combo:
+                        try:
+                            free_list_combo.append(int(fc))
+                        except Exception:
+                            continue
+                for fc in free_list_combo:
+                    key_free_combo = (fc, False)
+                    if key_free_combo not in kpro_counts:
+                        kpro_counts[key_free_combo] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                    kpro_counts[key_free_combo]['OPTION'] += line.qty
                 compulsory, possible_optional = _combo_component_codes(line.item_code)
                 comp_codes = compulsory[:]  # copy
                 # Only include selected optional codes that are defined as optional for this combo
