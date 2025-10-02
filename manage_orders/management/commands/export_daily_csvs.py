@@ -5,7 +5,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from manage_orders.services.daily_stats import build_daily_stats
-from update_till.models import KMeal, KPro, KRev
+from django.db import transaction
+from update_till.models import KMeal, KPro, KRev, KWkVat
 
 
 class Command(BaseCommand):
@@ -14,6 +15,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--date', help='YYYY-MM-DD of the business day to export (defaults to today)', default=None)
         parser.add_argument('--outdir', help='Directory to write CSVs into', default='.')
+        parser.add_argument('--clear', action='store_true', help='After successful export, clear ALL rows in KMeal, KPro, KRev and KWkVat (use with caution).')
 
     def handle(self, *args, **options):
         export_date = date.fromisoformat(options['date']) if options['date'] else timezone.localdate()
@@ -46,3 +48,16 @@ class Command(BaseCommand):
             f.write('\n')
 
         self.stdout.write(self.style.SUCCESS(f"Built stats and exported {mp_name}, {pd_name}, {rv_name} to {outdir}"))
+
+        if options.get('clear'):
+            with transaction.atomic():
+                kmeal_count = KMeal.objects.count()
+                kpro_count = KPro.objects.count()
+                krev_count = KRev.objects.count()
+                kwkvat_count = KWkVat.objects.count()
+                KMeal.objects.all().delete()
+                KPro.objects.all().delete()
+                KRev.objects.all().delete()
+                KWkVat.objects.all().delete()
+            self.stdout.write(self.style.WARNING(
+                f"Cleared tables: KMeal({kmeal_count}), KPro({kpro_count}), KRev({krev_count}), KWkVat({kwkvat_count})."))
