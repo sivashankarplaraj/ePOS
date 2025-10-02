@@ -1021,7 +1021,7 @@ def export_daily_csvs_zip(request: HttpRequest):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Run management command to produce CSV files in tmpdir
-        management.call_command('export_daily_csvs', date=str(target_date), outdir=tmpdir, verbosity=0)
+        management.call_command('export_daily_csvs', date=str(target_date), outdir=tmpdir, clear=True, verbosity=0)
         # Collect expected filenames
         mp = f"MP{target_date:%d%m%y}.CSV"
         pd = f"PD{target_date:%d%m%y}.CSV"
