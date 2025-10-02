@@ -147,6 +147,18 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 # Go Large count (TGOLARGENU): meta.go_large flag set by frontend when applied
                 if (line.meta or {}).get('go_large'):
                     rev['TGOLARGENU'] += line.qty
+                # PD file requirement: fries & drink components of a meal must each increment their own product's TAKEAWAY/EATIN counts (COMBO = False)
+                # MP file should still only count the burger (already handled via meal_counts above) per spec.
+                for comp_code in (fries_code, drink_code):
+                    if comp_code:
+                        key_comp = (comp_code, False)
+                        if key_comp not in kpro_counts:
+                            kpro_counts[key_comp] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        kpro_counts[key_comp][basis] += line.qty
+                        if is_staff_order:
+                            kpro_counts[key_comp]['STAFF'] += line.qty
+                        if is_waste_order:
+                            kpro_counts[key_comp]['WASTE'] += line.qty
             if line.item_type == 'product':
                 meta = line.meta or {}
                 # Legacy single option_code handling
@@ -200,6 +212,17 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 for oc in selected_opts:
                     if oc in possible_optional:
                         comp_codes.append(oc)
+                # PD file requirement: compulsory and selected optional component products must increment their own TAKEAWAY/EATIN counts (COMBO = False)
+                if comp_codes:
+                    for comp_code in comp_codes:
+                        key_comp = (comp_code, False)
+                        if key_comp not in kpro_counts:
+                            kpro_counts[key_comp] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        kpro_counts[key_comp][basis] += line.qty
+                        if is_staff_order:
+                            kpro_counts[key_comp]['STAFF'] += line.qty
+                        if is_waste_order:
+                            kpro_counts[key_comp]['WASTE'] += line.qty
                 if comp_codes:
                     # Sum standard prices for each component in the order's price band
                     def std_col(n: int) -> str:
