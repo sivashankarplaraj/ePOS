@@ -39,7 +39,11 @@
 </style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
-  <label class="form-label fw-semibold">Select Price Band</label>
+  <div class="d-flex align-items-center gap-2 mb-1">
+    <label class="form-label fw-semibold mb-0">Select Price Band</label>
+    <button type="button" id="band-help-btn" class="btn btn-lg btn-outline-secondary" aria-label="Show band descriptions" style="line-height:1;">?
+    </button>
+  </div>
   <div id="band-buttons" class="d-flex flex-wrap gap-2">
     <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3 active" data-band="1">Band-1</button>
     <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="2">Band-2</button>
@@ -289,6 +293,69 @@
   let currentBand = '1';
   let vatBasis = 'take'; // default
   let showNet = false;
+  // Band help text mapping: each price band with its channel descriptions.
+  const BAND_DESCRIPTIONS = {
+    '1': ["Walk In"],
+    '2': [
+      "Phone Order - Deliver",
+      "Phone Order (C) - Deliver",
+      "Phone Order - Collect",
+      "Phone Order (C) - Collect",
+      "YoYo - Collect",
+      "Sams online - Collect"
+    ],
+    '3': [
+      "Deliveroo - Deliver",
+      "Deliveroo - Collect"
+    ],
+    '4': [
+      "Sams online - Deliver",
+      "Sams online - Deliver Shop05",
+      "Sams online (C) - Deliver",
+      "YoYo - Deliver",
+      "YoYo (B) - Deliver",
+      "Phone Order (B) - Deliver"
+    ],
+    '5': ["Walk In Portsmouth"],
+    '6': [
+      "Just Eat - Deliver",
+      "UBER - Deliver",
+      "Deliveroo (B) - Deliver",
+      "UBER - Collect",
+      "Deliveroo (B) - Collect",
+      "Just Eat - Collect"
+    ]
+  };
+
+  function applyBandHelp(){
+    if(!bandButtonsWrap) return;
+    bandButtonsWrap.querySelectorAll('[data-band]').forEach(btn=>{
+      const band = btn.getAttribute('data-band');
+      const list = BAND_DESCRIPTIONS[band];
+      if(list && list.length){
+        const html = list.map(s=> s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')).join('<br>');
+        // Only enable hover tooltips on fine pointers (mouse/trackpad)
+        const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        if(!isCoarse){
+          btn.setAttribute('data-bs-toggle','tooltip');
+          btn.setAttribute('data-bs-html','true');
+          btn.setAttribute('data-bs-title', html);
+        }
+        // Add an accessible description element for screen readers (first item only to keep concise)
+        if(!btn.querySelector('.visually-hidden.band-help')){
+          const sr = document.createElement('span');
+          sr.className='visually-hidden band-help';
+          sr.textContent = 'Channels: ' + list.join(', ');
+          btn.appendChild(sr);
+        }
+      }
+    });
+    if(window.bootstrap){
+      bandButtonsWrap.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>{
+        if(!bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el);
+      });
+    }
+  }
   // Lightweight data flow: fetch categories first, then items per selected category.
   let categories = [];
   const catItemsCache = {}; // { [catId]: items[] }
@@ -1274,6 +1341,36 @@
 
   // Initial
   fetchMenu();
+  applyBandHelp();
+  // Band help modal (built dynamically for maintainability)
+  const helpBtn = document.getElementById('band-help-btn');
+  if(helpBtn){
+    helpBtn.addEventListener('click', ()=>{
+      let modalEl = document.getElementById('bandHelpModal');
+      if(!modalEl){
+        modalEl = document.createElement('div');
+        modalEl.className='modal fade';
+        modalEl.id='bandHelpModal';
+        modalEl.tabIndex='-1';
+        modalEl.innerHTML = `\n<div class="modal-dialog modal-lg modal-dialog-scrollable">\n  <div class="modal-content">\n    <div class="modal-header">\n      <h5 class="modal-title">Price Band Descriptions</h5>\n      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>\n    </div>\n    <div class="modal-body" id="band-help-body">Loading...</div>\n    <div class="modal-footer">\n      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>\n    </div>\n  </div>\n</div>`;
+        document.body.appendChild(modalEl);
+      }
+      const body = modalEl.querySelector('#band-help-body');
+      if(body){
+        const parts = Object.keys(BAND_DESCRIPTIONS).sort((a,b)=> parseInt(a)-parseInt(b)).map(b=>{
+          const list = BAND_DESCRIPTIONS[b]||[];
+          return `<div class='mb-3'><h6 class='fw-semibold mb-1'>Band ${b}</h6><ul class='mb-0 ps-3'>${list.map(li=>`<li>${li.replace(/</g,'&lt;')}</li>`).join('')}</ul></div>`;
+        }).join('');
+        body.innerHTML = parts || '<p class="text-muted">No band descriptions available.</p>';
+      }
+      if(window.bootstrap){
+        const inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+        inst.show();
+      } else {
+        modalEl.style.display='block';
+      }
+    });
+  }
 
   // Accessibility: improve modal focus/inert handling to prevent aria-hidden warnings.
   (function manageModalA11y(){
