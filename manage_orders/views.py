@@ -669,6 +669,20 @@ def api_submit_order(request: HttpRequest):
     band = str(payload.get('price_band'))
     if band not in {'1','2','3','4','5','6'}:
         return JsonResponse({'error': 'Invalid price_band'}, status=400)
+    band_co_number = (payload.get('band_co_number') or '').strip().upper()[:4]
+    # Lightweight validation: allow empty or must match one of known suffix codes in price band map keys (last token after final '-')
+    if band_co_number:
+        # Build allowed codes set lazily
+        allowed_codes = set()
+        for k in _price_band_map().keys():
+            # Our map keys are like 'Sams online - Deliver-SO-D'; extract token before final -D/-C
+            parts = k.rsplit('-', 2)
+            if len(parts) >= 2:
+                code_token = parts[-2]
+                if len(code_token) <= 4:
+                    allowed_codes.add(code_token.upper())
+        if band_co_number not in allowed_codes:
+            return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
     vat_basis = payload.get('vat_basis')
     if vat_basis not in {'take','eat'}:
         return JsonResponse({'error': 'Invalid vat_basis'}, status=400)
@@ -724,6 +738,7 @@ def api_submit_order(request: HttpRequest):
             show_net=bool(payload.get('show_net')),
             payment_method=payment_method,
             crew_id=crew_id,
+            band_co_number=band_co_number,
         )
         for ln in lines:
             try:

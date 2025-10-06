@@ -39,10 +39,11 @@
 </style>
 <!-- Price Band Selector (Buttons) -->
 <div class="mb-3">
-  <div class="d-flex align-items-center gap-2 mb-1">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
     <label class="form-label fw-semibold mb-0">Select Price Band</label>
-    <button type="button" id="band-help-btn" class="btn btn-lg btn-outline-secondary" aria-label="Show band descriptions" style="line-height:1;">?
-    </button>
+    <button type="button" id="band-help-btn" class="btn btn-lg btn-outline-secondary" aria-label="Show band descriptions" style="line-height:1;">?</button>
+    <button type="button" id="band-channel-btn" class="btn btn-lg btn-outline-primary" aria-label="Choose channel for price band">Choose Channel</button>
+    <span id="band-channel-active" class="badge bg-secondary d-none"></span>
   </div>
   <div id="band-buttons" class="d-flex flex-wrap gap-2">
     <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3 active" data-band="1">Band-1</button>
@@ -293,6 +294,7 @@
   let currentBand = '1';
   let vatBasis = 'take'; // default
   let showNet = false;
+  let bandCoNumber = '';
   // Band help text mapping: each price band with its channel descriptions.
   const BAND_DESCRIPTIONS = {
     '1': ["Walk In"],
@@ -326,6 +328,31 @@
       "Just Eat - Collect"
     ]
   };
+  // Extended channel entries mapping (band, description, BAND_CODE, BAND_CO_NUMBER)
+  const CHANNEL_ENTRIES = [
+    { band:1, desc:'Walk In', code:'OT-C', co:'OT' },
+    { band:5, desc:'Walk In Portsmouth', code:'OB-C', co:'OB' },
+    { band:2, desc:'Phone Order - Deliver', code:'PO-D', co:'PO' },
+    { band:2, desc:'Phone Order (C) - Deliver', code:'PC-D', co:'PC' },
+    { band:2, desc:'Phone Order - Collect', code:'PO-C', co:'PO' },
+    { band:2, desc:'Phone Order (C) - Collect', code:'PC-C', co:'PC' },
+    { band:2, desc:'YoYo - Collect', code:'YY-C', co:'YY' },
+    { band:2, desc:'Sams online - Collect', code:'SO-C', co:'SO' },
+    { band:3, desc:'Deliveroo - Deliver', code:'DV-D', co:'DV' },
+    { band:3, desc:'Deliveroo - Collect', code:'DV-C', co:'DV' },
+    { band:4, desc:'Sams online - Deliver', code:'SO-D', co:'SO' },
+    { band:4, desc:'Sams online - Deliver Shop05', code:'SB-D', co:'SB' },
+    { band:4, desc:'Sams online (C) - Deliver', code:'SC-D', co:'SC' },
+    { band:4, desc:'YoYo - Deliver', code:'YY-D', co:'YY' },
+    { band:4, desc:'YoYo (B) - Deliver', code:'YB-D', co:'YB' },
+    { band:4, desc:'Phone Order (B) - Deliver', code:'PB-D', co:'PB' },
+    { band:6, desc:'Just Eat - Deliver', code:'JE-D', co:'JE' },
+    { band:6, desc:'UBER - Deliver', code:'UB-D', co:'UB' },
+    { band:6, desc:'Deliveroo (B) - Deliver', code:'DB-D', co:'DB' },
+    { band:6, desc:'UBER - Collect', code:'UB-C', co:'UB' },
+    { band:6, desc:'Deliveroo (B) - Collect', code:'DB-C', co:'DB' },
+    { band:6, desc:'Just Eat - Collect', code:'JE-C', co:'JE' },
+  ];
 
   function applyBandHelp(){
     if(!bandButtonsWrap) return;
@@ -1371,6 +1398,47 @@
       }
     });
   }
+  // Channel selection modal logic
+  const channelBtn = document.getElementById('band-channel-btn');
+  function openChannelModal(){
+    let modalEl = document.getElementById('bandChannelModal');
+    if(!modalEl){
+      modalEl = document.createElement('div');
+      modalEl.className='modal fade';
+      modalEl.id='bandChannelModal';
+      modalEl.tabIndex='-1';
+      modalEl.innerHTML = `\n<div class="modal-dialog modal-lg modal-dialog-scrollable">\n  <div class="modal-content">\n    <div class="modal-header"><h5 class="modal-title">Choose Channel / Price Band</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>\n    <div class="modal-body" id="band-channel-body"></div>\n    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>\n  </div>\n</div>`;
+      document.body.appendChild(modalEl);
+    }
+    const body = modalEl.querySelector('#band-channel-body');
+    if(body){
+      const grouped = CHANNEL_ENTRIES.reduce((acc,e)=>{ (acc[e.band]=acc[e.band]||[]).push(e); return acc; },{});
+      const bands = Object.keys(grouped).map(n=>parseInt(n,10)).sort((a,b)=>a-b);
+      body.innerHTML = bands.map(b=>{
+        const rows = grouped[b].map(e=>`<button type='button' class='list-group-item list-group-item-action d-flex justify-content-between align-items-center' data-channel-band='${e.band}' data-channel-co='${e.co}' data-channel-code='${e.code}'>
+          <span class='text-start'><strong>${e.desc}</strong><br><small class='text-muted'>Code: ${e.code} / CO: ${e.co}</small></span>
+          <span class='badge bg-primary'>Band ${e.band}</span>
+        </button>`).join('');
+        return `<div class='mb-4'><h6 class='fw-bold'>Band ${b}</h6><div class='list-group'>${rows}</div></div>`;
+      }).join('');
+    }
+    if(window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    modalEl.addEventListener('click', channelSelectHandler, { once:false });
+  }
+  function channelSelectHandler(e){
+    const btn = e.target.closest('[data-channel-band]');
+    if(!btn) return;
+    currentBand = String(btn.getAttribute('data-channel-band'));
+    bandCoNumber = btn.getAttribute('data-channel-co') || '';
+    document.querySelectorAll('#band-buttons [data-band]').forEach(b=> b.classList.toggle('active', b.getAttribute('data-band')===currentBand));
+    const activeBadge = document.getElementById('band-channel-active');
+    if(activeBadge){ activeBadge.textContent = btn.querySelector('strong').textContent + ' ('+bandCoNumber+')'; activeBadge.classList.remove('d-none'); }
+    activeCategoryId = null;
+    fetchMenu();
+    const modalEl = document.getElementById('bandChannelModal');
+    if(window.bootstrap){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
+  }
+  if(channelBtn){ channelBtn.addEventListener('click', openChannelModal); }
 
   // Accessibility: improve modal focus/inert handling to prevent aria-hidden warnings.
   (function manageModalA11y(){
@@ -1466,7 +1534,7 @@
       checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout';
       return;
     }
-    const payload = { price_band: currentBand, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', lines: apiLines };
+  const payload = { price_band: currentBand, band_co_number: bandCoNumber, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', lines: apiLines };
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
       .then(resp=>{

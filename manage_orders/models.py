@@ -14,6 +14,7 @@ class Order(models.Model):
 	total_net = models.IntegerField(default=0, help_text="Total in pence (net, takeaway basis)")
 	payment_method = models.CharField(max_length=20, blank=True, default='')
 	crew_id = models.CharField(max_length=20, blank=True, default='')
+	band_co_number = models.CharField(max_length=4, blank=True, default='', help_text="Channel/company code associated with the selected price band (e.g. SO, JE, DV).")
 	notes = models.TextField(blank=True)
 
 	def __str__(self):
