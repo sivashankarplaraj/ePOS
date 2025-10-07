@@ -2,6 +2,32 @@ from django.db import models
 from django.utils import timezone
 
 
+class ChannelMapping(models.Model):
+	"""Represents a selectable sales channel that maps to a price band.
+
+	Fields:
+		name: Human readable description shown to operators (e.g. "Just Eat - Deliver").
+		band: Integer price band (1..6) used to resolve price columns.
+		channel_code: Short combined code including fulfilment (e.g. JE-D) displayed for clarity.
+		co_number: Short code stored with the order (band_co_number) for reporting (e.g. JE, DV, SO).
+		active: Soft enable/disable without deleting historic rows.
+		sort_order: Allows deterministic ordering inside selection modal.
+	"""
+	name = models.CharField(max_length=120)
+	band = models.PositiveSmallIntegerField()
+	channel_code = models.CharField(max_length=10, help_text="Code incl. fulfilment suffix e.g. JE-D, SO-C")
+	co_number = models.CharField(max_length=4, help_text="Short channel/company code persisted on Order")
+	active = models.BooleanField(default=True)
+	sort_order = models.PositiveIntegerField(default=0)
+
+	class Meta:
+		ordering = ["sort_order", "name"]
+		unique_together = [("channel_code", "band")]
+
+	def __str__(self):
+		return f"{self.name} (Band {self.band})"
+
+
 class Order(models.Model):
 	created_at = models.DateTimeField(default=timezone.now)
 	packed_at = models.DateTimeField(null=True, blank=True)

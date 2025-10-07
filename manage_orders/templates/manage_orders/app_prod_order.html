@@ -37,34 +37,25 @@
   #cfg-toppings-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.35rem;margin-bottom:.25rem;}
   #cfg-toppings-actions .btn-sm{font-size:.7rem;letter-spacing:.5px;text-transform:uppercase;}
 </style>
-<!-- Price Band Selector (Buttons) -->
+<!-- Channel / Band Selector -->
 <div class="mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-    <label class="form-label fw-semibold mb-0">Select Price Band</label>
-    <button type="button" id="band-help-btn" class="btn btn-lg btn-outline-secondary" aria-label="Show band descriptions" style="line-height:1;">?</button>
+    <label class="form-label fw-semibold mb-0">Channel / Price Band</label>
     <button type="button" id="band-channel-btn" class="btn btn-lg btn-outline-primary" aria-label="Choose channel for price band">Choose Channel</button>
     <span id="band-channel-active" class="badge bg-secondary d-none"></span>
   </div>
-  <div id="band-buttons" class="d-flex flex-wrap gap-2">
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3 active" data-band="1">Band-1</button>
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="2">Band-2</button>
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="3">Band-3</button>
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="4">Band-4</button>
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="5">Band-5</button>
-    <button type="button" class="btn btn-outline-primary btn-lg px-4 py-3" data-band="6">Band-6</button>
+  <div id="band-channel-hint" class="small text-muted mb-2">Select a channel to load menu & prices.</div>
+  <div class="form-check mt-2">
+    <input class="form-check-input" type="checkbox" id="toggle-net" />
+    <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
   </div>
-    <div class="form-check mt-2">
-      <input class="form-check-input" type="checkbox" id="toggle-net" />
-      <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
+  <div class="mt-2">
+    <label class="form-label small mb-1">VAT Basis</label>
+    <div id="basis-buttons" class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-outline-info btn-lg px-3 py-2 active" data-basis="take">Takeaway</button>
+      <button type="button" class="btn btn-outline-info btn-lg px-3 py-2" data-basis="eat">Eat-in</button>
     </div>
-      
-      <div class="mt-2">
-        <label class="form-label small mb-1">VAT Basis</label>
-        <div id="basis-buttons" class="d-flex gap-2 flex-wrap">
-          <button type="button" class="btn btn-outline-info btn-lg px-3 py-2 active" data-basis="take">Takeaway</button>
-          <button type="button" class="btn btn-outline-info btn-lg px-3 py-2" data-basis="eat">Eat-in</button>
-        </div>
-      </div>
+  </div>
 </div>
 <!-- Categories below Price Band (horizontal scroll) -->
 <div id="categories-section" class="mb-3">
@@ -275,7 +266,7 @@
     st2.textContent = `body.offcanvas-open #basket-fab{display:none !important;}`; // must override Bootstrap .d-flex !important
     document.head.appendChild(st2);
   }
-  const bandButtonsWrap = document.getElementById('band-buttons');
+  const bandButtonsWrap = null; // removed band buttons UI
   const basisButtonsWrap = document.getElementById('basis-buttons');
   const categoryStrip = document.getElementById('category-strip');
   const itemsContainer = document.getElementById('items-container');
@@ -295,93 +286,30 @@
   let vatBasis = 'take'; // default
   let showNet = false;
   let bandCoNumber = '';
-  // Band help text mapping: each price band with its channel descriptions.
-  const BAND_DESCRIPTIONS = {
-    '1': ["Walk In"],
-    '2': [
-      "Phone Order - Deliver",
-      "Phone Order (C) - Deliver",
-      "Phone Order - Collect",
-      "Phone Order (C) - Collect",
-      "YoYo - Collect",
-      "Sams online - Collect"
-    ],
-    '3': [
-      "Deliveroo - Deliver",
-      "Deliveroo - Collect"
-    ],
-    '4': [
-      "Sams online - Deliver",
-      "Sams online - Deliver Shop05",
-      "Sams online (C) - Deliver",
-      "YoYo - Deliver",
-      "YoYo (B) - Deliver",
-      "Phone Order (B) - Deliver"
-    ],
-    '5': ["Walk In Portsmouth"],
-    '6': [
-      "Just Eat - Deliver",
-      "UBER - Deliver",
-      "Deliveroo (B) - Deliver",
-      "UBER - Collect",
-      "Deliveroo (B) - Collect",
-      "Just Eat - Collect"
-    ]
-  };
-  // Extended channel entries mapping (band, description, BAND_CODE, BAND_CO_NUMBER)
-  const CHANNEL_ENTRIES = [
-    { band:1, desc:'Walk In', code:'OT-C', co:'OT' },
-    { band:5, desc:'Walk In Portsmouth', code:'OB-C', co:'OB' },
-    { band:2, desc:'Phone Order - Deliver', code:'PO-D', co:'PO' },
-    { band:2, desc:'Phone Order (C) - Deliver', code:'PC-D', co:'PC' },
-    { band:2, desc:'Phone Order - Collect', code:'PO-C', co:'PO' },
-    { band:2, desc:'Phone Order (C) - Collect', code:'PC-C', co:'PC' },
-    { band:2, desc:'YoYo - Collect', code:'YY-C', co:'YY' },
-    { band:2, desc:'Sams online - Collect', code:'SO-C', co:'SO' },
-    { band:3, desc:'Deliveroo - Deliver', code:'DV-D', co:'DV' },
-    { band:3, desc:'Deliveroo - Collect', code:'DV-C', co:'DV' },
-    { band:4, desc:'Sams online - Deliver', code:'SO-D', co:'SO' },
-    { band:4, desc:'Sams online - Deliver Shop05', code:'SB-D', co:'SB' },
-    { band:4, desc:'Sams online (C) - Deliver', code:'SC-D', co:'SC' },
-    { band:4, desc:'YoYo - Deliver', code:'YY-D', co:'YY' },
-    { band:4, desc:'YoYo (B) - Deliver', code:'YB-D', co:'YB' },
-    { band:4, desc:'Phone Order (B) - Deliver', code:'PB-D', co:'PB' },
-    { band:6, desc:'Just Eat - Deliver', code:'JE-D', co:'JE' },
-    { band:6, desc:'UBER - Deliver', code:'UB-D', co:'UB' },
-    { band:6, desc:'Deliveroo (B) - Deliver', code:'DB-D', co:'DB' },
-    { band:6, desc:'UBER - Collect', code:'UB-C', co:'UB' },
-    { band:6, desc:'Deliveroo (B) - Collect', code:'DB-C', co:'DB' },
-    { band:6, desc:'Just Eat - Collect', code:'JE-C', co:'JE' },
-  ];
-
-  function applyBandHelp(){
-    if(!bandButtonsWrap) return;
-    bandButtonsWrap.querySelectorAll('[data-band]').forEach(btn=>{
-      const band = btn.getAttribute('data-band');
-      const list = BAND_DESCRIPTIONS[band];
-      if(list && list.length){
-        const html = list.map(s=> s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')).join('<br>');
-        // Only enable hover tooltips on fine pointers (mouse/trackpad)
-        const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        if(!isCoarse){
-          btn.setAttribute('data-bs-toggle','tooltip');
-          btn.setAttribute('data-bs-html','true');
-          btn.setAttribute('data-bs-title', html);
-        }
-        // Add an accessible description element for screen readers (first item only to keep concise)
-        if(!btn.querySelector('.visually-hidden.band-help')){
-          const sr = document.createElement('span');
-          sr.className='visually-hidden band-help';
-          sr.textContent = 'Channels: ' + list.join(', ');
-          btn.appendChild(sr);
-        }
+  let CHANNEL_ENTRIES = [];
+  function loadChannels(){
+    fetch('/api/channels').then(r=>r.json()).then(data=>{
+      CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number }));
+      const saved = localStorage.getItem('last_channel_code');
+      if(saved){
+        const match = CHANNEL_ENTRIES.find(c=> c.code===saved);
+        if(match){ applyChannelSelection(match.band, match.co, match.desc, true); return; }
       }
-    });
-    if(window.bootstrap){
-      bandButtonsWrap.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el=>{
-        if(!bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el);
-      });
-    }
+      if(CHANNEL_ENTRIES.length){
+        const first = CHANNEL_ENTRIES[0];
+        applyChannelSelection(first.band, first.co, first.desc, true);
+      }
+    }).catch(()=>{});
+  }
+
+  function applyChannelSelection(band, co, desc, fetch=true){
+    currentBand = String(band);
+    bandCoNumber = co || '';
+    const badge = document.getElementById('band-channel-active');
+    if(badge){ badge.textContent = `${desc} (${bandCoNumber})`; badge.classList.remove('d-none'); }
+    localStorage.setItem('last_channel_code', CHANNEL_ENTRIES.find(c=> c.band==band && c.co===co && c.desc===desc)?.code || '');
+    activeCategoryId = null;
+    if(fetch) fetchMenu();
   }
   // Lightweight data flow: fetch categories first, then items per selected category.
   let categories = [];
@@ -1352,52 +1280,11 @@
     [...basisButtonsWrap.querySelectorAll('[data-basis]')].forEach(b=> b.classList.toggle('active', b===btn));
     renderProducts();
   });
-  // Band buttons click handler (touch-friendly)
-  bandButtonsWrap.addEventListener('click', (e)=>{
-    const btn = e.target.closest('[data-band]');
-    if(!btn) return;
-    const band = btn.getAttribute('data-band');
-    if(!band) return;
-    currentBand = String(band);
-    // Toggle active state
-    [...bandButtonsWrap.querySelectorAll('[data-band]')].forEach(b=> b.classList.toggle('active', b===btn));
-    activeCategoryId = null; // reset selection on band change
-    fetchMenu();
-  });
+  // Band buttons removed; channel modal controls band now
   document.getElementById('toggle-net').addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });
 
-  // Initial
-  fetchMenu();
-  applyBandHelp();
-  // Band help modal (built dynamically for maintainability)
-  const helpBtn = document.getElementById('band-help-btn');
-  if(helpBtn){
-    helpBtn.addEventListener('click', ()=>{
-      let modalEl = document.getElementById('bandHelpModal');
-      if(!modalEl){
-        modalEl = document.createElement('div');
-        modalEl.className='modal fade';
-        modalEl.id='bandHelpModal';
-        modalEl.tabIndex='-1';
-        modalEl.innerHTML = `\n<div class="modal-dialog modal-lg modal-dialog-scrollable">\n  <div class="modal-content">\n    <div class="modal-header">\n      <h5 class="modal-title">Price Band Descriptions</h5>\n      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>\n    </div>\n    <div class="modal-body" id="band-help-body">Loading...</div>\n    <div class="modal-footer">\n      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>\n    </div>\n  </div>\n</div>`;
-        document.body.appendChild(modalEl);
-      }
-      const body = modalEl.querySelector('#band-help-body');
-      if(body){
-        const parts = Object.keys(BAND_DESCRIPTIONS).sort((a,b)=> parseInt(a)-parseInt(b)).map(b=>{
-          const list = BAND_DESCRIPTIONS[b]||[];
-          return `<div class='mb-3'><h6 class='fw-semibold mb-1'>Band ${b}</h6><ul class='mb-0 ps-3'>${list.map(li=>`<li>${li.replace(/</g,'&lt;')}</li>`).join('')}</ul></div>`;
-        }).join('');
-        body.innerHTML = parts || '<p class="text-muted">No band descriptions available.</p>';
-      }
-      if(window.bootstrap){
-        const inst = bootstrap.Modal.getOrCreateInstance(modalEl);
-        inst.show();
-      } else {
-        modalEl.style.display='block';
-      }
-    });
-  }
+  // Initial channel load (will select first or last used channel and then fetch menu)
+  loadChannels();
   // Channel selection modal logic
   const channelBtn = document.getElementById('band-channel-btn');
   function openChannelModal(){

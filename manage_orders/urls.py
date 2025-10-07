@@ -6,6 +6,7 @@ urlpatterns = [
     path('manage_orders/order/', views.order, name='manage_orders_order'),
     path('manage_orders/dashboard/', views.dashboard, name='manage_orders_dashboard'),
     path('api/prices', views.api_prices, name='mo_api_prices'),
+    path('api/channels', views.api_channel_mappings, name='mo_api_channels'),
     # add path to manage_orders/app_prod_order.html
     path('manage_orders/app_prod_order/', views.app_prod_order, name='manage_orders_app_prod_order'),
     path('manage_orders/reports/', views.reports, name='manage_orders_reports'),

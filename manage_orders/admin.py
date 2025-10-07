@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderLine
+from .models import Order, OrderLine, ChannelMapping
 
 
 class OrderLineInline(admin.TabularInline):
@@ -14,3 +14,11 @@ class OrderAdmin(admin.ModelAdmin):
 	list_filter = ("status","vat_basis","price_band")
 	inlines = [OrderLineInline]
 	readonly_fields = ("created_at","completed_at")
+
+
+@admin.register(ChannelMapping)
+class ChannelMappingAdmin(admin.ModelAdmin):
+    list_display = ("name", "band", "channel_code", "co_number", "active", "sort_order")
+    list_filter = ("band", "active")
+    search_fields = ("name", "channel_code", "co_number")
+    list_editable = ("band", "active", "sort_order")

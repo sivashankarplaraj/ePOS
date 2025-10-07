@@ -11,6 +11,7 @@ from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
     EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes
 )
+from .models import ChannelMapping
 from pathlib import Path
 import json
 
@@ -80,6 +81,25 @@ def _price_band_map():
         'Just Eat - Collect-JE-C': '6',
         'Sams online - Collect-SO-C': '2'
     }
+
+@require_GET
+def api_channel_mappings(request: HttpRequest):
+    """Return active channel mappings grouped by band.
+
+    Response:
+      { "channels": [ { id, name, band, channel_code, co_number }, ... ] }
+    """
+    rows = ChannelMapping.objects.filter(active=True)
+    data = [
+        {
+            'id': r.id,
+            'name': r.name,
+            'band': r.band,
+            'channel_code': r.channel_code,
+            'co_number': r.co_number,
+        } for r in rows
+    ]
+    return JsonResponse({'channels': data})
 
 @ensure_csrf_cookie
 def index(request):    
@@ -672,16 +692,19 @@ def api_submit_order(request: HttpRequest):
     band_co_number = (payload.get('band_co_number') or '').strip().upper()[:4]
     # Lightweight validation: allow empty or must match one of known suffix codes in price band map keys (last token after final '-')
     if band_co_number:
-        # Build allowed codes set lazily
         allowed_codes = set()
+        # Legacy static mapping tokens
         for k in _price_band_map().keys():
-            # Our map keys are like 'Sams online - Deliver-SO-D'; extract token before final -D/-C
             parts = k.rsplit('-', 2)
             if len(parts) >= 2:
-                code_token = parts[-2]
-                if len(code_token) <= 4:
-                    allowed_codes.add(code_token.upper())
-        if band_co_number not in allowed_codes:
+                token = parts[-2]
+                if 0 < len(token) <= 4:
+                    allowed_codes.add(token.upper())
+        # Dynamic ChannelMapping codes (active only)
+        for cm in ChannelMapping.objects.filter(active=True).only('co_number'):
+            if cm.co_number:
+                allowed_codes.add(cm.co_number.upper())
+        if band_co_number.upper() not in allowed_codes:
             return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
     vat_basis = payload.get('vat_basis')
     if vat_basis not in {'take','eat'}:
