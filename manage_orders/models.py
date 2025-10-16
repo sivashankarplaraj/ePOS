@@ -20,7 +20,7 @@ class ChannelMapping(models.Model):
 	co_number = models.CharField(max_length=4, help_text="Short channel/company code persisted on Order")
 	active = models.BooleanField(default=True)
 	sort_order = models.PositiveIntegerField(default=0)
-	is_third_party_delivery = models.BooleanField(default=False, help_text="True if this channel is a third‑party delivery platform (e.g., Just Eat, Deliveroo, Uber)")
+	is_third_party_delivery = models.BooleanField(default=False, help_text="True if this channel is a third‑party delivery platform (e.g., Just Eat - Deliver, Deliveroo - Deliver, Uber - Deliver)")
 
 	class Meta:
 		ordering = ["sort_order", "name"]
