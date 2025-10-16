@@ -30,6 +30,9 @@
         <li class="nav-item">
           <a class="nav-link rounded px-3 py-2 {% if '/manage_orders/reports' in request.path %}nav-active{% endif %}" href="/manage_orders/reports/">Reports</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link rounded px-3 py-2 {% if '/cashup/' in request.path %}nav-active{% endif %}" href="/cashup/">Cashup</a>
+        </li>
         {% if request.user.is_staff %}
         <li class="nav-item">
           <a class="nav-link rounded px-3 py-2 {% if '/update_till/' in request.path %}nav-active{% endif %}" href="{% url 'update_till_import' %}">Update Till</a>

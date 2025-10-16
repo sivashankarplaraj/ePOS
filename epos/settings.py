@@ -39,6 +39,7 @@ CSRF_TRUSTED_ORIGINS = [
 INSTALLED_APPS = [
     'update_till.apps.UpdateTillConfig',
     'manage_orders.apps.ManageOrdersConfig',
+    'cashup.apps.CashupConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
