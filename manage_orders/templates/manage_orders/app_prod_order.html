@@ -290,14 +290,12 @@
   function loadChannels(){
     fetch('/api/channels').then(r=>r.json()).then(data=>{
       CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number }));
-      const saved = localStorage.getItem('last_channel_code');
-      if(saved){
-        const match = CHANNEL_ENTRIES.find(c=> c.code===saved);
-        if(match){ applyChannelSelection(match.band, match.co, match.desc, true); return; }
-      }
+      // Do not auto-restore or auto-select. Prompt user every time.
       if(CHANNEL_ENTRIES.length){
-        const first = CHANNEL_ENTRIES[0];
-        applyChannelSelection(first.band, first.co, first.desc, true);
+        // Show a friendly prompt in the categories strip until selection.
+        if(categoryStrip){ categoryStrip.innerHTML = '<div class="text-muted small">Choose a channel to load categories.</div>'; }
+        // Open the channel selection modal so user picks explicitly.
+        if(typeof openChannelModal === 'function') openChannelModal();
       }
     }).catch(()=>{});
   }
@@ -307,7 +305,6 @@
     bandCoNumber = co || '';
     const badge = document.getElementById('band-channel-active');
     if(badge){ badge.textContent = `${desc} (${bandCoNumber})`; badge.classList.remove('d-none'); }
-    localStorage.setItem('last_channel_code', CHANNEL_ENTRIES.find(c=> c.band==band && c.co===co && c.desc===desc)?.code || '');
     activeCategoryId = null;
     if(fetch) fetchMenu();
   }
@@ -1317,7 +1314,6 @@
     if(!btn) return;
     currentBand = String(btn.getAttribute('data-channel-band'));
     bandCoNumber = btn.getAttribute('data-channel-co') || '';
-    document.querySelectorAll('#band-buttons [data-band]').forEach(b=> b.classList.toggle('active', b.getAttribute('data-band')===currentBand));
     const activeBadge = document.getElementById('band-channel-active');
     if(activeBadge){ activeBadge.textContent = btn.querySelector('strong').textContent + ' ('+bandCoNumber+')'; activeBadge.classList.remove('d-none'); }
     activeCategoryId = null;
@@ -1326,6 +1322,10 @@
     if(window.bootstrap){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
   }
   if(channelBtn){ channelBtn.addEventListener('click', openChannelModal); }
+  // Always prompt user to choose a channel on page load by opening the modal (loadChannels will also attempt to open it once data arrives)
+  // This ensures no implicit default is used.
+  // If channels load slightly later, modal will be opened from loadChannels; this call shows it immediately as a cue.
+  openChannelModal();
 
   // Accessibility: improve modal focus/inert handling to prevent aria-hidden warnings.
   (function manageModalA11y(){
