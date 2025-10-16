@@ -506,14 +506,35 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
             p = opt_items.get(c)
             if p:
                 base['options'].append(_serialize_product(p, band, vat_rates=vat_rates))
-        # Meal components heuristic: fries + drink when meal_flag; MEAL_DRINK marks drink group (value 1 in sample CSV) & fries recognized by name contains FRIES
+        # Meal components heuristic:
+        # - Fries: fixed codes [30, 31] for now
+        # - Drinks: for Kids Meals, restrict to Kids Drinks list derived from EposProd where EPOS_GROUP = 99
+        #           otherwise use all drinks where MEAL_DRINK > 0
         meal_components = []
         if base.get('meal_flag'):
             fries = PdItem.objects.filter(PRODNUMB__in=[30,31])
-            drinks = PdItem.objects.filter(MEAL_DRINK__gt=0)
+            # Detect if this product is a Kids item via ePOS group title or name pattern
+            is_kids = False
+            try:
+                ep = EposProd.objects.filter(PRODNUMB=code).only('EPOS_GROUP').first()
+                if ep:
+                    grp = EposGroup.objects.filter(EPOS_GROUP_ID=ep.EPOS_GROUP).only('EPOS_GROUP_TITLE').first()
+                    if grp and 'kid' in (grp.EPOS_GROUP_TITLE or '').lower():
+                        is_kids = True
+            except Exception:
+                pass
+            # Additional fallback: product name contains 'kid'
+            if not is_kids and 'kid' in (base.get('name','')).lower():
+                is_kids = True
+            if is_kids:
+                # Kids Drinks are ePOS products in group 99
+                kids_codes = list(EposProd.objects.filter(EPOS_GROUP=99).values_list('PRODNUMB', flat=True))
+                drinks_qs = PdItem.objects.filter(PRODNUMB__in=kids_codes)
+            else:
+                drinks_qs = PdItem.objects.filter(MEAL_DRINK__gt=0)
             meal_components = {
                 'fries': [_serialize_product(f, band, vat_rates=vat_rates) for f in fries],
-                'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks],
+                'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks_qs],
             }
         base['meal_components'] = meal_components
         # Free choice groups (EposFreeProd): each row may define FREE_CHOICE_1 / FREE_CHOICE_2 as comma lists.
