@@ -97,6 +97,7 @@ def api_channel_mappings(request: HttpRequest):
             'band': r.band,
             'channel_code': r.channel_code,
             'co_number': r.co_number,
+            'is_third_party_delivery': bool(getattr(r, 'is_third_party_delivery', False)),
         } for r in rows
     ]
     return JsonResponse({'channels': data})

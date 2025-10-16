@@ -18,7 +18,7 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(ChannelMapping)
 class ChannelMappingAdmin(admin.ModelAdmin):
-    list_display = ("name", "band", "channel_code", "co_number", "active", "sort_order")
-    list_filter = ("band", "active")
-    search_fields = ("name", "channel_code", "co_number")
-    list_editable = ("band", "active", "sort_order")
+	list_display = ("name", "band", "channel_code", "co_number", "is_third_party_delivery", "active", "sort_order")
+	list_filter = ("band", "is_third_party_delivery", "active")
+	search_fields = ("name", "channel_code", "co_number")
+	list_editable = ("band", "is_third_party_delivery", "active", "sort_order")
