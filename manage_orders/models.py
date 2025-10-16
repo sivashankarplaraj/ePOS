@@ -12,6 +12,7 @@ class ChannelMapping(models.Model):
 		co_number: Short code stored with the order (band_co_number) for reporting (e.g. JE, DV, SO).
 		active: Soft enable/disable without deleting historic rows.
 		sort_order: Allows deterministic ordering inside selection modal.
+		is_third_party_delivery: True if this channel is a third‑party delivery platform (e.g., Just Eat - Deliver, Deliveroo - Deliver, Uber - Deliver).
 	"""
 	name = models.CharField(max_length=120)
 	band = models.PositiveSmallIntegerField()
