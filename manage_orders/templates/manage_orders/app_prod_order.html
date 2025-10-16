@@ -286,10 +286,24 @@
   let vatBasis = 'take'; // default
   let showNet = false;
   let bandCoNumber = '';
+  let isThirdPartyDelivery = false; // from selected channel
   let CHANNEL_ENTRIES = [];
+  const HOT_DRINKS_GROUP_ID = 11;
+  let hotDrinkCodes = new Set();
+  function prefetchHotDrinkCodes(){
+    hotDrinkCodes = new Set();
+    // fetch once per band selection and return a promise
+    return fetch(`/api/menu/category/${HOT_DRINKS_GROUP_ID}/items?band=${currentBand}`)
+      .then(r=>r.json())
+      .then(data=>{
+        const arr = (data.items||[]);
+        arr.forEach(it=>{ if(it && typeof it.code === 'number') hotDrinkCodes.add(it.code); });
+      })
+      .catch(()=>{/* non-blocking */});
+  }
   function loadChannels(){
     fetch('/api/channels').then(r=>r.json()).then(data=>{
-      CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number }));
+      CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number, third: !!c.is_third_party_delivery }));
       // Do not auto-restore or auto-select. Prompt user every time.
       if(CHANNEL_ENTRIES.length){
         // Show a friendly prompt in the categories strip until selection.
@@ -300,13 +314,21 @@
     }).catch(()=>{});
   }
 
-  function applyChannelSelection(band, co, desc, fetch=true){
+  function applyChannelSelection(band, co, desc, fetch=true, code){
     currentBand = String(band);
     bandCoNumber = co || '';
     const badge = document.getElementById('band-channel-active');
     if(badge){ badge.textContent = `${desc} (${bandCoNumber})`; badge.classList.remove('d-none'); }
+    // resolve third-party flag
+    const match = CHANNEL_ENTRIES.find(c=> (code? c.code===code : (c.band==band && c.co===co && c.desc===desc)) );
+    isThirdPartyDelivery = !!(match && match.third);
+    // pre-fetch hot drink codes for filtering (used in meal config and possibly categories)
+    const done = prefetchHotDrinkCodes();
     activeCategoryId = null;
-    if(fetch) fetchMenu();
+    if(fetch){
+      // Ensure categories load proceeds; we don't strictly need to wait, but chain for robustness
+      Promise.resolve(done).finally(()=> fetchMenu());
+    }
   }
   // Lightweight data flow: fetch categories first, then items per selected category.
   let categories = [];
@@ -363,6 +385,8 @@
       .then(r=>r.json())
       .then(data=>{ 
         categories = data.categories || []; 
+        // If third-party delivery, exclude Hot Drinks category (group 11)
+        if(isThirdPartyDelivery){ categories = categories.filter(c=> String(c.id) !== String(HOT_DRINKS_GROUP_ID)); }
         injectStaticCategories();
         renderCategories(); 
         autoSelectFirst(); 
@@ -801,7 +825,7 @@
     const goLargeToggle = document.getElementById('cfg-go-large');
     const friesWrap = document.getElementById('cfg-fries-wrap');
     const drinksWrap = document.getElementById('cfg-drinks-wrap');
-    if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
+  if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
       mealSection.classList.remove('d-none');
       mealToggle.checked=false; mealComp.classList.add('d-none');
       goLargeWrap.classList.add('d-none'); goLargeToggle.checked=false;
@@ -811,6 +835,10 @@
       friesList.forEach(f=>{ const o=document.createElement('option'); o.value=f.code; o.textContent=`${f.name} ${money(f.price_gross)}`; friesSel.appendChild(o); });
       // Filter drinks: only regular where T_DRINK_CD > 0
       let regularDrinks = (data.meal_components.drinks||[]).filter(d=> (d.T_DRINK_CD||d.t_drink_cd||0) > 0);
+      // Exclude hot drinks (EPOS_GROUP=11) for third-party delivery channels
+      if(isThirdPartyDelivery && hotDrinkCodes && hotDrinkCodes.size){
+        regularDrinks = regularDrinks.filter(d=> !hotDrinkCodes.has(d.code));
+      }
       if(regularDrinks.length===0){ regularDrinks = (data.meal_components.drinks||[]); }
       // Render drink buttons (no price)
       if(drinkList){
@@ -1307,17 +1335,23 @@
       }).join('');
     }
     if(window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    modalEl.addEventListener('click', channelSelectHandler, { once:false });
+    // Avoid attaching duplicate listeners if modal is reopened
+    if(!modalEl.dataset.listenerAdded){
+      modalEl.addEventListener('click', channelSelectHandler, { once:false });
+      modalEl.dataset.listenerAdded = '1';
+    }
   }
   function channelSelectHandler(e){
     const btn = e.target.closest('[data-channel-band]');
     if(!btn) return;
-    currentBand = String(btn.getAttribute('data-channel-band'));
-    bandCoNumber = btn.getAttribute('data-channel-co') || '';
+    const selectedBand = String(btn.getAttribute('data-channel-band'));
+    const selectedCo = btn.getAttribute('data-channel-co') || '';
+    const selectedCode = btn.getAttribute('data-channel-code') || '';
     const activeBadge = document.getElementById('band-channel-active');
-    if(activeBadge){ activeBadge.textContent = btn.querySelector('strong').textContent + ' ('+bandCoNumber+')'; activeBadge.classList.remove('d-none'); }
+    if(activeBadge){ activeBadge.textContent = btn.querySelector('strong').textContent + ' ('+selectedCo+')'; activeBadge.classList.remove('d-none'); }
     activeCategoryId = null;
-    fetchMenu();
+    // apply selection (sets isThirdPartyDelivery and prefetches hot drinks), then fetch menu
+    applyChannelSelection(selectedBand, selectedCo, btn.querySelector('strong').textContent, true, selectedCode);
     const modalEl = document.getElementById('bandChannelModal');
     if(window.bootstrap){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
   }
