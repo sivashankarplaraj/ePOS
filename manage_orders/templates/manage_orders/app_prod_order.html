@@ -196,9 +196,14 @@
                 <div id="cfg-drink-list" class="d-flex flex-wrap gap-2"></div>
               </div>
             </div>
-            <div class="form-check form-switch mt-2 d-none" id="cfg-go-large-wrap" style="font-size:1.05rem;">
-              <input class="form-check-input" style="width:3rem;height:1.5rem;" type="checkbox" id="cfg-go-large" />
-              <label class="form-check-label ms-2" for="cfg-go-large">Go Large</label>
+            <div class="mt-2 d-none" id="cfg-sizeup-wrap" style="font-size:1.05rem;">
+              <label class="form-label fw-semibold me-2 mb-2">Size Up</label>
+              <div id="cfg-sizeup-group" class="btn-group flex-wrap" role="group" aria-label="Size up">
+                <button type="button" class="btn btn-outline-secondary active" data-sizeup="none">None</button>
+                <button type="button" class="btn btn-outline-secondary" data-sizeup="both">Both</button>
+                <button type="button" class="btn btn-outline-secondary" data-sizeup="drink">Drink only</button>
+                <button type="button" class="btn btn-outline-secondary" data-sizeup="fries">Fries only</button>
+              </div>
             </div>
           </div>
           <div id="cfg-options" class="mb-4 d-none">
@@ -347,7 +352,7 @@
   // Modal / config state
   const cfgModalEl = document.getElementById('itemConfigModal');
   let cfgModal = null; const ensureModal=()=>{ if(!cfgModal) cfgModal = new bootstrap.Modal(cfgModalEl); };
-  const cfg = { data:null, currentVariant:null, meal:false, fries:null, drink:null, optionalSelected:new Set(), effectivePrice:0 };
+  const cfg = { data:null, currentVariant:null, meal:false, fries:null, drink:null, optionalSelected:new Set(), effectivePrice:0, sizeup:'none' };
   cfg.toppings = []; // full list of topping objects {acode, desc, menu_desc}
   cfg.toppingsLoaded = false;
   let cfgTab = 'main';
@@ -826,14 +831,23 @@
     const mealComp = document.getElementById('cfg-meal-components');
   const friesSel = document.getElementById('cfg-fries');
   const drinkList = document.getElementById('cfg-drink-list'); friesSel.innerHTML=''; if(drinkList) drinkList.innerHTML='';
-    const goLargeWrap = document.getElementById('cfg-go-large-wrap');
-    const goLargeToggle = document.getElementById('cfg-go-large');
+  const sizeUpWrap = document.getElementById('cfg-sizeup-wrap');
+  const sizeUpGroup = document.getElementById('cfg-sizeup-group');
+  function resetSizeUp(){
+    cfg.sizeup = 'none';
+    if(sizeUpGroup){
+      sizeUpGroup.querySelectorAll('[data-sizeup]').forEach(b=>{
+        b.classList.toggle('active', b.getAttribute('data-sizeup')==='none');
+      });
+    }
+  }
     const friesWrap = document.getElementById('cfg-fries-wrap');
     const drinksWrap = document.getElementById('cfg-drinks-wrap');
   if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
       mealSection.classList.remove('d-none');
-      mealToggle.checked=false; mealComp.classList.add('d-none');
-      goLargeWrap.classList.add('d-none'); goLargeToggle.checked=false;
+    mealToggle.checked=false; mealComp.classList.add('d-none');
+    sizeUpWrap.classList.add('d-none');
+    resetSizeUp();
       friesWrap.classList.add('d-none');
       // Populate fries (we'll auto-select regular when toggle on)
       const friesList = (data.meal_components.fries||[]);
@@ -866,18 +880,29 @@
       mealToggle.onchange=()=>{
         cfg.meal=mealToggle.checked;
         mealComp.classList.toggle('d-none', !cfg.meal);
-        goLargeWrap.classList.toggle('d-none', !cfg.meal);
+        sizeUpWrap.classList.toggle('d-none', !cfg.meal);
         if(cfg.meal){
           // Auto-select regular fries (assume first option is Regular)
+          resetSizeUp();
           if(friesSel.options.length>0){ friesSel.selectedIndex=0; cfg.fries=parseInt(friesSel.value,10); }
         } else {
-          cfg.fries=null; cfg.drink=null; goLargeToggle.checked=false;
+          cfg.fries=null; cfg.drink=null; 
+          resetSizeUp();
         }
         updateConfigPrice();
       };
       friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
   // drink selection handled via buttons above
-      goLargeToggle.onchange=()=>{ updateConfigPrice(); };
+      if(sizeUpGroup){
+        resetSizeUp();
+        sizeUpGroup.addEventListener('click', (e)=>{
+          const btn = e.target.closest('[data-sizeup]'); if(!btn) return;
+          const val = btn.getAttribute('data-sizeup');
+          cfg.sizeup = val;
+          [...sizeUpGroup.querySelectorAll('[data-sizeup]')].forEach(b=> b.classList.toggle('active', b===btn));
+          updateConfigPrice();
+        });
+      }
     } else mealSection.classList.add('d-none');
     // Product options
     const optWrap = document.getElementById('cfg-options');
@@ -1142,14 +1167,14 @@
         // Find fries & drink product objects from meal_components lists.
   const friesList = (data.meal_components?.fries||[]);
   const baseFriesObj = friesList.find(f=> f.code==cfg.fries);
-  const goLarge = document.getElementById('cfg-go-large')?.checked;
-  // If Go Large, pick the fries entry with the highest price (robust to naming)
-  const friesObj = goLarge ? (friesList.slice().sort((a,b)=> (b.price_gross||0)-(a.price_gross||0))[0] || baseFriesObj) : baseFriesObj;
+  const sizeup = cfg.sizeup || 'none';
+  // If sizeup affects fries (both or fries), pick the fries entry with the highest price (robust to naming)
+  const friesObj = (sizeup==='both' || sizeup==='fries') ? (friesList.slice().sort((a,b)=> (b.price_gross||0)-(a.price_gross||0))[0] || baseFriesObj) : baseFriesObj;
         // Drinks: if Go Large, use the T_DRINK_CD of selected drink (product code of large); else use selected regular
         const allDrinks = (data.meal_components?.drinks||[]);
         const regularDrinkObj = allDrinks.find(d=> d.code==cfg.drink);
         let drinkObj = regularDrinkObj;
-        if(goLarge && regularDrinkObj){
+        if((sizeup==='both' || sizeup==='drink') && regularDrinkObj){
           const largeCode = regularDrinkObj.T_DRINK_CD || regularDrinkObj.t_drink_cd || 0;
           if(largeCode){
             const largeObj = allDrinks.find(d=> d.code==largeCode);
@@ -1222,17 +1247,17 @@
     // Compute effective fries/drink codes based on Go Large state
     let effectiveFries = cfg.fries;
     let effectiveDrink = cfg.drink;
-    const goLarge = document.getElementById('cfg-go-large')?.checked;
+    const sizeup = cfg.sizeup || 'none';
     if(cfg.meal){
       const friesList = (baseData.meal_components?.fries||[]);
-      if(goLarge){
+      if(sizeup==='both' || sizeup==='fries'){
         const baseFriesObj = friesList.find(f=> f.code==cfg.fries);
         const largeFriesObj = friesList.find(f=> /large/i.test(String(f.name||'')));
         effectiveFries = (largeFriesObj?.code) || (baseFriesObj?.code) || cfg.fries;
       }
       const drinksList = (baseData.meal_components?.drinks||[]);
       const selDrink = drinksList.find(d=> d.code==cfg.drink);
-      if(goLarge && selDrink){
+      if((sizeup==='both' || sizeup==='drink') && selDrink){
         const largeCode = selDrink.T_DRINK_CD || selDrink.t_drink_cd || 0;
         if(largeCode) effectiveDrink = largeCode;
       }
@@ -1266,7 +1291,7 @@
       fries: cfg.meal? effectiveFries : null,
       drink: cfg.meal? effectiveDrink : null,
       variant_code: cfg.currentVariant || null,
-      go_large: cfg.meal ? (document.getElementById('cfg-go-large')?.checked || false) : false,
+  sizeup: cfg.meal ? (cfg.sizeup || 'none') : 'none',
   display_choices: displayChoices,
   free_choices: freeChosen
     };
