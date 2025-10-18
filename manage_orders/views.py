@@ -385,7 +385,10 @@ def api_category_items(request: HttpRequest, group_id: int):
         pd_item = pd_items_map.get(ep.PRODNUMB)
         if not pd_item:
             continue
-        items.append(_serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates))
+        prod_obj = _serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates)
+        # Attach EPOS group id for frontend policy (e.g., kids = group 4)
+        prod_obj['epos_group_id'] = group_id
+        items.append(prod_obj)
 
     # Add combination products from EposComb for this group (e.g., Special Offers / group 9)
     epos_combos = list(EposComb.objects.filter(EPOS_GROUP=group_id).order_by('EPOS_SEQUENCE'))
@@ -395,7 +398,9 @@ def api_category_items(request: HttpRequest, group_id: int):
         for ec in epos_combos:
             detail = comb_details.get(ec.COMBONUMB)
             if detail:
-                items.append(_serialize_combo(detail, band, vat_rates=vat_rates))
+                combo_obj = _serialize_combo(detail, band, vat_rates=vat_rates)
+                combo_obj['epos_group_id'] = group_id
+                items.append(combo_obj)
             else:
                 # Fallback minimal serialization (price 0 if no CombTb pricing row)
                 items.append({
@@ -410,7 +415,8 @@ def api_category_items(request: HttpRequest, group_id: int):
                     'eat_vat_rate': 0.0,
                     'variants': [],
                     'meal_flag': False,
-                    'has_discount': False
+                    'has_discount': False,
+                    'epos_group_id': group_id
                 })
     # Keep insertion order: products then combos (mirrors legacy behaviour)
     return JsonResponse({
@@ -504,6 +510,13 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
         if not item:
             return JsonResponse({'error': 'Not found'}, status=404)
         base = _serialize_product(item, band, app_meta=app_meta, vat_rates=vat_rates)
+        # Attach EPOS group id where known (used by frontend to enforce kids meal policy)
+        try:
+            ep_meta = EposProd.objects.filter(PRODNUMB=code).only('EPOS_GROUP').first()
+            if ep_meta:
+                base['epos_group_id'] = ep_meta.EPOS_GROUP
+        except Exception:
+            pass
         # Options from PChoice
         opt_links = PChoice.objects.filter(PRODNUMB=code)
         opt_codes = [o.OPT_PRODNUMB for o in opt_links]

@@ -474,7 +474,7 @@
   card.style.borderLeft = `6px solid ${dark ? acc.borderDark : acc.borderLight}`;
   card.style.backgroundColor = dark ? acc.bgDark : acc.bgLight;
       // Make card the click target
-      card.setAttribute('data-open', String(prod.code));
+  card.setAttribute('data-open', String(prod.code));
       card.setAttribute('data-item-type', prod.type);
       card.style.cursor = 'pointer';
       const basePrice = priceForDisplay(prod);
@@ -826,7 +826,7 @@
       });
     } else vWrap.classList.add('d-none');
     // Meal
-    const mealSection = document.getElementById('cfg-meal-section');
+  const mealSection = document.getElementById('cfg-meal-section');
     const mealToggle = document.getElementById('cfg-meal-toggle');
     const mealComp = document.getElementById('cfg-meal-components');
   const friesSel = document.getElementById('cfg-fries');
@@ -874,6 +874,12 @@
           });
           drinkList.appendChild(b);
         });
+        // If only one drink is available, preselect it
+        if(drinkList.children.length === 1){
+          const only = drinkList.children[0];
+          only.classList.add('active');
+          cfg.drink = parseInt(only.getAttribute('data-code')||only.dataset.code,10);
+        }
       }
       // Defaults when toggled on: select first regular fries and require a drink choice
   friesSel.selectedIndex = -1; cfg.fries=null; cfg.drink=null;
@@ -891,7 +897,7 @@
         }
         updateConfigPrice();
       };
-      friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
+    friesSel.onchange=()=>{ cfg.fries=friesSel.value? parseInt(friesSel.value,10):null; updateConfigPrice(); };
   // drink selection handled via buttons above
       if(sizeUpGroup){
         resetSizeUp();
@@ -903,7 +909,7 @@
           updateConfigPrice();
         });
       }
-    } else mealSection.classList.add('d-none');
+  } else mealSection.classList.add('d-none');
     // Product options
     const optWrap = document.getElementById('cfg-options');
     const optList = document.getElementById('cfg-options-list'); optList.innerHTML='';
@@ -1047,6 +1053,33 @@
     document.getElementById('cfg-loading').classList.add('d-none');
     document.getElementById('cfg-body').classList.remove('d-none');
     document.getElementById('cfg-add-btn').disabled=false;
+
+    // Enforce Kids category (EPOS Group 4) as meal-only: auto-toggle and lock
+    try {
+      const grpId = data.epos_group_id || data.group_id || null;
+      const isKidsGroup = String(grpId) === '4' || (data.meal_type === 'kids');
+      if(isKidsGroup && !document.getElementById('cfg-body').classList.contains('d-none')){
+        if(mealSection && !mealSection.classList.contains('d-none')){
+          mealToggle.checked = true; mealToggle.disabled = true; // lock toggle
+          // Reveal components and default fries/drink if needed
+          mealComp.classList.remove('d-none');
+          sizeUpWrap.classList.remove('d-none');
+          if(friesSel.options.length>0 && (cfg.fries==null || cfg.fries==undefined)){
+            friesSel.selectedIndex = 0; cfg.fries = parseInt(friesSel.value,10);
+          }
+          if(drinkList && drinkList.children.length){
+            // If none active, preselect first
+            const active = Array.from(drinkList.children).find(c=> c.classList.contains('active'));
+            if(!active){ drinkList.children[0].classList.add('active'); cfg.drink = parseInt(drinkList.children[0].getAttribute('data-code')||drinkList.children[0].dataset.code,10); }
+          }
+          cfg.meal = true;
+          updateConfigPrice();
+        }
+      } else {
+        // Ensure toggle is enabled for non-kids groups
+        if(mealToggle) mealToggle.disabled = false;
+      }
+    } catch(err) { /* non-blocking */ }
   }
 
   function syncConfigTabs(){
