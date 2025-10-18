@@ -474,7 +474,8 @@
       card.style.cursor = 'pointer';
       const basePrice = priceForDisplay(prod);
   const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
-      const mealBadge = prod.meal_flag ? " <span class='badge bg-info text-dark'>Meal</span>" : '';
+  const mealLabel = prod.meal_type === 'kids' ? 'Kids Meal' : 'Meal';
+  const mealBadge = prod.meal_flag ? ` <span class='badge bg-info text-dark'>${mealLabel}</span>` : '';
       const discountHtml = prod.has_discount ? ` <span class='badge bg-warning text-dark'>Meal ${money(priceForDiscountDisplay(prod))}</span>` : '';
       let variantsHtml='';
       if(prod.variants && prod.variants.length){
@@ -601,7 +602,7 @@
       const customBadge = attachedToppings.length? " <span class='badge bg-warning text-dark ms-1' style='font-size:0.65rem;'>CUSTOM</span>" : '';
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
-          <div class='basket-line-main' data-select-line='${l.signature}' role='button'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal?' Meal':''}${customBadge}</div>
+          <div class='basket-line-main' data-select-line='${l.signature}' role='button'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal? (l.meal_type==='kids'?' Kids Meal':' Meal'):''}${customBadge}</div>
           ${detailsHtml}
           ${toppingsHtml}
         </div>
@@ -800,7 +801,11 @@
     document.getElementById('cfg-title').textContent = `Configure #${data.code}`;
     document.getElementById('cfg-item-name').textContent = data.name;
     document.getElementById('cfg-item-type').classList.toggle('d-none', data.type!=='combo');
-    document.getElementById('cfg-meal-badge').classList.toggle('d-none', !data.meal_flag);
+    const cfgMealBadgeEl = document.getElementById('cfg-meal-badge');
+    cfgMealBadgeEl.classList.toggle('d-none', !data.meal_flag);
+    if (data.meal_flag) {
+      cfgMealBadgeEl.textContent = (data.meal_type === 'kids') ? 'Kids Meal' : 'Meal';
+    }
     document.getElementById('cfg-band').textContent = currentBand;
     // Variants
     const vWrap = document.getElementById('cfg-variants');

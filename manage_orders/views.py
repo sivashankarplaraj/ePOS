@@ -182,9 +182,14 @@ def _serialize_product(item: PdItem, band: str, app_meta: AppProd | None = None,
         'eat_vat_rate': eat_vat,
         'variants': []
     }
-    # Meal flag from AppProd (MEAL_ID > 0 indicates appears in meal section)
+    # Meal classification from AppProd:
+    # MEAL_ID = 1 => Regular Meal, MEAL_ID = 2 => Kids Meal
     if app_meta:
-        data['meal_flag'] = app_meta.MEAL_ID > 0
+        meal_id = int(getattr(app_meta, 'MEAL_ID', 0) or 0)
+        meal_type = 'regular' if meal_id == 1 else ('kids' if meal_id == 2 else None)
+        data['meal_id'] = meal_id
+        data['meal_type'] = meal_type
+        data['meal_flag'] = meal_type is not None
         # Double / triple variants
         variant_codes = []
         if app_meta.DOUBLE_PDNUMB and app_meta.DOUBLE_PDNUMB != 0:
@@ -206,6 +211,8 @@ def _serialize_product(item: PdItem, band: str, app_meta: AppProd | None = None,
                 })
     else:
         data['meal_flag'] = False
+        data['meal_id'] = 0
+        data['meal_type'] = None
     return data
 
 
