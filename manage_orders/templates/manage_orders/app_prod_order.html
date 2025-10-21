@@ -596,11 +596,15 @@
       let toppingsHtml='';
       if(attachedToppings.length){
         const topsLi = attachedToppings.map(t=>{
-          const isExtra = /extra/i.test(t.name);
-          const isRemove = /(^|\s)no\s/i.test(t.name);
-          const cls = isExtra? 'text-success' : (isRemove? 'text-danger' : 'text-info');
+          const isKindExtra = t.meta && t.meta.kind === 'extra';
+          const isRemove = !isKindExtra && /(^|\s)no\s/i.test(t.name);
+          const isExtraByName = !isKindExtra && /extra/i.test(t.name);
+          const cls = isKindExtra? 'text-success' : (isRemove? 'text-danger' : (isExtraByName? 'text-success' : 'text-info'));
           const idxRef = basket.lines.indexOf(t);
-          return `<li class='${cls}' data-topping-line='${idxRef}'>${t.name} <button type='button' class='btn btn-sm btn-link p-0 ms-1 text-decoration-none text-muted' data-remove-topping='${idxRef}' aria-label='Remove topping' title='Remove'>&times;</button></li>`;
+          const badge = isKindExtra? "<span class='badge bg-success me-1'>EXTRA</span>" : (isRemove? "<span class='badge bg-danger-subtle text-danger-emphasis me-1'>NO</span>" : "<span class='badge bg-secondary me-1'>ADD</span>");
+          const priceSpan = isKindExtra && t.price ? ` <span class='text-muted'>(+${money(t.price)})</span>` : '';
+          const label = `${badge} ${t.name}${priceSpan}`;
+          return `<li class='${cls}' data-topping-line='${idxRef}'>${label} <button type='button' class='btn btn-sm btn-link p-0 ms-1 text-decoration-none text-muted' data-remove-topping='${idxRef}' aria-label='Remove attached' title='Remove'>&times;</button></li>`;
         });
         toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
       }
@@ -742,7 +746,32 @@
       const base = findItem(type, code);
       const needsConfig = type==='combo' || (base && ((base.variants&&base.variants.length) || base.meal_flag || (base.options&&base.options.length)));
       if(needsConfig){ openConfig(type, code, null); }
-      else if(base){ addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type }); }
+      else if(base){
+        const grpId = base.epos_group_id || base.group_id || null;
+        const isExtras = String(grpId) === '8' || String(activeCategoryId) === '8';
+        // Extras (EPOS_GROUP_ID = 8) cannot be sold standalone; attach to last added product
+        if(isExtras){
+          if(!lastProductSignature){
+            alert('Add a product before adding an extra.');
+            return;
+          }
+          const targetLine = basket.lines.find(l=> l.signature === lastProductSignature && l.type !== 'topping');
+          if(!targetLine){ return; }
+          // If target has qty > 1, split off one unit for customization
+          if(targetLine.qty > 1){
+            targetLine.qty -= 1;
+            const clone = { ...targetLine, qty:1 };
+            basket.lines.push(clone);
+            lastProductSignature = clone.signature;
+          }
+          ensureToppingGroup(targetLine);
+          lastProductSignature = targetLine.signature;
+          const extraLine = { code: base.code, name: base.name, price: base.price_gross||0, type:'topping', meta:{ kind:'extra', targetSig: targetLine.signature, extra_product_code: base.code } };
+          addLine(extraLine);
+        } else {
+          addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type });
+        }
+      }
       return;
     }
   });
@@ -1489,18 +1518,32 @@
       const numeric = parseInt(l.code,10);
       if(Number.isNaN(numeric)) return; // skip invalid
       const meta = {...(l.meta||{})};
+      let linePriceGross = l.price || 0; // don't mutate basket state
       const attached = toppingsBySig[l.signature] || [];
       if(attached.length){
         const remove = [], extra = [], displayChoices = meta.display_choices ? [...meta.display_choices] : [];
+        const extrasProducts = [];
+        let extrasSum = 0;
         attached.forEach(tl=>{
+          if(tl.meta?.kind === 'extra'){
+            extrasProducts.push({ code: parseInt(tl.code,10) || tl.code, name: tl.name, price_gross: tl.price||0 });
+            extrasSum += (tl.price||0);
+            displayChoices.push(`Extra: ${tl.name} ${tl.price? '('+money(tl.price)+')':''}`);
+            return;
+          }
           const top = tl.meta?.topping;
-            if(!top) return;
+          if(!top) return;
           if(tl.meta?.action==='remove'){ remove.push(top); displayChoices.push('No ' + top); }
           else if(tl.meta?.action==='extra'){ extra.push(top); displayChoices.push('Extra ' + top); }
         });
         if(remove.length) meta.toppings_remove = remove;
         if(extra.length) meta.toppings_extra = extra;
+        if(extrasProducts.length) meta.extras_products = extrasProducts;
         if(displayChoices.length) meta.display_choices = displayChoices;
+        if(extrasSum){
+          // Add extras price to the API line's unit price so qty multiplication applies as expected
+          linePriceGross = (linePriceGross||0) + extrasSum;
+        }
       }
       apiLines.push({
         code: numeric,
@@ -1509,7 +1552,7 @@
         variant: l.variant,
         meal: !!l.meal,
         qty: l.qty||1,
-        price_gross: l.price,
+        price_gross: linePriceGross,
         meta
       });
     });
