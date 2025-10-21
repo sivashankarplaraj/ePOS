@@ -2,11 +2,20 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.utils import timezone
 
-from .forms import StartShiftForm, CashUpMainForm
+from .forms import StartShiftForm, CashUpMainForm, ReportFilterForm
 from .models import Shift, Float, CashUp, CashUpEntry, Denomination
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
+
+
+def _has_group(user, name: str) -> bool:
+    try:
+        return user.is_superuser or user.groups.filter(name=name).exists()
+    except Exception:
+        return True  # if groups aren’t configured, do not block
 
 
 @login_required
@@ -22,6 +31,9 @@ def index(request):
 @login_required
 @transaction.atomic
 def start_shift(request):
+    if request.user.groups.exists() and not _has_group(request.user, 'Cashier'):
+        messages.error(request, 'You do not have permission to start a shift.')
+        return redirect('cashup:index')
     if request.method == 'POST':
         form = StartShiftForm(request.POST)
         if form.is_valid():
@@ -44,6 +56,9 @@ def start_shift(request):
 @login_required
 @transaction.atomic
 def do_cashup(request):
+    if request.user.groups.exists() and not _has_group(request.user, 'Cashier'):
+        messages.error(request, 'You do not have permission to do cash-up.')
+        return redirect('cashup:index')
     shift = Shift.objects.filter(user=request.user, is_closed=False).order_by('-start_time').first()
     if not shift:
         messages.error(request, 'No active shift. Start a shift first.')
@@ -90,12 +105,51 @@ def do_cashup(request):
 @login_required
 @transaction.atomic
 def close_shift(request):
+    if request.user.groups.exists() and not _has_group(request.user, 'Cashier'):
+        messages.error(request, 'You do not have permission to close a shift.')
+        return redirect('cashup:index')
     shift = Shift.objects.filter(user=request.user, is_closed=False).order_by('-start_time').first()
     if not shift:
         messages.error(request, 'No active shift to close.')
         return redirect('cashup:index')
+    # Ensure a cash-up record exists before closing
+    if not CashUp.objects.filter(shift=shift).exists():
+        messages.error(request, 'Please complete a cash-up before closing the shift.')
+        return redirect('cashup:do')
     shift.is_closed = True
     shift.end_time = timezone.now()
     shift.save(update_fields=['is_closed','end_time'])
     messages.success(request, 'Shift closed.')
     return redirect('cashup:index')
+
+
+@login_required
+def report(request):
+    # Managers-only report; fall back to allow if no groups configured
+    if request.user.groups.exists() and not _has_group(request.user, 'Manager'):
+        messages.error(request, 'You do not have permission to view reports.')
+        return redirect('cashup:index')
+    form = ReportFilterForm(request.GET or None)
+    qs = CashUp.objects.select_related('shift', 'shift__user').order_by('-created_at')
+    if form.is_valid():
+        sd = form.cleaned_data.get('start_date')
+        ed = form.cleaned_data.get('end_date')
+        usr = form.cleaned_data.get('user')
+        if sd:
+            qs = qs.filter(shift__start_time__date__gte=sd)
+        if ed:
+            qs = qs.filter(shift__start_time__date__lte=ed)
+        if usr:
+            qs = qs.filter(shift__user=usr)
+    rows = list(qs)
+    return render(request, 'cashup/report.html', { 'form': form, 'rows': rows })
+
+
+class CrewLoginView(LoginView):
+    template_name = 'cashup/crew_login.html'
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        # Respect ?next= if provided, otherwise go to cashup index
+        next_url = self.get_redirect_url()
+        return next_url or reverse_lazy('cashup:index')

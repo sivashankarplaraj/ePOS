@@ -138,3 +138,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # When behind a proxy/SSL terminator (e.g., PythonAnywhere), tell Django to trust X-Forwarded-Proto
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Auth redirects
+# Redirect unauthenticated users to the crew login and, after login, to Cash-up
+LOGIN_URL = '/cashup/crew-login/'
+LOGIN_REDIRECT_URL = '/cashup/'
+LOGOUT_REDIRECT_URL = '/cashup/crew-login/'

@@ -51,6 +51,17 @@
           </ul>
         </div>
         <a href="/admin/" class="btn btn-sm btn-outline-secondary" target="_blank">Admin</a>
+        {% if request.user.is_authenticated %}
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small d-none d-md-inline">{{ request.user.username }}</span>
+            <form method="post" action="{% url 'cashup:logout' %}" class="m-0 p-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger">Logout</button>
+            </form>
+          </div>
+        {% else %}
+          <a href="{% url 'cashup:crew_login' %}" class="btn btn-sm btn-primary">Login</a>
+        {% endif %}
       </div>
     </div>
   </div>

@@ -8,6 +8,10 @@
       <div class="col-md-6">
         <div class="mb-3">{{ form.expected_amount.label_tag }} {{ form.expected_amount }}</div>
         <div class="mb-3">{{ form.notes.label_tag }} {{ form.notes }}</div>
+        <div class="alert alert-secondary" id="calc-panel">
+          <div>Actual total: <strong id="actual-total">£0.00</strong></div>
+          <div>Difference (Actual - Expected): <strong id="diff-total">£0.00</strong></div>
+        </div>
       </div>
       <div class="col-md-6">
         <div class="card">
@@ -16,7 +20,11 @@
             {% for d in denoms %}
               <div class="row align-items-center mb-2">
                 <div class="col">{{ d.name }} (£{{ d.value }})</div>
-                <div class="col-auto"><input type="number" class="form-control" min="0" name="denom_{{ d.pk }}" value="0"></div>
+                <div class="col-auto">
+                  <input type="number" class="form-control denom-input" min="0" name="denom_{{ d.pk }}" value="0"
+                    data-value="{{ d.value }}"
+                    data-value-pence="{{ d.value|floatformat:2|cut:'.' }}">
+                </div>
               </div>
             {% empty %}
               <div class="text-muted">No denominations defined.</div>
@@ -31,4 +39,41 @@
     </div>
   </form>
 </div>
+<script>
+(function(){
+  function parsePoundsToPence(txt){
+    const n = parseFloat(String(txt||'0'));
+    if(isNaN(n)) return 0;
+    return Math.round(n*100);
+  }
+  function money(pence){ return '£' + (pence/100).toFixed(2); }
+  function recalc(){
+    let actualP = 0;
+    document.querySelectorAll('.denom-input').forEach(inp=>{
+      const count = parseInt(inp.value||'0',10) || 0;
+      const pv = inp.getAttribute('data-value-pence');
+      let pence = 0;
+      if(pv !== null && pv !== ''){
+        pence = parseInt(pv, 10) || 0;
+      } else {
+        const valStr = inp.getAttribute('data-value');
+        const val = parseFloat(valStr);
+        pence = Math.round((isNaN(val)?0:val)*100);
+      }
+      actualP += (count * pence);
+    });
+    const expectedInp = document.getElementById('id_expected_amount');
+    const expectedP = expectedInp ? parsePoundsToPence(expectedInp.value) : 0;
+    const diffP = actualP - expectedP;
+    const aEl = document.getElementById('actual-total');
+    const dEl = document.getElementById('diff-total');
+    if(aEl) aEl.textContent = money(actualP);
+    if(dEl) dEl.textContent = money(diffP);
+  }
+  document.addEventListener('input', (e)=>{
+    if(e.target.matches('.denom-input') || e.target.id==='id_expected_amount') recalc();
+  });
+  recalc();
+})();
+</script>
 {% endblock %}

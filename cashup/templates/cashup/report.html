@@ -1,0 +1,43 @@
+{% extends 'manage_orders/index.html' %}
+{% block title %}Cash-up Report{% endblock %}
+{% block content %}
+<div class="container py-3">
+  <h2>Cash-up Report</h2>
+  <form method="get" class="row g-3 mb-3">
+    <div class="col-auto">{{ form.start_date.label_tag }} {{ form.start_date }}</div>
+    <div class="col-auto">{{ form.end_date.label_tag }} {{ form.end_date }}</div>
+    <div class="col-auto">{{ form.user.label_tag }} {{ form.user }}</div>
+    <div class="col-auto align-self-end"><button class="btn btn-primary">Filter</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Shift Start</th>
+          <th>Shift End</th>
+          <th>Expected</th>
+          <th>Actual</th>
+          <th>Difference</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr class="{% if r.difference and r.difference != 0 %}table-warning{% endif %}">
+            <td>{{ r.shift.user.username }}</td>
+            <td>{{ r.shift.start_time }}</td>
+            <td>{{ r.shift.end_time }}</td>
+            <td>£{{ r.expected_amount }}</td>
+            <td>£{{ r.actual_amount }}</td>
+            <td>£{{ r.difference }}</td>
+            <td class="small">{{ r.notes }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-muted">No results.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
