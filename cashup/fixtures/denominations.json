@@ -1,0 +1,14 @@
+[
+  {"model": "cashup.denomination", "pk": 1, "fields": {"name": "Fifty Pound Note", "value": "50.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 2, "fields": {"name": "Twenty Pound Note", "value": "20.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 3, "fields": {"name": "Ten Pound Note", "value": "10.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 4, "fields": {"name": "Five Pound Note", "value": "5.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 5, "fields": {"name": "Two Pound Coin", "value": "2.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 6, "fields": {"name": "One Pound Coin", "value": "1.00", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 7, "fields": {"name": "Fifty Pence Coin", "value": "0.50", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 8, "fields": {"name": "Twenty Pence Coin", "value": "0.20", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 9, "fields": {"name": "Ten Pence Coin", "value": "0.10", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 10, "fields": {"name": "Five Pence Coin", "value": "0.05", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 11, "fields": {"name": "Two Pence Coin", "value": "0.02", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}},
+  {"model": "cashup.denomination", "pk": 12, "fields": {"name": "One Penny Coin", "value": "0.01", "created_at": "2025-01-01T00:00:00Z", "updated_at": "2025-01-01T00:00:00Z"}}
+]
