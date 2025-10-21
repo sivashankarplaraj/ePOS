@@ -5,8 +5,26 @@
 {% block content %}
 <div class="container py-3">
   <h2>Cashup</h2>
-  <p class="text-muted">This is the starting page for the Cashup app.</p>
-  
-  <!-- Add your Cashup components here -->
+  {% if active_shift %}
+    <div class="alert alert-success">Active shift since {{ active_shift.start_time }}{% if active_shift.end_time %}, ends {{ active_shift.end_time }}{% endif %}</div>
+    <div class="d-flex gap-2 mb-3">
+      <a class="btn btn-outline-primary" href="{% url 'cashup:do' %}">Do Cash-up</a>
+      <a class="btn btn-outline-danger" href="{% url 'cashup:close' %}">Close Shift</a>
+    </div>
+    {% if float %}
+      <div class="mb-3">Float at start: <strong>£{{ float.amount }}</strong></div>
+    {% endif %}
+    {% if cashup %}
+      <div class="card mb-3"><div class="card-body">
+        <div class="fw-bold">Last Cash-up</div>
+        <div>Expected: £{{ cashup.expected_amount }}</div>
+        <div>Actual: £{{ cashup.actual_amount }}</div>
+        <div>Difference: £{{ cashup.difference }}</div>
+      </div></div>
+    {% endif %}
+  {% else %}
+    <div class="alert alert-info">No active shift.</div>
+    <a class="btn btn-primary" href="{% url 'cashup:start' %}">Start a Shift</a>
+  {% endif %}
 </div>
 {% endblock %}

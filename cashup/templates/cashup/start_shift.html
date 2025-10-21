@@ -1,0 +1,12 @@
+{% extends 'manage_orders/index.html' %}
+{% block title %}Start Shift{% endblock %}
+{% block content %}
+<div class="container py-3">
+  <h2>Start Shift</h2>
+  <form method="post" class="mt-3">{% csrf_token %}
+    <div class="mb-3">{{ form.amount.label_tag }} {{ form.amount }}</div>
+    <div class="mb-3">{{ form.notes.label_tag }} {{ form.notes }}</div>
+    <button class="btn btn-primary">Start Shift</button>
+  </form>
+</div>
+{% endblock %}
