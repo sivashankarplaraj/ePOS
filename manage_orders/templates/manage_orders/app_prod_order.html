@@ -1357,10 +1357,13 @@
   display_choices: displayChoices,
   free_choices: freeChosen
     };
+    // Determine display name for variant (use variant's own item description if provided by API)
+    const vInfo = cfg.currentVariant ? (cfg.data.variants||[]).find(v=>v.code==cfg.currentVariant) : null;
+    const displayName = (vInfo && vInfo.name) ? vInfo.name : cfg.data.name;
     addLine({
       code: cfg.currentVariant || cfg.data.code,
-      name: cfg.data.name + (cfg.currentVariant? '*':'') + (cfg.meal? ' Meal':''),
-      variant: cfg.currentVariant? (cfg.data.variants||[]).find(v=>v.code==cfg.currentVariant)?.label : null,
+      name: displayName + (cfg.meal? ' Meal':''),
+      variant: null, // avoid appending (double)/(triple); we use the variant's own description instead
       meal: cfg.meal,
       price: cfg.effectivePrice,
       type: cfg.data.type,

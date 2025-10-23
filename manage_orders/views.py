@@ -208,13 +208,22 @@ def _serialize_product(item: PdItem, band: str, app_meta: AppProd | None = None,
         # Look up variants only once (caller may supply pre-fetched map)
         for label, vcode in variant_codes:
             # variant product may not exist in PdItem table (skip if not)
-            vitem = PdItem.objects.filter(PRODNUMB=vcode).only('PRODNUMB', std_col, dc_col).first()
+            vitem = PdItem.objects.filter(PRODNUMB=vcode).only('PRODNUMB', 'PRODNAME', std_col, dc_col).first()
             if vitem:
                 v_std = getattr(vitem, std_col, 0) or 0
                 v_dc = getattr(vitem, dc_col, 0) or 0
+                # Prefer ITEM_DESC from EposProd for variant name; fallback to PdItem.PRODNAME
+                v_name = (getattr(vitem, 'PRODNAME', '') or '').strip()
+                try:
+                    v_ep = EposProd.objects.filter(PRODNUMB=vitem.PRODNUMB).order_by('-last_updated').first()
+                    if v_ep and (v_ep.ITEM_DESC or '').strip():
+                        v_name = v_ep.ITEM_DESC.strip()
+                except Exception:
+                    pass
                 data['variants'].append({
                     'label': label,
                     'code': vitem.PRODNUMB,
+                    'name': v_name,
                     'price_gross': int(v_std),
                     'discounted_price_gross': int(v_dc) if v_dc else 0
                 })
