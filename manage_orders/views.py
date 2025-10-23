@@ -564,15 +564,41 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
             # Additional fallback: product name contains 'kid'
             if not is_kids and 'kid' in (base.get('name','')).lower():
                 is_kids = True
+            # Build drinks ordered by EPOS_SEQUENCE from EposProd
+            drinks_items: list[PdItem] = []
             if is_kids:
-                # Kids Drinks are ePOS products in group 99
-                kids_codes = list(EposProd.objects.filter(EPOS_GROUP=99).values_list('PRODNUMB', flat=True))
-                drinks_qs = PdItem.objects.filter(PRODNUMB__in=kids_codes)
+                # Kids Drinks are ePOS products in group 99; order by EPOS_SEQUENCE
+                ordered_codes = list(
+                    EposProd.objects.filter(EPOS_GROUP=99)
+                    .order_by('EPOS_SEQUENCE')
+                    .values_list('PRODNUMB', flat=True)
+                )
+                pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=ordered_codes)}
+                drinks_items = [pd_map[c] for c in ordered_codes if c in pd_map]
+                # Fallback: if any kids drinks exist in PdItem but not in EposProd, append them at end by PRODNUMB
+                remaining_codes = set(PdItem.objects.filter(PRODNUMB__in=ordered_codes).values_list('PRODNUMB', flat=True)) - set(pd_map.keys())
+                if remaining_codes:
+                    extra_items = list(PdItem.objects.filter(PRODNUMB__in=list(remaining_codes)).order_by('PRODNUMB'))
+                    drinks_items.extend(extra_items)
             else:
-                drinks_qs = PdItem.objects.filter(MEAL_DRINK__gt=0)
+                # All meal-eligible drinks (MEAL_DRINK > 0), ordered by EposProd.EPOS_SEQUENCE where available
+                drink_codes = list(PdItem.objects.filter(MEAL_DRINK__gt=0).values_list('PRODNUMB', flat=True))
+                if drink_codes:
+                    ordered_codes = list(
+                        EposProd.objects.filter(PRODNUMB__in=drink_codes)
+                        .order_by('EPOS_SEQUENCE')
+                        .values_list('PRODNUMB', flat=True)
+                    )
+                    pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=ordered_codes)}
+                    drinks_items = [pd_map[c] for c in ordered_codes if c in pd_map]
+                    # Append any remaining MEAL_DRINK>0 PdItems that don't have an EposProd row, sorted by PRODNUMB
+                    remaining = set(drink_codes) - set(pd_map.keys())
+                    if remaining:
+                        extra_items = list(PdItem.objects.filter(PRODNUMB__in=list(remaining)).order_by('PRODNUMB'))
+                        drinks_items.extend(extra_items)
             meal_components = {
                 'fries': [_serialize_product(f, band, vat_rates=vat_rates) for f in fries],
-                'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks_qs],
+                'drinks': [_serialize_product(d, band, vat_rates=vat_rates) for d in drinks_items],
             }
         base['meal_components'] = meal_components
         # Free choice groups (EposFreeProd): each row may define FREE_CHOICE_1 / FREE_CHOICE_2 as comma lists.
