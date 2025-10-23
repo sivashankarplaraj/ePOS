@@ -1362,7 +1362,7 @@
     const displayName = (vInfo && vInfo.name) ? vInfo.name : cfg.data.name;
     addLine({
       code: cfg.currentVariant || cfg.data.code,
-      name: displayName + (cfg.meal? ' Meal':''),
+      name: displayName,
       variant: null, // avoid appending (double)/(triple); we use the variant's own description instead
       meal: cfg.meal,
       price: cfg.effectivePrice,
