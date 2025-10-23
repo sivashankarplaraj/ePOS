@@ -164,10 +164,19 @@ def _serialize_product(item: PdItem, band: str, app_meta: AppProd | None = None,
             return int(round(gross / (1 + (rate/100.0)))) if gross else 0
         except ZeroDivisionError:
             return gross
+    # Prefer ITEM_DESC from EposProd if available; fallback to PdItem.PRODNAME
+    disp_name = (item.PRODNAME or '').strip()
+    try:
+        ep = EposProd.objects.filter(PRODNUMB=item.PRODNUMB).order_by('-last_updated').first()
+        if ep and (ep.ITEM_DESC or '').strip():
+            disp_name = ep.ITEM_DESC.strip()
+    except Exception:
+        pass
+
     data = {
         'type': 'product',
         'code': item.PRODNUMB,
-        'name': (item.PRODNAME or '').strip(),
+        'name': disp_name,
         'band': band,
         'price_gross': std_price,
         'price_net_take': net(std_price, take_vat),
@@ -228,10 +237,19 @@ def _serialize_combo(combo: CombTb, band: str, app_meta: AppComb | None = None, 
             return int(round(gross / (1 + (rate/100.0)))) if gross else 0
         except ZeroDivisionError:
             return gross
+    # Prefer ITEM_DESC from EposComb if available; fallback to CombTb.DESC
+    combo_name = (combo.DESC or '').strip()
+    try:
+        ec = EposComb.objects.filter(COMBONUMB=combo.COMBONUMB).order_by('-last_updated').first()
+        if ec and (ec.ITEM_DESC or '').strip():
+            combo_name = ec.ITEM_DESC.strip()
+    except Exception:
+        pass
+
     data = {
         'type': 'combo',
         'code': combo.COMBONUMB,
-        'name': (combo.DESC or '').strip(),
+        'name': combo_name,
         'band': band,
         'price_gross': std_price,
         'price_net_take': net(std_price, take_vat),
