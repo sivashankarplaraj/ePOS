@@ -24,6 +24,29 @@ def _aggregate_orders(export_date: date) -> DailyStats:
     end = timezone.make_aware(timezone.datetime.combine(export_date, timezone.datetime.max.time()))
 
     orders = Order.objects.filter(created_at__range=(start, end))
+    # Helpers for meal VAT expansion
+    pditem_cache: Dict[int, PdItem] = {}
+    def _get_pditem(code: int) -> Optional[PdItem]:
+        if code in pditem_cache:
+            return pditem_cache[code]
+        obj = PdItem.objects.filter(PRODNUMB=code).only(
+            'PRODNUMB', 'EAT_VAT_CLASS', 'TAKE_VAT_CLASS',
+            'VATPR', 'DC_VATPR', 'VATPR_2', 'DC_VATPR_2', 'VATPR_3', 'DC_VATPR_3',
+            'VATPR_4', 'DC_VATPR_4', 'VATPR_5', 'DC_VATPR_5', 'VATPR_6', 'DC_VATPR_6'
+        ).first()
+        if obj:
+            pditem_cache[code] = obj
+        return obj
+
+    def _meal_effective_component_price(band: int, code: int) -> int:
+        it = _get_pditem(code)
+        if not it:
+            return 0
+        std_name = 'VATPR' if band == 1 else f'VATPR_{band}'
+        dc_name = 'DC_VATPR' if band == 1 else f'DC_VATPR_{band}'
+        std_val = getattr(it, std_name, 0) or 0
+        dc_val = getattr(it, dc_name, 0) or 0
+        return dc_val if dc_val and dc_val > 0 else std_val
 
     meal_counts: Dict[int, Dict[str, int]] = {}
     kpro_counts: Dict[Tuple[int, bool], Dict[str, int]] = {}
@@ -103,6 +126,31 @@ def _aggregate_orders(export_date: date) -> DailyStats:
 
     def _combo_component_codes(combo_code: int) -> tuple[List[int], List[int]]:
         return comp_pro_map.get(combo_code, []), opt_pro_map.get(combo_code, [])
+
+    # Small cache to avoid repeated PdItem hits during VAT pass
+    pditem_cache: Dict[int, PdItem] = {}
+    def _get_pditem(code: int) -> Optional[PdItem]:
+        if code in pditem_cache:
+            return pditem_cache[code]
+        obj = PdItem.objects.filter(PRODNUMB=code).only(
+            'PRODNUMB', 'EAT_VAT_CLASS', 'TAKE_VAT_CLASS',
+            'VATPR', 'DC_VATPR', 'VATPR_2', 'DC_VATPR_2', 'VATPR_3', 'DC_VATPR_3',
+            'VATPR_4', 'DC_VATPR_4', 'VATPR_5', 'DC_VATPR_5', 'VATPR_6', 'DC_VATPR_6'
+        ).first()
+        if obj:
+            pditem_cache[code] = obj
+        return obj
+
+    def _meal_effective_component_price(band: int, code: int) -> int:
+        """Return the effective MEAL price (discounted if available) for product code in given price band (pence)."""
+        it = _get_pditem(code)
+        if not it:
+            return 0
+        std_name = 'VATPR' if band == 1 else f'VATPR_{band}'
+        dc_name = 'DC_VATPR' if band == 1 else f'DC_VATPR_{band}'
+        std_val = getattr(it, std_name, 0) or 0
+        dc_val = getattr(it, dc_name, 0) or 0
+        return dc_val if dc_val and dc_val > 0 else std_val
 
     for o in orders:
         raw_method = (o.payment_method or '').strip().lower()
@@ -317,23 +365,97 @@ def build_daily_stats(export_date: date) -> DailyStats:
     start = timezone.make_aware(timezone.datetime.combine(export_date, timezone.datetime.min.time()))
     end = timezone.make_aware(timezone.datetime.combine(export_date, timezone.datetime.max.time()))
     orders = Order.objects.filter(created_at__range=(start, end))
-    vat_due_by_class = {}
-    excl_val_by_class = {}
+    # Local helpers for meal VAT expansion in this VAT pass
+    _pditem_vat_cache: Dict[int, PdItem] = {}
+    def _vat_get_pditem(code: int) -> Optional[PdItem]:
+        if code in _pditem_vat_cache:
+            return _pditem_vat_cache[code]
+        obj = PdItem.objects.filter(PRODNUMB=code).only(
+            'PRODNUMB', 'EAT_VAT_CLASS', 'TAKE_VAT_CLASS',
+            'VATPR', 'DC_VATPR', 'VATPR_2', 'DC_VATPR_2', 'VATPR_3', 'DC_VATPR_3',
+            'VATPR_4', 'DC_VATPR_4', 'VATPR_5', 'DC_VATPR_5', 'VATPR_6', 'DC_VATPR_6'
+        ).first()
+        if obj:
+            _pditem_vat_cache[code] = obj
+        return obj
+
+    def _vat_meal_effective_component_price(band: int, code: int) -> int:
+        it = _vat_get_pditem(code)
+        if not it:
+            return 0
+        std_name = 'VATPR' if band == 1 else f'VATPR_{band}'
+        dc_name = 'DC_VATPR' if band == 1 else f'DC_VATPR_{band}'
+        std_val = getattr(it, std_name, 0) or 0
+        dc_val = getattr(it, dc_name, 0) or 0
+        return dc_val if dc_val and dc_val > 0 else std_val
+
+    vat_due_by_class: Dict[int, int] = {}
+    excl_val_by_class: Dict[int, int] = {}
+    total_vat_all = 0
     for o in orders:
+        # Identify staff/waste orders for KWkVat exclusion; KRev VAT includes all
+        raw_method = (o.payment_method or '').strip().lower()
+        norm_method = ' '.join(raw_method.split())
+        is_staff = norm_method in {'crew food', 'crew_food'}
+        is_waste = norm_method in {'waste food', 'waste_food'}
         for line in o.lines.all():
             basis = 'TAKEAWAY' if o.vat_basis == 'take' else 'EATIN'
+            # If this is a meal line, split VAT across its component products using their classes and meal component prices
+            if getattr(line, 'is_meal', False):
+                meta = line.meta or {}
+                burger_code = line.item_code
+                fries_code_raw = meta.get('fries')
+                drink_code_raw = meta.get('drink')
+                try:
+                    fries_code = int(fries_code_raw) if fries_code_raw else 0
+                except Exception:
+                    fries_code = 0
+                try:
+                    drink_code = int(drink_code_raw) if drink_code_raw else 0
+                except Exception:
+                    drink_code = 0
+                comp_codes: List[int] = [c for c in [burger_code, fries_code, drink_code] if c]
+                if comp_codes:
+                    # Compute effective meal price per component in this order's price band
+                    comp_prices = {
+                        burger_code: _vat_meal_effective_component_price(o.price_band, burger_code)
+                    }
+                    if fries_code:
+                        comp_prices[fries_code] = _vat_meal_effective_component_price(o.price_band, fries_code)
+                    if drink_code:
+                        comp_prices[drink_code] = _vat_meal_effective_component_price(o.price_band, drink_code)
+                    # For each component, compute VAT using its own class for the current basis
+                    for code in comp_codes:
+                        eat_cls, take_cls = pd_items.get(code, (None, None))
+                        vat_class = take_cls if basis == 'TAKEAWAY' else eat_cls
+                        rate = vat_rate_by_class.get(vat_class)
+                        price_gross = int(comp_prices.get(code, 0)) * int(line.qty or 1)
+                        if rate is None or price_gross <= 0:
+                            continue
+                        net = int(round(price_gross * 100.0 / (100.0 + rate))) if rate > 0 else price_gross
+                        vat_amt = price_gross - net
+                        if not (is_staff or is_waste):
+                            vat_due_by_class[vat_class] = (vat_due_by_class.get(vat_class, 0) or 0) + vat_amt
+                            excl_val_by_class[vat_class] = (excl_val_by_class.get(vat_class, 0) or 0) + net
+                        total_vat_all += vat_amt
+                # Done with meal expansion for this line
+                continue
+            # Non-meal lines: existing behavior
             if line.item_type == 'product':
                 eat_cls, take_cls = pd_items.get(line.item_code, (None, None))
             else:
                 eat_cls, take_cls = combos.get(line.item_code, (None, None))
             vat_class = take_cls if basis == 'TAKEAWAY' else eat_cls
             rate = vat_rate_by_class.get(vat_class)
-            if rate is not None and line.line_total_gross:
-                g = int(line.line_total_gross)
-                net = round(g * 100.0 / (100.0 + rate))
-                vat_amt = g - net
-                vat_due_by_class[vat_class] = vat_due_by_class.get(vat_class, 0) + vat_amt
-                excl_val_by_class[vat_class] = excl_val_by_class.get(vat_class, 0) + net
+            if rate is None or not line.line_total_gross:
+                continue
+            g = int(line.line_total_gross)
+            net = int(round(g * 100.0 / (100.0 + rate))) if rate > 0 else g
+            vat_amt = g - net
+            if not (is_staff or is_waste):
+                vat_due_by_class[vat_class] = (vat_due_by_class.get(vat_class, 0) or 0) + vat_amt
+                excl_val_by_class[vat_class] = (excl_val_by_class.get(vat_class, 0) or 0) + net
+            total_vat_all += vat_amt
 
     weekday = export_date.isoweekday()  # 1..7
     for vat_class, rate in vat_rate_by_class.items():
@@ -351,7 +473,7 @@ def build_daily_stats(export_date: date) -> DailyStats:
 
     # After KWkVat update, compute total VAT (exclude staff & waste per spec of KWkVat, but KRev wants total VAT due overall).
     # We already computed vat_due_by_class in pence above; sum them.
-    total_vat = sum(vat_due_by_class.values()) if vat_due_by_class else 0
+    total_vat = total_vat_all
     # Refresh / update KRev VAT & ACT* if unset
     krevc = KRev.objects.select_for_update().get(stat_date=export_date)
     if krevc.VAT != total_vat:

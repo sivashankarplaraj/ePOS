@@ -4,6 +4,7 @@ from update_till.models import PdItem, PdVatTb, AppProd, CompPro, OptPro
 from manage_orders.models import Order, OrderLine
 from manage_orders.services.daily_stats import build_daily_stats
 from django.utils import timezone
+from datetime import timedelta
 
 
 def _mk_product(code, name, std, meal=None, dc=None, vat_class=1):
@@ -209,3 +210,186 @@ class StatsAggregationTests(TestCase):
         weekday = timezone.localdate().isoweekday()  # 1..7
         vat_col = f'TOT_VAT_{weekday}'
         self.assertTrue(getattr(kv, vat_col) > 0)
+
+    def test_vat_basis_takeaway_uses_take_vat_class_zero_rate(self):
+        # Setup VAT classes: 0% for class 0, 20% for class 1
+        PdVatTb.objects.all().delete()
+        PdVatTb.objects.create(VAT_CLASS=0, VAT_RATE=0.0, VAT_DESC='Zero')
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Standard')
+        # Product with TAKE=0 (no VAT) and EAT=1 (20% VAT)
+        PdItem.objects.create(
+            PRODNUMB=900,
+            PRODNAME='Strawberry Shk',
+            EAT_VAT_CLASS=1,
+            TAKE_VAT_CLASS=0,
+            READBACK_ORD=1,
+            MEAL_ONLY=False,
+            MEAL_CODE=0,
+            MEAL_DRINK=0,
+            T_DRINK_CD=0,
+            VATPR=300, DC_VATPR=0,
+            VATPR_2=300, DC_VATPR_2=0,
+            VATPR_3=300, DC_VATPR_3=0,
+            VATPR_4=300, DC_VATPR_4=0,
+            VATPR_5=300, DC_VATPR_5=0,
+            VATPR_6=300, DC_VATPR_6=0,
+        )
+        day = timezone.localdate()
+        order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=order, item_code=900, item_type='product', name='Strawberry Shk', variant_label='', is_meal=False, qty=1, unit_price_gross=300, line_total_gross=300, meta={})
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        self.assertEqual(rev.VAT, 0, 'Takeaway should use TAKE_VAT_CLASS=0 (zero rate) so VAT=0')
+
+    def test_vat_basis_eatin_uses_eat_vat_class_twenty_percent(self):
+        # Setup VAT classes: 0% for class 0, 20% for class 1
+        PdVatTb.objects.all().delete()
+        PdVatTb.objects.create(VAT_CLASS=0, VAT_RATE=0.0, VAT_DESC='Zero')
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Standard')
+        # Product with TAKE=0 (no VAT) and EAT=1 (20% VAT)
+        PdItem.objects.update_or_create(
+            PRODNUMB=900,
+            defaults=dict(
+                PRODNAME='Strawberry Shk',
+                EAT_VAT_CLASS=1,
+                TAKE_VAT_CLASS=0,
+                READBACK_ORD=1,
+                MEAL_ONLY=False,
+                MEAL_CODE=0,
+                MEAL_DRINK=0,
+                T_DRINK_CD=0,
+                VATPR=300, DC_VATPR=0,
+                VATPR_2=300, DC_VATPR_2=0,
+                VATPR_3=300, DC_VATPR_3=0,
+                VATPR_4=300, DC_VATPR_4=0,
+                VATPR_5=300, DC_VATPR_5=0,
+                VATPR_6=300, DC_VATPR_6=0,
+            )
+        )
+        day = timezone.localdate() + timedelta(days=1)
+        order = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=order, item_code=900, item_type='product', name='Strawberry Shk', variant_label='', is_meal=False, qty=1, unit_price_gross=300, line_total_gross=300, meta={})
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        # At 20% VAT, gross 300 implies VAT ≈ 50 (since net ≈ 250)
+        self.assertIn(rev.VAT, {50, 49}, 'Eatin should use EAT_VAT_CLASS=1 (20% rate) so VAT≈50p on £3.00')
+
+    def test_meal_vat_takeaway_shake_zero_rate(self):
+        # VAT: class 0 => 0%, class 1 => 20%
+        PdVatTb.objects.all().delete()
+        PdVatTb.objects.create(VAT_CLASS=0, VAT_RATE=0.0, VAT_DESC='Zero')
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Standard')
+        # Components: Cheeseburger(1/1), Fries(1/1), Strawberry Shake(EAT=1/TAKE=0)
+        PdItem.objects.update_or_create(
+            PRODNUMB=3,
+            defaults=dict(
+                PRODNAME='Cheeseburger', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=550, DC_VATPR=550,
+                VATPR_2=550, DC_VATPR_2=550,
+                VATPR_3=550, DC_VATPR_3=550,
+                VATPR_4=550, DC_VATPR_4=550,
+                VATPR_5=550, DC_VATPR_5=550,
+                VATPR_6=550, DC_VATPR_6=550,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=30,
+            defaults=dict(
+                PRODNAME='Regular Fries', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=235, DC_VATPR=140,
+                VATPR_2=235, DC_VATPR_2=140,
+                VATPR_3=235, DC_VATPR_3=140,
+                VATPR_4=235, DC_VATPR_4=140,
+                VATPR_5=235, DC_VATPR_5=140,
+                VATPR_6=235, DC_VATPR_6=140,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=900,
+            defaults=dict(
+                PRODNAME='Strawberry Shk', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=0,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=305, DC_VATPR=300,
+                VATPR_2=305, DC_VATPR_2=300,
+                VATPR_3=305, DC_VATPR_3=300,
+                VATPR_4=305, DC_VATPR_4=300,
+                VATPR_5=305, DC_VATPR_5=300,
+                VATPR_6=305, DC_VATPR_6=300,
+            )
+        )
+        # Create a takeaway meal order: total meal price = 550 + 140 + 300 = 990
+        day = timezone.localdate() + timedelta(days=2)
+        order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(
+            order=order, item_code=3, item_type='product', name='Cheeseburger Meal',
+            variant_label='', is_meal=True, qty=1, unit_price_gross=990, line_total_gross=990,
+            meta={'fries': 30, 'drink': 900, 'options': []}
+        )
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        # Expected VAT for takeaway meal: Burger 550/6 ≈ 91.67, Fries 140/6 ≈ 23.33, Shake TAKE class 0 => 0. Total ≈ 115p
+        self.assertIn(rev.VAT, {115, 114, 116})
+
+    def test_meal_vat_eatin_shake_twenty_percent(self):
+        # VAT: class 0 => 0%, class 1 => 20%
+        PdVatTb.objects.all().delete()
+        PdVatTb.objects.create(VAT_CLASS=0, VAT_RATE=0.0, VAT_DESC='Zero')
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Standard')
+        # Components: Cheeseburger(1/1), Fries(1/1), Strawberry Shake(EAT=1/TAKE=0)
+        PdItem.objects.update_or_create(
+            PRODNUMB=3,
+            defaults=dict(
+                PRODNAME='Cheeseburger', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=550, DC_VATPR=550,
+                VATPR_2=550, DC_VATPR_2=550,
+                VATPR_3=550, DC_VATPR_3=550,
+                VATPR_4=550, DC_VATPR_4=550,
+                VATPR_5=550, DC_VATPR_5=550,
+                VATPR_6=550, DC_VATPR_6=550,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=30,
+            defaults=dict(
+                PRODNAME='Regular Fries', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=235, DC_VATPR=140,
+                VATPR_2=235, DC_VATPR_2=140,
+                VATPR_3=235, DC_VATPR_3=140,
+                VATPR_4=235, DC_VATPR_4=140,
+                VATPR_5=235, DC_VATPR_5=140,
+                VATPR_6=235, DC_VATPR_6=140,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=900,
+            defaults=dict(
+                PRODNAME='Strawberry Shk', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=0,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=305, DC_VATPR=300,
+                VATPR_2=305, DC_VATPR_2=300,
+                VATPR_3=305, DC_VATPR_3=300,
+                VATPR_4=305, DC_VATPR_4=300,
+                VATPR_5=305, DC_VATPR_5=300,
+                VATPR_6=305, DC_VATPR_6=300,
+            )
+        )
+        # Create an eat-in meal order: total meal price = 550 + 140 + 300 = 990
+        day = timezone.localdate() + timedelta(days=3)
+        order = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(
+            order=order, item_code=3, item_type='product', name='Cheeseburger Meal',
+            variant_label='', is_meal=True, qty=1, unit_price_gross=990, line_total_gross=990,
+            meta={'fries': 30, 'drink': 900, 'options': []}
+        )
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        # Expected VAT for eat-in meal: Burger 550/6 ≈ 91.67, Fries 140/6 ≈ 23.33, Shake 300/6 = 50. Total ≈ 165p
+        self.assertIn(rev.VAT, {165, 164, 166})
