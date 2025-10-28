@@ -1327,11 +1327,11 @@
     if(cfg.meal){
       if(effectiveFries){
         const friesObj = (baseData.meal_components?.fries||[]).find(f=> f.code==effectiveFries);
-        displayChoices.push(`Fries: ${friesObj? friesObj.name : '#'+cfg.fries}`);
+  displayChoices.push(`- ${friesObj ? friesObj.name : '#'+cfg.fries}`);
       }
       if(effectiveDrink){
         const drinkObj = (baseData.meal_components?.drinks||[]).find(d=> d.code==effectiveDrink);
-        displayChoices.push(`Drink: ${drinkObj? drinkObj.name : '#'+cfg.drink}`);
+  displayChoices.push(`- ${drinkObj ? drinkObj.name : '#'+cfg.drink}`);
       }
     }
     // Product options
