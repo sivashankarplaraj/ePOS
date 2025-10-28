@@ -310,16 +310,14 @@
       .catch(()=>{/* non-blocking */});
   }
   function loadChannels(){
-    fetch('/api/channels').then(r=>r.json()).then(data=>{
-      CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number, third: !!c.is_third_party_delivery }));
-      // Do not auto-restore or auto-select. Prompt user every time.
-      if(CHANNEL_ENTRIES.length){
-        // Show a friendly prompt in the categories strip until selection.
-        if(categoryStrip){ categoryStrip.innerHTML = '<div class="text-muted small">Choose a channel to load categories.</div>'; }
-        // Open the channel selection modal so user picks explicitly.
+    fetch('/api/channels')
+      .then(r=>r.json())
+      .then(data=>{
+        CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number, third: !!c.is_third_party_delivery }));
+        // Prompt user to choose a channel
         if(typeof openChannelModal === 'function') openChannelModal();
-      }
-    }).catch(()=>{});
+      })
+      .catch(()=>{});
   }
 
   function applyChannelSelection(band, co, desc, fetch=true, code){
@@ -338,10 +336,10 @@
       Promise.resolve(done).finally(()=> fetchMenu());
     }
   }
-  // Lightweight data flow: fetch categories first, then items per selected category.
-  let categories = [];
-  const catItemsCache = {}; // { [catId]: items[] }
   let currentItems = [];
+  // Categories and items cache for per-category item lists
+  let categories = [];
+  const catItemsCache = {};
   let activeCategoryId = null;
 
   const basket = { lines:[], total:0 };
@@ -658,13 +656,21 @@
   const pinToggleBtn = document.getElementById('basket-pin-toggle');
   let basketPinned = false;
   const offcanvasEl = document.getElementById('basketOffcanvas');
+  // Ensure FAB reliably opens offcanvas even after pin/unpin cycles by forcing show via API on first click when needed
+  if(basketFab && window.bootstrap){
+    basketFab.addEventListener('click', (ev)=>{
+      if(basketPinned) return; // FAB hidden when pinned anyway
+      const inst = window.bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl, { scroll:true, backdrop:true });
+      // If offcanvas isn't currently shown, force show and prevent the data-api toggle from double-toggling
+      if(!offcanvasEl.classList.contains('show')){ ev.preventDefault(); inst.show(); }
+    }, true); // capture to run before Bootstrap's data-api handler
+  }
   function applyPinState(){
     if(basketPinned){
       document.body.classList.add('basket-pinned');
       offcanvasEl.classList.add('basket-pinned-wrapper','show');
       offcanvasEl.style.visibility='visible';
       offcanvasEl.style.transform='none';
-      offcanvasEl.removeAttribute('aria-hidden');
       // Remove existing backdrop & body lock
       document.querySelectorAll('.offcanvas-backdrop').forEach(b=> b.remove());
       document.body.classList.remove('offcanvas-open');
@@ -677,15 +683,27 @@
       offcanvasEl.style.transform='';
       pinToggleBtn.title='Pin basket'; pinToggleBtn.setAttribute('aria-label','Pin basket');
       pinToggleBtn.querySelector('[data-pin-icon]').textContent='📌';
-      // Hide the offcanvas immediately (user can reopen with FAB)
+      // Ensure our manual pinned state is removed; Offcanvas API handles showing on next FAB click
       offcanvasEl.classList.remove('show');
-      offcanvasEl.setAttribute('aria-hidden','true');
       offcanvasEl.style.visibility='';
       if(basketFab){ basketFab.classList.remove('d-none'); basketFab.style.display=''; }
     }
   }
   if(pinToggleBtn){
-    pinToggleBtn.addEventListener('click', ()=>{ basketPinned = !basketPinned; applyPinState(); });
+    pinToggleBtn.addEventListener('click', ()=>{
+      const inst = window.bootstrap ? window.bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl) : null;
+      const targetPinned = !basketPinned;
+      if(targetPinned){
+        // Going to pinned: fully dispose Offcanvas instance so internal state resets
+        try { inst && inst.dispose && inst.dispose(); } catch(_){}
+        basketPinned = true;
+      } else {
+        // Going to unpinned: flip flag first so hide prevention doesn't fire, then dispose instance
+        basketPinned = false;
+        try { inst && inst.dispose && inst.dispose(); } catch(_){}
+      }
+      applyPinState();
+    });
   }
   // Prevent Bootstrap auto-dismiss when pinned
   offcanvasEl.addEventListener('hide.bs.offcanvas', (e)=>{ if(basketPinned){ e.preventDefault(); } });
