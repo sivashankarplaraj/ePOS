@@ -408,3 +408,13 @@ class ToppingDel(models.Model):
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"Topping {self.ACODE} - Desc: {self.DESC}, Menu Description: {self.MENU_DESC}, Last Updated: {self.last_updated}"
+    
+# Table 27: EPOS_ADD_ONS
+# Stores ePOS product add-on details (PRODNUMB, PRODNAME, list of add-on PRODNUMB)
+class EposAddOns(models.Model):
+    PRODNUMB = models.IntegerField(help_text="Product code.")
+    PRODNAME = models.CharField(max_length=16, help_text="Product name.")
+    ADD_ONS = models.CharField(max_length=100, help_text="Comma-separated list of add-on product codes.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Add-Ons for Product {self.PRODNUMB} - Add-Ons: {self.ADD_ONS}, Last Updated: {self.last_updated}"
