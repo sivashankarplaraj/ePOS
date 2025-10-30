@@ -178,6 +178,7 @@
           <div class="mb-3 d-flex gap-2" id="cfg-tabbar">
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 active" data-cfg-tab="main">Configure</button>
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-extras-tab" data-cfg-tab="extras">Extras</button>
+            <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-addons-tab" data-cfg-tab="addons">Add-ons</button>
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-modify-tab" data-cfg-tab="modify">Modify</button>
           </div>
           <div id="cfg-variants" class="mb-4 d-none">
@@ -212,6 +213,10 @@
           <div id="cfg-options" class="mb-4 d-none">
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Optional Products</label>
             <div id="cfg-options-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
+          </div>
+          <div id="cfg-addons" class="mb-4 d-none">
+            <label class="form-label fw-semibold" style="font-size:1.15rem;">Add-ons</label>
+            <div id="cfg-addons-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
           </div>
           <div id="cfg-toppings" class="mb-4 d-none">
             <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
@@ -356,6 +361,7 @@
   const cfg = { data:null, currentVariant:null, meal:false, fries:null, drink:null, optionalSelected:new Set(), effectivePrice:0, sizeup:'none' };
   cfg.toppings = []; // full list of topping objects {acode, desc, menu_desc}
   cfg.toppingsLoaded = false;
+  cfg.addonsSelected = new Set();
   let cfgTab = 'main';
 
   function money(pence){ return '£' + (pence/100).toFixed(2); }
@@ -984,6 +990,30 @@
         updateConfigPrice();
       }
     });
+    // Add-ons rendering
+    const addonsWrap = document.getElementById('cfg-addons');
+    const addonsList = document.getElementById('cfg-addons-list'); addonsList.innerHTML='';
+    cfg.addonsSelected = new Set();
+    const addonsTabBtn = document.getElementById('cfg-addons-tab');
+    if(data.addons && data.addons.length){
+      addonsWrap.classList.remove('d-none');
+      addonsTabBtn?.classList.remove('d-none');
+      data.addons.forEach(a=>{
+        const id=`addon-${a.code}`;
+        addonsList.insertAdjacentHTML('beforeend', `<div class='form-check'><input class='form-check-input' type='checkbox' id='${id}' data-addon-code='${a.code}'><label class='form-check-label small' for='${id}'>${a.name} ${money(a.price_gross||0)}</label></div>`);
+      });
+      addonsList.addEventListener('change', (e)=>{
+        const cb=e.target.closest('[data-addon-code]');
+        if(cb){
+          const code=parseInt(cb.dataset.addonCode,10);
+          if(cb.checked) cfg.addonsSelected.add(code); else cfg.addonsSelected.delete(code);
+          updateConfigPrice();
+        }
+      });
+    } else {
+      addonsWrap.classList.add('d-none');
+      addonsTabBtn?.classList.add('d-none');
+    }
     // Free choices (if present)
     const freeChoiceWrap = document.getElementById('cfg-free-choices');
     const freeGroupsContainer = document.getElementById('cfg-free-choices-groups');
@@ -1097,6 +1127,7 @@
     if(extrasTabBtn){
       extrasTabBtn.classList.toggle('d-none', !hasExtras);
     }
+    const hasAddons = !!(data.addons && data.addons.length);
     cfgTab = 'main';
     syncConfigTabs();
     updateConfigPrice();
@@ -1140,16 +1171,19 @@
     }
     const data = cfg.data; if(!data) return;
     const hasExtras = (data.options && data.options.length) || (data.type==='combo' && data.optional && data.optional.length);
+    const hasAddons = !!(data.addons && data.addons.length);
     // Reset default visibility based on data
     const vWrap = document.getElementById('cfg-variants');
     const mealSection = document.getElementById('cfg-meal-section');
     const optWrap = document.getElementById('cfg-options');
+    const addonsWrap = document.getElementById('cfg-addons');
     const comboStruct = document.getElementById('cfg-combo-structure');
   const toppingsWrap = document.getElementById('cfg-toppings');
     if(vWrap) vWrap.classList.toggle('d-none', !(data.variants && data.variants.length));
     const mealOkay = data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length;
     if(mealSection) mealSection.classList.toggle('d-none', !mealOkay);
     if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+    if(addonsWrap) addonsWrap.classList.toggle('d-none', !hasAddons);
     if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
     // If on Extras tab, focus only on extras lists
     if(hasExtras && cfgTab==='extras'){
@@ -1165,6 +1199,7 @@
         if(comboStruct) comboStruct.classList.remove('d-none');
       }
       if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+      if(addonsWrap) addonsWrap.classList.toggle('d-none', !hasAddons);
       // On Extras tab hide product non-extras sections already handled above
     } else {
       // Configure (main) tab: show core sections, hide extras if we have a dedicated Extras tab
@@ -1182,6 +1217,18 @@
         if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
         if(optCol) optCol.classList.remove('d-none');
       }
+      // If Add-ons tab exists and active, show only add-ons
+      const addonsTabActive = cfgTab==='addons';
+      if(addonsWrap){
+        addonsWrap.classList.toggle('d-none', !(hasAddons && addonsTabActive));
+      }
+      if(addonsTabActive){
+        if(vWrap) vWrap.classList.add('d-none');
+        if(mealSection) mealSection.classList.add('d-none');
+        if(optWrap) optWrap.classList.add('d-none');
+        if(comboStruct) comboStruct.classList.add('d-none');
+        if(toppingsWrap) toppingsWrap.classList.add('d-none');
+      }
     }
     // Modify tab visibility (already toggled when toppings loaded); show only its section when active
     if(toppingsWrap){
@@ -1191,6 +1238,7 @@
         if(vWrap) vWrap.classList.add('d-none');
         if(mealSection) mealSection.classList.add('d-none');
         if(optWrap) optWrap.classList.add('d-none');
+        if(addonsWrap) addonsWrap.classList.add('d-none');
         if(comboStruct) comboStruct.classList.add('d-none');
       }
     }
@@ -1288,6 +1336,10 @@
     // Add option prices (product options always add full price; combo optional add after free allowance)
     if(data.type==='product'){
       (data.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)){ base += o.price_gross; } });
+      // Add-ons always add full price
+      if(cfg.addonsSelected && cfg.addonsSelected.size){
+        (data.addons||[]).forEach(a=>{ if(cfg.addonsSelected.has(a.code)){ base += (a.price_gross||0); } });
+      }
     } else if(data.type==='combo'){
       const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
       // Always charge for selected combo optionals
@@ -1410,6 +1462,24 @@
         }
       }
     } catch(e){ console.warn('Topping removal generation failed', e); }
+    // After adding base line, if add-ons selected, attach as extra topping lines with their prices
+    try {
+      if(cfg.addonsSelected && cfg.addonsSelected.size){
+        const productLine = basket.lines.find(l=> l.signature===lastProductSignature && l.type!=='topping');
+        if(productLine){
+          ensureToppingGroup(productLine);
+          lastProductSignature = productLine.signature;
+          const targetSig = productLine.signature;
+          const selected = new Set(cfg.addonsSelected);
+          (cfg.data.addons||[]).forEach(a=>{
+            if(selected.has(a.code)){
+              const extraLine = { code: a.code, name: a.name, price: a.price_gross||0, type:'topping', meta:{ kind:'extra', targetSig, extra_product_code: a.code } };
+              addLine(extraLine);
+            }
+          });
+        }
+      }
+    } catch(e){ console.warn('Add-ons attachment failed', e); }
     cfgModal.hide();
   });
 

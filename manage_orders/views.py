@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
-    EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes
+    EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes,
+    EposAddOns,
 )
 from .models import ChannelMapping
 from pathlib import Path
@@ -650,6 +651,29 @@ def api_item_detail(request: HttpRequest, item_type: str, code: int):
                             'options': opts
                         })
         base['free_choice_groups'] = free_choice_groups
+        # Add-ons (EposAddOns): parse comma-separated codes and serialize with current band pricing
+        addons_list: list[dict] = []
+        try:
+            ao = EposAddOns.objects.filter(PRODNUMB=code).order_by('-last_updated').first()
+            raw = (ao.ADD_ONS if ao and ao.ADD_ONS else '')
+            codes: list[int] = []
+            for part in str(raw).split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    codes.append(int(part))
+                except Exception:
+                    continue
+            if codes:
+                pd_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=codes)}
+                for c in codes:
+                    p = pd_map.get(c)
+                    if p:
+                        addons_list.append(_serialize_product(p, band, vat_rates=vat_rates))
+        except Exception:
+            addons_list = []
+        base['addons'] = addons_list
         detail = base
     elif item_type == 'combo':
         appc = AppComb.objects.filter(COMBONUMB=code).first()
