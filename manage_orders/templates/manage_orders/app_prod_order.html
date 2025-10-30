@@ -178,7 +178,6 @@
           <div class="mb-3 d-flex gap-2" id="cfg-tabbar">
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 active" data-cfg-tab="main">Configure</button>
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-extras-tab" data-cfg-tab="extras">Extras</button>
-            <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-addons-tab" data-cfg-tab="addons">Add-ons</button>
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-modify-tab" data-cfg-tab="modify">Modify</button>
           </div>
           <div id="cfg-variants" class="mb-4 d-none">
@@ -214,11 +213,11 @@
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Optional Products</label>
             <div id="cfg-options-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
           </div>
-          <div id="cfg-addons" class="mb-4 d-none">
-            <label class="form-label fw-semibold" style="font-size:1.15rem;">Add-ons</label>
-            <div id="cfg-addons-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
-          </div>
           <div id="cfg-toppings" class="mb-4 d-none">
+            <div id="cfg-add-extras" class="mb-3 d-none">
+              <label class="form-label fw-semibold mb-2" style="font-size:1.15rem;">Add Extras</label>
+              <div id="cfg-add-extras-list" class="d-flex flex-wrap gap-2"></div>
+            </div>
             <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
               <label class="form-label fw-semibold mb-0" style="font-size:1.15rem;">Modify Toppings</label>
               <div id="cfg-toppings-actions" class="d-none">
@@ -990,29 +989,33 @@
         updateConfigPrice();
       }
     });
-    // Add-ons rendering
-    const addonsWrap = document.getElementById('cfg-addons');
-    const addonsList = document.getElementById('cfg-addons-list'); addonsList.innerHTML='';
+    // Add Extras rendering (moved under Modify tab)
+    const addExtrasWrap = document.getElementById('cfg-add-extras');
+    const addExtrasList = document.getElementById('cfg-add-extras-list'); addExtrasList.innerHTML='';
     cfg.addonsSelected = new Set();
-    const addonsTabBtn = document.getElementById('cfg-addons-tab');
+    const modifyTabBtnEl = document.getElementById('cfg-modify-tab');
     if(data.addons && data.addons.length){
-      addonsWrap.classList.remove('d-none');
-      addonsTabBtn?.classList.remove('d-none');
+      addExtrasWrap.classList.remove('d-none');
+      // Ensure Modify tab is shown even if no toppings are available
+      modifyTabBtnEl?.classList.remove('d-none');
       data.addons.forEach(a=>{
-        const id=`addon-${a.code}`;
-        addonsList.insertAdjacentHTML('beforeend', `<div class='form-check'><input class='form-check-input' type='checkbox' id='${id}' data-addon-code='${a.code}'><label class='form-check-label small' for='${id}'>${a.name} ${money(a.price_gross||0)}</label></div>`);
-      });
-      addonsList.addEventListener('change', (e)=>{
-        const cb=e.target.closest('[data-addon-code]');
-        if(cb){
-          const code=parseInt(cb.dataset.addonCode,10);
-          if(cb.checked) cfg.addonsSelected.add(code); else cfg.addonsSelected.delete(code);
+        const btn=document.createElement('button');
+        btn.type='button';
+        btn.className='btn btn-outline-primary';
+        btn.dataset.addonCode=String(a.code);
+        btn.setAttribute('aria-pressed','false');
+        btn.textContent = `${a.name} ${money(a.price_gross||0)}`;
+        btn.addEventListener('click', ()=>{
+          const code=parseInt(btn.dataset.addonCode,10);
+          const nowActive = btn.classList.toggle('active');
+          btn.setAttribute('aria-pressed', nowActive? 'true':'false');
+          if(nowActive) cfg.addonsSelected.add(code); else cfg.addonsSelected.delete(code);
           updateConfigPrice();
-        }
+        });
+        addExtrasList.appendChild(btn);
       });
     } else {
-      addonsWrap.classList.add('d-none');
-      addonsTabBtn?.classList.add('d-none');
+      addExtrasWrap.classList.add('d-none');
     }
     // Free choices (if present)
     const freeChoiceWrap = document.getElementById('cfg-free-choices');
@@ -1061,7 +1064,7 @@
           const tops = resp.toppings || [];
           cfg.toppings = tops.map((t,i)=> ({ ...t, idx:i, removed:false }));
           cfg.toppingsLoaded = true;
-          if(cfg.toppings.length){
+          if(cfg.toppings.length || (data.addons && data.addons.length)){
             modifyTabBtn?.classList.remove('d-none');
             const actionsBar = document.getElementById('cfg-toppings-actions');
             actionsBar?.classList.remove('d-none');
@@ -1175,15 +1178,14 @@
     // Reset default visibility based on data
     const vWrap = document.getElementById('cfg-variants');
     const mealSection = document.getElementById('cfg-meal-section');
-    const optWrap = document.getElementById('cfg-options');
-    const addonsWrap = document.getElementById('cfg-addons');
+  const optWrap = document.getElementById('cfg-options');
     const comboStruct = document.getElementById('cfg-combo-structure');
-  const toppingsWrap = document.getElementById('cfg-toppings');
+    const toppingsWrap = document.getElementById('cfg-toppings');
+    const addExtrasWrap = document.getElementById('cfg-add-extras');
     if(vWrap) vWrap.classList.toggle('d-none', !(data.variants && data.variants.length));
     const mealOkay = data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length;
     if(mealSection) mealSection.classList.toggle('d-none', !mealOkay);
     if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
-    if(addonsWrap) addonsWrap.classList.toggle('d-none', !hasAddons);
     if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
     // If on Extras tab, focus only on extras lists
     if(hasExtras && cfgTab==='extras'){
@@ -1199,7 +1201,6 @@
         if(comboStruct) comboStruct.classList.remove('d-none');
       }
       if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
-      if(addonsWrap) addonsWrap.classList.toggle('d-none', !hasAddons);
       // On Extras tab hide product non-extras sections already handled above
     } else {
       // Configure (main) tab: show core sections, hide extras if we have a dedicated Extras tab
@@ -1217,28 +1218,17 @@
         if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
         if(optCol) optCol.classList.remove('d-none');
       }
-      // If Add-ons tab exists and active, show only add-ons
-      const addonsTabActive = cfgTab==='addons';
-      if(addonsWrap){
-        addonsWrap.classList.toggle('d-none', !(hasAddons && addonsTabActive));
-      }
-      if(addonsTabActive){
-        if(vWrap) vWrap.classList.add('d-none');
-        if(mealSection) mealSection.classList.add('d-none');
-        if(optWrap) optWrap.classList.add('d-none');
-        if(comboStruct) comboStruct.classList.add('d-none');
-        if(toppingsWrap) toppingsWrap.classList.add('d-none');
-      }
     }
     // Modify tab visibility (already toggled when toppings loaded); show only its section when active
     if(toppingsWrap){
-      toppingsWrap.classList.toggle('d-none', cfgTab!=='modify');
+      const onModify = (cfgTab==='modify');
+      toppingsWrap.classList.toggle('d-none', !onModify);
+      if(addExtrasWrap) addExtrasWrap.classList.toggle('d-none', !onModify);
       if(cfgTab==='modify'){
         // Hide other sections when in modify view for clarity
         if(vWrap) vWrap.classList.add('d-none');
         if(mealSection) mealSection.classList.add('d-none');
         if(optWrap) optWrap.classList.add('d-none');
-        if(addonsWrap) addonsWrap.classList.add('d-none');
         if(comboStruct) comboStruct.classList.add('d-none');
       }
     }
