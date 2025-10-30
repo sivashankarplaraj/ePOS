@@ -278,6 +278,12 @@
     st2.textContent = `body.offcanvas-open #basket-fab{display:none !important;}`; // must override Bootstrap .d-flex !important
     document.head.appendChild(st2);
   }
+  // Ensure when basket is pinned, any offcanvas backdrop is hidden and does not block interactions
+  if(!document.getElementById('basket-pinned-backdrop-style')){
+    const st3=document.createElement('style'); st3.id='basket-pinned-backdrop-style';
+    st3.textContent = `body.basket-pinned .offcanvas-backdrop{display:none !important;}`;
+    document.head.appendChild(st3);
+  }
   const bandButtonsWrap = null; // removed band buttons UI
   const basisButtonsWrap = document.getElementById('basis-buttons');
   const categoryStrip = document.getElementById('category-strip');
@@ -678,7 +684,13 @@
       offcanvasEl.style.transform='none';
       // Remove existing backdrop & body lock
       document.querySelectorAll('.offcanvas-backdrop').forEach(b=> b.remove());
-      document.body.classList.remove('offcanvas-open');
+      document.body.classList.remove('offcanvas-open','modal-open');
+      // Clear any inline scroll locks Bootstrap may have applied
+      try {
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.documentElement.style.overflow = '';
+      } catch(_){}
       pinToggleBtn.title='Unpin basket'; pinToggleBtn.setAttribute('aria-label','Unpin basket');
       pinToggleBtn.querySelector('[data-pin-icon]').textContent='📍';
       if(basketFab){ basketFab.classList.add('d-none'); basketFab.style.display='none'; }
@@ -708,10 +720,22 @@
         try { inst && inst.dispose && inst.dispose(); } catch(_){}
       }
       applyPinState();
+      // Persist user preference
+      try { localStorage.setItem('epos_basket_pinned', basketPinned ? '1' : '0'); } catch(_) {}
     });
   }
   // Prevent Bootstrap auto-dismiss when pinned
   offcanvasEl.addEventListener('hide.bs.offcanvas', (e)=>{ if(basketPinned){ e.preventDefault(); } });
+  // Load user preference on startup (default to pinned)
+  try {
+    const saved = localStorage.getItem('epos_basket_pinned');
+    if(saved === null){
+      basketPinned = true;
+    } else {
+      basketPinned = (saved === '1' || saved === 'true');
+    }
+  } catch(_) { basketPinned = true; }
+  applyPinState();
   // Checkout flow opens modal to collect payment method and crew ID
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
   checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
