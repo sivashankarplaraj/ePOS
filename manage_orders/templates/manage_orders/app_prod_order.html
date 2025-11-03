@@ -620,7 +620,10 @@
           const idxRef = basket.lines.indexOf(t);
           const badge = isKindExtra? "<span class='badge bg-success me-1'>EXTRA</span>" : (isRemove? "<span class='badge bg-danger-subtle text-danger-emphasis me-1'>NO</span>" : "<span class='badge bg-secondary me-1'>ADD</span>");
           const priceSpan = isKindExtra && t.price ? ` <span class='text-muted'>(+${money(t.price)})</span>` : '';
-          const label = `${badge} ${t.name}${priceSpan}`;
+          // Avoid duplicated 'No' like 'NO No Onions' by stripping leading 'No ' from the name when a NO badge is present
+          const baseName = (t.name||'');
+          const displayName = isRemove ? baseName.replace(/^\s*no\s+/i, '').trim() : baseName;
+          const label = `${badge} ${displayName}${priceSpan}`;
           return `<li class='${cls}' data-topping-line='${idxRef}'>${label} <button type='button' class='btn btn-sm btn-link p-0 ms-1 text-decoration-none text-muted' data-remove-topping='${idxRef}' aria-label='Remove attached' title='Remove'>&times;</button></li>`;
         });
         toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
