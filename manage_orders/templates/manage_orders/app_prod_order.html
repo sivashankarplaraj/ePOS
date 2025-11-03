@@ -308,6 +308,8 @@
   let bandCoNumber = '';
   let isThirdPartyDelivery = false; // from selected channel
   let CHANNEL_ENTRIES = [];
+  // Expose superuser flag for conditional UI (embed as string to avoid JS parse issues in editors)
+  const IS_SUPERUSER = "{% if user.is_superuser %}1{% else %}0{% endif %}" === '1';
   const HOT_DRINKS_GROUP_ID = 11;
   let hotDrinkCodes = new Set();
   function prefetchHotDrinkCodes(){
@@ -491,8 +493,9 @@
   card.setAttribute('data-open', String(prod.code));
       card.setAttribute('data-item-type', prod.type);
       card.style.cursor = 'pointer';
-      const basePrice = priceForDisplay(prod);
-  const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
+    const basePrice = priceForDisplay(prod);
+    const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
+    const codeHtml = IS_SUPERUSER ? ` <span class='text-muted small'>#${prod.code}</span>` : '';
   const mealLabel = prod.meal_type === 'kids' ? 'Kids Meal' : 'Meal';
   const mealBadge = prod.meal_flag ? ` <span class='badge bg-info text-dark'>${mealLabel}</span>` : '';
       const discountHtml = prod.has_discount ? ` <span class='badge bg-warning text-dark'>Meal ${money(priceForDiscountDisplay(prod))}</span>` : '';
@@ -503,7 +506,7 @@
       }
       card.innerHTML = `<div class=\"card-body d-flex flex-column\">        
         <h6 class=\"card-title text-truncate\" title=\"${prod.name}\">${prod.name}${mealBadge}</h6>
-        <div class=\"price-line fw-semibold mb-1\">${priceHtml}${discountHtml} #${prod.code}</div>
+  <div class=\"price-line fw-semibold mb-1\">${priceHtml}${discountHtml}${codeHtml}</div>
         ${variantsHtml}
         <div class=\"mt-auto\"></div>
       </div>`;
