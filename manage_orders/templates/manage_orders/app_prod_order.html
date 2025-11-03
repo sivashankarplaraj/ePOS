@@ -925,12 +925,28 @@
       });
     }
   }
+    // Determine Kids Meal (Meal Id = 2) and disable Size Up in that case
+    const mealId = data.meal_id || data.mealId || null;
+    const isKidsByType = (data.meal_type === 'kids');
+    const isKidsById = (String(mealId) === '2');
+    const grpIdLocal = data.epos_group_id || data.group_id || null;
+    const isKidsByGroup = (String(grpIdLocal) === '4');
+    const isKidsMeal = isKidsById || isKidsByType || isKidsByGroup;
+    const applySizeUpAvailability = (disable)=>{
+      if(sizeUpGroup){
+        sizeUpGroup.querySelectorAll('[data-sizeup]').forEach(b=>{
+          b.disabled = !!disable;
+          b.classList.toggle('disabled', !!disable);
+        });
+      }
+    };
     const friesWrap = document.getElementById('cfg-fries-wrap');
     const drinksWrap = document.getElementById('cfg-drinks-wrap');
   if(data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length){
       mealSection.classList.remove('d-none');
     mealToggle.checked=false; mealComp.classList.add('d-none');
-    sizeUpWrap.classList.add('d-none');
+  sizeUpWrap.classList.add('d-none');
+  applySizeUpAvailability(isKidsMeal);
     resetSizeUp();
       friesWrap.classList.add('d-none');
       // Populate fries (we'll auto-select regular when toggle on)
@@ -970,7 +986,10 @@
       mealToggle.onchange=()=>{
         cfg.meal=mealToggle.checked;
         mealComp.classList.toggle('d-none', !cfg.meal);
-        sizeUpWrap.classList.toggle('d-none', !cfg.meal);
+  const allowSizeUp = cfg.meal && !isKidsMeal;
+  sizeUpWrap.classList.toggle('d-none', !allowSizeUp);
+  applySizeUpAvailability(!allowSizeUp);
+  if(!allowSizeUp){ resetSizeUp(); }
         if(cfg.meal){
           // Auto-select regular fries (assume first option is Regular)
           resetSizeUp();
@@ -986,6 +1005,7 @@
       if(sizeUpGroup){
         resetSizeUp();
         sizeUpGroup.addEventListener('click', (e)=>{
+          if(isKidsMeal) return; // ignore clicks when Size Up is disabled for Kids Meal
           const btn = e.target.closest('[data-sizeup]'); if(!btn) return;
           const val = btn.getAttribute('data-sizeup');
           cfg.sizeup = val;
@@ -1167,16 +1187,19 @@
     document.getElementById('cfg-body').classList.remove('d-none');
     document.getElementById('cfg-add-btn').disabled=false;
 
-    // Enforce Kids category (EPOS Group 4) as meal-only: auto-toggle and lock
+    // Enforce Kids category (EPOS Group 4) and Kids Meal (Meal Id = 2) as meal-only: auto-toggle and lock; disable Size Up
     try {
       const grpId = data.epos_group_id || data.group_id || null;
-      const isKidsGroup = String(grpId) === '4' || (data.meal_type === 'kids');
+      const isKidsGroup = String(grpId) === '4' || (data.meal_type === 'kids') || (String(data.meal_id||data.mealId||'')==='2');
       if(isKidsGroup && !document.getElementById('cfg-body').classList.contains('d-none')){
         if(mealSection && !mealSection.classList.contains('d-none')){
           mealToggle.checked = true; mealToggle.disabled = true; // lock toggle
           // Reveal components and default fries/drink if needed
           mealComp.classList.remove('d-none');
-          sizeUpWrap.classList.remove('d-none');
+          // For Kids Meal, disable and hide Size Up
+          sizeUpWrap.classList.add('d-none');
+          applySizeUpAvailability(true);
+          resetSizeUp();
           if(friesSel.options.length>0 && (cfg.fries==null || cfg.fries==undefined)){
             friesSel.selectedIndex = 0; cfg.fries = parseInt(friesSel.value,10);
           }
@@ -1191,6 +1214,7 @@
       } else {
         // Ensure toggle is enabled for non-kids groups
         if(mealToggle) mealToggle.disabled = false;
+        applySizeUpAvailability(false);
       }
     } catch(err) { /* non-blocking */ }
   }
