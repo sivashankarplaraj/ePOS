@@ -48,10 +48,12 @@
     <span id="band-channel-active" class="badge bg-secondary d-none"></span>
   </div>
   <!-- <div id="band-channel-hint" class="small text-muted mb-2">Select a channel to load menu & prices.</div> -->
+  {% if user.is_superuser %}
   <div class="form-check mt-2">
     <input class="form-check-input" type="checkbox" id="toggle-net" />
     <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
   </div>
+  {% endif %}
   <div class="mt-2">
     <label class="form-label small mb-1">VAT Basis</label>
     <div id="basis-buttons" class="d-flex gap-2 flex-wrap">
@@ -1506,7 +1508,13 @@
     renderProducts();
   });
   // Band buttons removed; channel modal controls band now
-  document.getElementById('toggle-net').addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });
+  const toggleNetEl = document.getElementById('toggle-net');
+  if(toggleNetEl){
+    toggleNetEl.addEventListener('change', (e)=>{ showNet = e.target.checked; renderProducts(); });
+  } else {
+    // Ensure showNet stays false when toggle not available (non-superusers)
+    showNet = false;
+  }
 
   // Initial channel load (will select first or last used channel and then fetch menu)
   loadChannels();
