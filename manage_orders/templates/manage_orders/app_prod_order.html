@@ -375,13 +375,27 @@
 
   function money(pence){ return '£' + (pence/100).toFixed(2); }
 
-  // Deterministic, subtle color accents per item (improves scannability without harming contrast)
+  // Subtle color accents per item (use EPOS_PROD RGB when available; fallback to deterministic hash hue)
   function colorAccentForItem(prod){
-    const s = String(prod.code ?? prod.name ?? '');
+    // Prefer server-provided RGB colour from EposProd
+    const c = prod && prod.colour;
+    const hasRGB = c && Number.isFinite(c.r) && Number.isFinite(c.g) && Number.isFinite(c.b);
+    if(hasRGB){
+      const r = Math.max(0, Math.min(255, c.r|0));
+      const g = Math.max(0, Math.min(255, c.g|0));
+      const b = Math.max(0, Math.min(255, c.b|0));
+      // Keep backgrounds very subtle to preserve text contrast
+      const bgLight = `rgba(${r}, ${g}, ${b}, 0.08)`;   // pastel tint on light theme
+      const borderLight = `rgb(${r}, ${g}, ${b})`;      // solid border
+      const bgDark = `rgba(${r}, ${g}, ${b}, 0.12)`;    // slightly stronger tint on dark
+      const borderDark = `rgba(${r}, ${g}, ${b}, 0.85)`; // lighter/visible border in dark
+      return { bgLight, borderLight, bgDark, borderDark };
+    }
+    // Fallback: deterministic, subtle HSL hue based on code/name
+    const s = String(prod?.code ?? prod?.name ?? '');
     let hash = 0;
     for(let i=0;i<s.length;i++){ hash = ((hash << 5) - hash) + s.charCodeAt(i); hash |= 0; }
     const hue = Math.abs(hash) % 360; // stable hue per item
-    // Light theme: pastel bg + medium border. Dark theme: translucent tint + lighter border.
     const bgLight = `hsl(${hue}, 85%, 97%)`;
     const borderLight = `hsl(${hue}, 65%, 45%)`;
     const bgDark = `hsla(${hue}, 80%, 60%, 0.08)`;

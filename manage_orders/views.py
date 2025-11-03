@@ -403,7 +403,11 @@ def api_category_items(request: HttpRequest, group_id: int):
         return JsonResponse({'error': 'Category not found'}, status=404)
 
     # Fetch ePOS products for this group ordered by EPOS_SEQUENCE
-    epos_products = list(EposProd.objects.filter(EPOS_GROUP=group_id).order_by('EPOS_SEQUENCE'))
+    epos_products = list(
+        EposProd.objects.filter(EPOS_GROUP=group_id)
+        .only('PRODNUMB', 'EPOS_GROUP', 'EPOS_SEQUENCE', 'COLOUR_RED', 'COLOUR_GREEN', 'COLOUR_BLUE', 'ITEM_DESC')
+        .order_by('EPOS_SEQUENCE')
+    )
     prod_nums = [p.PRODNUMB for p in epos_products]
     pd_items_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=prod_nums)}
     app_prod_meta = {ap.PRODNUMB: ap for ap in AppProd.objects.filter(PRODNUMB__in=prod_nums)}
@@ -416,6 +420,17 @@ def api_category_items(request: HttpRequest, group_id: int):
         prod_obj = _serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates)
         # Attach EPOS group id for frontend policy (e.g., kids = group 4)
         prod_obj['epos_group_id'] = group_id
+        # Attach RGB colour from EposProd if present
+        try:
+            r = int(getattr(ep, 'COLOUR_RED', 0) or 0)
+            g = int(getattr(ep, 'COLOUR_GREEN', 0) or 0)
+            b = int(getattr(ep, 'COLOUR_BLUE', 0) or 0)
+            # Normalize into 0..255 bounds just in case
+            r = max(0, min(255, r)); g = max(0, min(255, g)); b = max(0, min(255, b))
+            prod_obj['colour'] = {'r': r, 'g': g, 'b': b}
+        except Exception:
+            # If any issue, skip colour attachment (frontend falls back to hashed accent)
+            pass
         items.append(prod_obj)
 
     # Add combination products from EposComb for this group (e.g., Special Offers / group 9)

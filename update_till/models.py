@@ -343,6 +343,9 @@ class EposProd(models.Model):
     ITEM_DESC = models.CharField(max_length=20, help_text="Description of item.")
     EPOS_GROUP = models.IntegerField(help_text="ePOS group number.")
     EPOS_SEQUENCE = models.IntegerField(help_text="ePOS sequence number.")
+    COLOUR_RED = models.IntegerField(help_text="Red component of colour (0-255).")
+    COLOUR_GREEN = models.IntegerField(help_text="Green component of colour (0-255).")
+    COLOUR_BLUE = models.IntegerField(help_text="Blue component of colour (0-255).")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"ePOS Product {self.PRODNUMB} - Name: {self.PRODNAME}, Description: {self.ITEM_DESC}, ePOS Group: {self.EPOS_GROUP}, ePOS Sequence: {self.EPOS_SEQUENCE}, Last Updated: {self.last_updated}"
