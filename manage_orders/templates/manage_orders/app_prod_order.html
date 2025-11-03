@@ -1,7 +1,7 @@
 {% extends 'manage_orders/index.html' %}
 {% load static %}
 {% block content %}
-<h5 class="mt-3">Create Order</h5>
+<!-- <h5 class="mt-3">Create Order</h5> -->
 <style>
   .basket-pinned-wrapper{ position:fixed; top:0; right:0; width:380px; max-width:95vw; height:100vh; background:var(--bs-body-bg); border-left:1px solid var(--bs-border-color); z-index:1075; display:flex; flex-direction:column; box-shadow:-2px 0 8px rgba(0,0,0,.15); }
   .basket-pinned-wrapper .offcanvas-header{ border-bottom:1px solid var(--bs-border-color); }
@@ -43,11 +43,11 @@
 <!-- Channel / Band Selector -->
 <div class="mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-    <label class="form-label fw-semibold mb-0">Channel / Price Band</label>
+    <!-- <label class="form-label fw-semibold mb-0">Channel / Price Band</label> -->
     <button type="button" id="band-channel-btn" class="btn btn-lg btn-outline-primary" aria-label="Choose channel for price band">Choose Channel</button>
     <span id="band-channel-active" class="badge bg-secondary d-none"></span>
   </div>
-  <div id="band-channel-hint" class="small text-muted mb-2">Select a channel to load menu & prices.</div>
+  <!-- <div id="band-channel-hint" class="small text-muted mb-2">Select a channel to load menu & prices.</div> -->
   <div class="form-check mt-2">
     <input class="form-check-input" type="checkbox" id="toggle-net" />
     <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
