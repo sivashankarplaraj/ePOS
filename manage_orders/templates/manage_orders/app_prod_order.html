@@ -890,7 +890,7 @@
 
   function populateConfig(){
     const data = cfg.data; if(!data) return;
-    document.getElementById('cfg-title').textContent = `Configure #${data.code}`;
+    document.getElementById('cfg-title').textContent = `Configure - ${data.name}`;
     document.getElementById('cfg-item-name').textContent = data.name;
     document.getElementById('cfg-item-type').classList.toggle('d-none', data.type!=='combo');
     const cfgMealBadgeEl = document.getElementById('cfg-meal-badge');
