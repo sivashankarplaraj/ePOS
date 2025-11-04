@@ -669,10 +669,12 @@
     return line.signature || line.baseSignature;
   }
   function renderBasket(){
-    basket.total = basket.lines.reduce((s,l)=> s + (l.price * (l.qty||1)), 0);
+    // We'll recompute total from product lines including any attached priced extras per unit
+    basket.total = 0;
     basketList.innerHTML='';
     // Exclude topping pseudo-lines from direct display
     const displayLines = basket.lines.filter(l=> l.type !== 'topping');
+    let recomputedTotal = 0;
     displayLines.forEach((l,idx)=>{
       const li=document.createElement('li');
       li.className='list-group-item';
@@ -710,11 +712,11 @@
         });
         toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
       }
-      const customBadge = attachedToppings.length? " <span class='badge bg-warning text-dark ms-1' style='font-size:0.65rem;'>CUSTOM</span>" : '';
-      // Display price for this line should include attached priced extras, but NOT double count in basket totals.
-      // We keep totals as sum of all lines; here we compute a display-only amount for clarity.
-      const extrasSum = attachedToppings.reduce((s,t)=> s + ((t.meta && t.meta.kind === 'extra') ? (t.price||0) : 0), 0);
-      const lineDisplayPence = (l.price + extrasSum) * (l.qty||1);
+  const customBadge = attachedToppings.length? " <span class='badge bg-warning text-dark ms-1' style='font-size:0.65rem;'>CUSTOM</span>" : '';
+  // Include attached priced extras per unit for display and total recomputation
+  const extrasSum = attachedToppings.reduce((s,t)=> s + ((t.meta && t.meta.kind === 'extra') ? (t.price||0) : 0), 0);
+  const lineDisplayPence = (l.price + extrasSum) * (l.qty||1);
+  recomputedTotal += lineDisplayPence;
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
           <div class='basket-line-main' data-select-line='${l.signature}' role='button'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal? (l.meal_type==='kids'?' Kids Meal':' Meal'):''}${customBadge}</div>
@@ -741,8 +743,9 @@
         </div>
       </div>`;
       basketList.appendChild(li);
-    });
-    basketTotal.textContent = money(basket.total);
+  });
+  basket.total = recomputedTotal;
+  basketTotal.textContent = money(basket.total);
     clearBtn.disabled = displayLines.length===0; checkoutBtn.disabled = displayLines.length===0;
     const totalQty = displayLines.reduce((s,l)=> s + (l.qty||1),0);
     if(basketFabCount) basketFabCount.textContent = totalQty;
