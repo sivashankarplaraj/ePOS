@@ -149,6 +149,74 @@
   </div>
 <!-- Focus sentinel (kept early to shift focus away before any modal hide sets aria-hidden) -->
 <button type="button" id="focus-sentinel" class="visually-hidden" tabindex="-1" aria-hidden="true">Sentinel</button>
+<!-- Cash Calculator Modal -->
+<div class="modal fade" id="cashCalcModal" tabindex="-1" aria-modal="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-3">
+        <h5 class="modal-title fs-3 fw-bold">Cash Calculator</h5>
+        <button type="button" class="btn-close btn-lg" style="transform:scale(1.3);" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 align-items-stretch">
+          <!-- Quick denominations -->
+          <div class="col-12 col-md-3 d-grid gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-lg" data-cash-denom="500">£5</button>
+            <button type="button" class="btn btn-outline-secondary btn-lg" data-cash-denom="1000">£10</button>
+            <button type="button" class="btn btn-outline-secondary btn-lg" data-cash-denom="2000">£20</button>
+            <button type="button" class="btn btn-outline-secondary btn-lg" data-cash-denom="5000">£50</button>
+          </div>
+          <!-- Keypad -->
+          <div class="col-12 col-md-6">
+            <div class="d-grid gap-2" id="cash-keypad">
+              <div class="d-grid gap-2" style="grid-template-columns: repeat(3, 1fr); display:grid;">
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="1">1</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="2">2</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="3">3</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="4">4</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="5">5</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="6">6</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="7">7</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="8">8</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="9">9</button>
+                <button type="button" class="btn btn-outline-secondary btn-lg" data-cash-key="C">C</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="0">0</button>
+                <button type="button" class="btn btn-outline-primary btn-lg" data-cash-key="00">00</button>
+              </div>
+            </div>
+          </div>
+          <!-- Totals panel -->
+          <div class="col-12 col-md-3">
+            <div class="border rounded p-3 h-100 d-flex flex-column justify-content-between">
+              <div class="mb-2">
+                <div class="small text-muted">Basket Total</div>
+                <div id="cash-total" class="fs-3 fw-bold">£0.00</div>
+              </div>
+              <div class="mb-2">
+                <div class="small text-muted">Money Received</div>
+                <div id="cash-received" class="fs-3">£0.00</div>
+              </div>
+              <div>
+                <div id="cash-change-label" class="small text-muted">Change</div>
+                <div id="cash-change" class="fs-3">£0.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="btn-group" role="group" aria-label="VAT basis">
+          <button type="button" class="btn btn-outline-info" id="cash-basis-take" data-basis="take">Takeaway</button>
+          <button type="button" class="btn btn-outline-info" id="cash-basis-eat" data-basis="eat">Eat-In</button>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-lg btn-outline-secondary" id="cash-backspace" title="Backspace">⌫</button>
+          <button type="button" class="btn btn-lg btn-primary fw-bold" id="cash-ok">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
 <!-- Item Configuration Modal -->
 <div class="modal fade" id="itemConfigModal" tabindex="-1" aria-modal="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -760,6 +828,43 @@
   applyPinState();
   // Checkout flow opens modal to collect payment method and crew ID
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
+  // Cash calculator modal helpers/state
+  let cashModal = null; const ensureCashModal=()=>{ if(!cashModal){ cashModal = new bootstrap.Modal(document.getElementById('cashCalcModal')); } };
+  const cashState = { receivedPence: 0 };
+  function setCashBasisButtons(){
+    const takeBtn = document.getElementById('cash-basis-take');
+    const eatBtn = document.getElementById('cash-basis-eat');
+    if(!takeBtn || !eatBtn) return;
+    takeBtn.classList.toggle('active', vatBasis==='take');
+    eatBtn.classList.toggle('active', vatBasis==='eat');
+  }
+  function moneyPence(p){ return money(p); }
+  function updateCashUI(){
+    const total = basket.total||0;
+    const recv = cashState.receivedPence||0;
+    const change = recv - total;
+    const lbl = document.getElementById('cash-change-label');
+    const out = document.getElementById('cash-change');
+    document.getElementById('cash-total').textContent = moneyPence(total);
+    document.getElementById('cash-received').textContent = moneyPence(recv);
+    if(change >= 0){
+      lbl.textContent = 'Change'; out.textContent = moneyPence(change); out.classList.remove('text-danger'); out.classList.add('text-success');
+    } else {
+      lbl.textContent = 'Balance Due'; out.textContent = moneyPence(Math.abs(change)); out.classList.add('text-danger'); out.classList.remove('text-success');
+    }
+    // Enable OK always; cashier may accept partial and settle separately (business choice)
+    const okBtn = document.getElementById('cash-ok'); if(okBtn){ okBtn.disabled = false; }
+  }
+  function openCashCalculator(crewId){
+    ensureCashModal();
+    cashState.receivedPence = 0;
+    setCashBasisButtons();
+    updateCashUI();
+    cashModal.show();
+    // focus a sensible control (e.g., first keypad button) for keyboard users
+    const firstKey = document.querySelector('[data-cash-key="1"]'); if(firstKey){ try{ firstKey.focus({preventScroll:true}); }catch(e){} }
+    // attach one-time handlers (delegated)
+  }
   checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
   // Payment method button group (touch friendly)
   document.addEventListener('click', (e)=>{
@@ -778,8 +883,46 @@
       document.getElementById('crew-id-error').classList.remove('d-none');
       return;
     }
-    checkoutModal.hide();
-    submitOrder({ payment_method: payMethod, crew_id: crewId });
+    // For Cash, show calculator first; others submit directly
+    if(payMethod === 'Cash'){
+      checkoutModal.hide();
+      // Defer opening to after modal hides to avoid focus clash
+      setTimeout(()=> openCashCalculator(crewId), 150);
+      // Store crewId on the OK handler closure
+      const okBtn = document.getElementById('cash-ok');
+      if(okBtn){
+        okBtn.onclick = ()=>{
+          // proceed to submit order with Cash
+          cashModal.hide();
+          submitOrder({ payment_method: 'Cash', crew_id: crewId });
+        };
+      }
+    } else {
+      checkoutModal.hide();
+      submitOrder({ payment_method: payMethod, crew_id: crewId });
+    }
+  });
+
+  // Cash keypad and controls
+  document.addEventListener('click', (e)=>{
+    const denomBtn = e.target.closest('[data-cash-denom]');
+    if(denomBtn){ const add = parseInt(denomBtn.getAttribute('data-cash-denom'),10)||0; cashState.receivedPence = (cashState.receivedPence||0) + add; updateCashUI(); return; }
+    const keyBtn = e.target.closest('[data-cash-key]');
+    if(keyBtn){
+      const key = keyBtn.getAttribute('data-cash-key');
+      if(key === 'C'){ cashState.receivedPence = 0; updateCashUI(); return; }
+      if(key === '00'){ cashState.receivedPence = Math.min(999999999, (cashState.receivedPence||0) * 100); updateCashUI(); return; }
+      // digits 0-9: shift-left (pence-style) and add digit
+      const d = parseInt(key,10); if(!Number.isNaN(d)){
+        const cur = cashState.receivedPence||0;
+        cashState.receivedPence = Math.min(999999999, cur*10 + d);
+        updateCashUI();
+      }
+      return;
+    }
+    const back = e.target.closest('#cash-backspace'); if(back){ cashState.receivedPence = Math.floor((cashState.receivedPence||0)/10); updateCashUI(); return; }
+    const basisTake = e.target.closest('#cash-basis-take'); if(basisTake){ vatBasis='take'; setCashBasisButtons(); /* Optional: re-render prices */ renderProducts(); renderBasket(); return; }
+    const basisEat = e.target.closest('#cash-basis-eat'); if(basisEat){ vatBasis='eat'; setCashBasisButtons(); renderProducts(); renderBasket(); return; }
   });
 
   itemsContainer.addEventListener('click', (e)=>{
