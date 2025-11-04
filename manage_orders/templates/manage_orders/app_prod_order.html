@@ -711,6 +711,10 @@
         toppingsHtml = `<ul class='small mb-1 ms-2 list-unstyled toppings-list' data-parent-sig='${l.signature}'>${topsLi.join('')}</ul>`;
       }
       const customBadge = attachedToppings.length? " <span class='badge bg-warning text-dark ms-1' style='font-size:0.65rem;'>CUSTOM</span>" : '';
+      // Display price for this line should include attached priced extras, but NOT double count in basket totals.
+      // We keep totals as sum of all lines; here we compute a display-only amount for clarity.
+      const extrasSum = attachedToppings.reduce((s,t)=> s + ((t.meta && t.meta.kind === 'extra') ? (t.price||0) : 0), 0);
+      const lineDisplayPence = (l.price + extrasSum) * (l.qty||1);
       li.innerHTML = `<div class='d-flex justify-content-between align-items-start gap-2'>
         <div class='flex-grow-1'>
           <div class='basket-line-main' data-select-line='${l.signature}' role='button'>${l.name}${l.variant? ' ('+l.variant+')':''}${l.meal? (l.meal_type==='kids'?' Kids Meal':' Meal'):''}${customBadge}</div>
@@ -724,7 +728,7 @@
             <button class='btn btn-outline-secondary' data-inc='${basket.lines.indexOf(l)}'>&plus;</button>
           </div>
           <div class='text-end'>
-            <div class='fw-semibold'>${money(l.price * (l.qty||1))}</div>
+            <div class='fw-semibold'>${money(lineDisplayPence)}</div>
             <button class='btn btn-outline-danger mt-1 d-inline-flex align-items-center justify-content-center'
                     style='width:40px;height:40px;border-width:2px;'
                     data-del='${basket.lines.indexOf(l)}' title='Remove' aria-label='Remove item'>
@@ -1485,6 +1489,7 @@
   function updateConfigPrice(){
     if(!cfg.data) return;
     const data=cfg.data; const noteEl=document.getElementById('cfg-price-note');
+    // Base price used for basket line (excludes add-ons; add-ons are attached as priced topping lines)
     let base = data.price_gross;
     let variantObj = null;
     if(cfg.currentVariant){ variantObj = (data.variants||[]).find(v=>v.code==cfg.currentVariant); if(variantObj) base=variantObj.price_gross; }
@@ -1540,17 +1545,20 @@
     // Add option prices (product options always add full price; combo optional add after free allowance)
     if(data.type==='product'){
       (data.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)){ base += o.price_gross; } });
-      // Add-ons always add full price
-      if(cfg.addonsSelected && cfg.addonsSelected.size){
-        (data.addons||[]).forEach(a=>{ if(cfg.addonsSelected.has(a.code)){ base += (a.price_gross||0); } });
-      }
+      // IMPORTANT: Do not add add-ons to base here; we attach them as separate priced topping lines.
+      // We'll compute a display-only total including add-ons below.
     } else if(data.type==='combo'){
       const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
       // Always charge for selected combo optionals
       chosen.forEach(o=>{ base += (o.price_gross||0); });
     }
-    cfg.effectivePrice = base;
-    document.getElementById('cfg-price-main').textContent = money(base);
+    // Compute display total including add-ons for user feedback
+    let addonsTotal = 0;
+    if(data.type==='product' && cfg.addonsSelected && cfg.addonsSelected.size){
+      (data.addons||[]).forEach(a=>{ if(cfg.addonsSelected.has(a.code)){ addonsTotal += (a.price_gross||0); } });
+    }
+    cfg.effectivePrice = base; // used for basket line price
+    document.getElementById('cfg-price-main').textContent = money(base + addonsTotal);
     // Show potential meal candidate + savings if applicable
     if(cfg.meal){
       if(mealApplied){
