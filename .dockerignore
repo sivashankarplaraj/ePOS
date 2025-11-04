@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+.env
+.git
+.vscode/
+.idea/
+.venv/
+.gitignore
+*.sql
+docx/
+*.CSV
+*.csv
+*.md
