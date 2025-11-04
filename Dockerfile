@@ -30,7 +30,7 @@ EXPOSE 80
 
 # Runtime: use start.sh to optionally enable TLS based on env vars
 # Defaults: HTTP only; set USE_SSL=true to enable TLS. Provide CERT_FILE/KEY_FILE or allow self-signed generation.
-ENV USE_SSL=false \
+ENV USE_SSL=true \
 	BIND_ADDR=0.0.0.0:80 \
 	CERT_FILE=/app/certs/cert.pem \
 	KEY_FILE=/app/certs/key.pem
