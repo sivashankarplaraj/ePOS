@@ -1550,12 +1550,12 @@
         // Savings vs paying individually (all standard or variant standard)
         const singlesTotal = chosenBurgerStd + friesStd + drinkStd;
         const savings = singlesTotal - mealCandidate;
-        noteEl.textContent = savings>0 ? `Meal price applied (save £${(savings/100).toFixed(2)})` : 'Meal price applied';
+        // noteEl.textContent = savings>0 ? `Meal price applied (save £${(savings/100).toFixed(2)})` : 'Meal price applied';
       } else {
-        noteEl.textContent = 'Select fries & drink to apply meal price';
+        // noteEl.textContent = 'Select fries & drink to apply meal price';
       }
     } else {
-      noteEl.textContent='';
+      // noteEl.textContent='';
     }
     // Add option prices (product options always add full price; combo optional add after free allowance)
     if(data.type==='product'){
