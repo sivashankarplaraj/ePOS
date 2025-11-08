@@ -236,7 +236,7 @@
                 <span class="badge bg-info text-dark ms-2 d-none" id="cfg-meal-badge">Meal</span>
               </div>
               <div class="text-end small">
-                <div>Band <span id="cfg-band"></span></div>
+                <div><span id="cfg-band"></span></div>
                 <div class="d-flex flex-column">
                   <div>Price: <span id="cfg-price-main"></span><span id="cfg-meal-price" class="ms-2 small text-info"></span></div>
                   <div class="small" id="cfg-price-note"></div>
@@ -366,6 +366,7 @@
     basketOffcanvasEl.addEventListener('hidden.bs.offcanvas', ()=>{ if(basketFab) basketFab.classList.remove('d-none'); });
   }
   let currentBand = '1';
+  let currentChannelName = '';
   let vatBasis = 'take'; // default
   let showNet = false;
   let bandCoNumber = '';
@@ -399,6 +400,7 @@
 
   function applyChannelSelection(band, co, desc, fetch=true, code){
     currentBand = String(band);
+    currentChannelName = desc || '';
     bandCoNumber = co || '';
     const badge = document.getElementById('band-channel-active');
     if(badge){ badge.textContent = `${desc} (${bandCoNumber})`; badge.classList.remove('d-none'); }
@@ -1072,6 +1074,10 @@
       cfgMealBadgeEl.textContent = (data.meal_type === 'kids') ? 'Kids Meal' : 'Meal';
     }
     document.getElementById('cfg-band').textContent = currentBand;
+    // Replace band number with channel name when available
+    if(currentChannelName){
+      document.getElementById('cfg-band').textContent = currentChannelName;
+    }
     // Variants
     const vWrap = document.getElementById('cfg-variants');
     const vList = document.getElementById('cfg-variant-list'); vList.innerHTML='';
