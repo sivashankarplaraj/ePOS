@@ -702,7 +702,7 @@
           const isExtraByName = !isKindExtra && /extra/i.test(t.name);
           const cls = isKindExtra? 'text-success' : (isRemove? 'text-danger' : (isExtraByName? 'text-success' : 'text-info'));
           const idxRef = basket.lines.indexOf(t);
-          const badge = isKindExtra? "<span class='badge bg-success me-1'>EXTRA</span>" : (isRemove? "<span class='badge bg-danger-subtle text-danger-emphasis me-1'>NO</span>" : "<span class='badge bg-secondary me-1'>ADD</span>");
+          const badge = isKindExtra? "<span class='badge bg-success me-1'>+</span>" : (isRemove? "<span class='badge bg-danger-subtle text-danger-emphasis me-1'>NO</span>" : "<span class='badge bg-secondary me-1'>ADD</span>");
           const priceSpan = isKindExtra && t.price ? ` <span class='text-muted'>(+${money(t.price)})</span>` : '';
           // Avoid duplicated 'No' like 'NO No Onions' by stripping leading 'No ' from the name when a NO badge is present
           const baseName = (t.name||'');
