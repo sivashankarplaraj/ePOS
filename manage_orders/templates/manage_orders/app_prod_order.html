@@ -278,10 +278,6 @@
               </div>
             </div>
           </div>
-          <div id="cfg-options" class="mb-4 d-none">
-            <label class="form-label fw-semibold" style="font-size:1.15rem;">Optional Products</label>
-            <div id="cfg-options-list" class="d-flex flex-column gap-2" style="font-size:1.05rem;"></div>
-          </div>
           <div id="cfg-toppings" class="mb-4 d-none">
             <div id="cfg-add-extras" class="mb-3 d-none">
               <label class="form-label fw-semibold mb-2" style="font-size:1.15rem;">Add Extras</label>
@@ -977,7 +973,8 @@
       const type = openCard.getAttribute('data-item-type');
       const code = openCard.getAttribute('data-open');
       const base = findItem(type, code);
-      const needsConfig = type==='combo' || (base && ((base.variants&&base.variants.length) || base.meal_flag || (base.options&&base.options.length)));
+  // Configuration needed only for combos, variants, or meal-capable items (product options removed)
+  const needsConfig = type==='combo' || (base && ((base.variants&&base.variants.length) || base.meal_flag));
       if(needsConfig){ openConfig(type, code, null); }
       else if(base){
         const grpId = base.epos_group_id || base.group_id || null;
@@ -1193,30 +1190,7 @@
         });
       }
   } else mealSection.classList.add('d-none');
-    // Product options
-    const optWrap = document.getElementById('cfg-options');
-    const optList = document.getElementById('cfg-options-list'); optList.innerHTML='';
-    const renderProductOptions = ()=>{
-      optList.innerHTML='';
-      if(data.options && data.options.length){
-        optWrap.classList.remove('d-none');
-        data.options.forEach(o=>{
-          const id=`opt-prod-${o.code}`;
-          optList.insertAdjacentHTML('beforeend', `<div class='form-check form-check-inline'><input class='form-check-input' type='checkbox' id='${id}' data-opt-code='${o.code}'><label class='form-check-label small' for='${id}'>${o.name} ${money(o.price_gross||0)}</label></div>`);
-        });
-      } else {
-        optWrap.classList.add('d-none');
-      }
-    };
-    renderProductOptions();
-    optList.addEventListener('change', e=>{
-      const cb=e.target.closest('[data-opt-code]');
-      if(cb){
-        const code=parseInt(cb.dataset.optCode,10);
-        if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code);
-        updateConfigPrice();
-      }
-    });
+    // Product options feature removed – intentionally no rendering or pricing adjustments here.
     // Add Extras rendering (moved under Modify tab)
     const addExtrasWrap = document.getElementById('cfg-add-extras');
     const addExtrasList = document.getElementById('cfg-add-extras-list'); addExtrasList.innerHTML='';
@@ -1318,19 +1292,7 @@
         })
         .catch(()=>{ modifyTabBtn?.classList.add('d-none'); });
     } else modifyTabBtn?.classList.add('d-none');
-    // Fallback: If product options missing in detail payload, fetch via API and render
-    if(data.type==='product' && (!data.options || data.options.length===0)){
-      fetch(`/api/product/${data.code}/options?band=${currentBand}`)
-        .then(r=>r.json())
-        .then(resp=>{
-          if(resp && Array.isArray(resp.options) && resp.options.length){
-            data.options = resp.options.map(o=>({ code:o.code, name:o.name, price_gross:o.price_gross }));
-            renderProductOptions();
-            syncConfigTabs();
-          }
-        })
-        .catch(()=>{});
-    }
+    // Product options API fallback removed along with UI; combos still supported.
     // Combo structure
     const comboStruct = document.getElementById('cfg-combo-structure');
     const compUL = document.getElementById('cfg-compulsory');
@@ -1402,14 +1364,12 @@
     // Reset default visibility based on data
     const vWrap = document.getElementById('cfg-variants');
     const mealSection = document.getElementById('cfg-meal-section');
-  const optWrap = document.getElementById('cfg-options');
     const comboStruct = document.getElementById('cfg-combo-structure');
     const toppingsWrap = document.getElementById('cfg-toppings');
     const addExtrasWrap = document.getElementById('cfg-add-extras');
     if(vWrap) vWrap.classList.toggle('d-none', !(data.variants && data.variants.length));
     const mealOkay = data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length;
     if(mealSection) mealSection.classList.toggle('d-none', !mealOkay);
-    if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
     if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
     // If on Extras tab, focus only on extras lists
     // Configure tab now always shows product options and combo optional column (when present)
@@ -1417,7 +1377,6 @@
     const compCol = compUL ? compUL.closest('.col-md-6') : null;
     const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
     if(compCol) compCol.classList.remove('d-none');
-    if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
     if(optCol) optCol.classList.remove('d-none');
     // Modify tab visibility (already toggled when toppings loaded); show only its section when active
     if(toppingsWrap){
@@ -1428,7 +1387,6 @@
         // Hide other sections when in modify view for clarity
         if(vWrap) vWrap.classList.add('d-none');
         if(mealSection) mealSection.classList.add('d-none');
-        if(optWrap) optWrap.classList.add('d-none');
         if(comboStruct) comboStruct.classList.add('d-none');
       }
     }
@@ -1524,12 +1482,8 @@
     } else {
       // noteEl.textContent='';
     }
-    // Add option prices (product options always add full price; combo optional add after free allowance)
-    if(data.type==='product'){
-      (data.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)){ base += o.price_gross; } });
-      // IMPORTANT: Do not add add-ons to base here; we attach them as separate priced topping lines.
-      // We'll compute a display-only total including add-ons below.
-    } else if(data.type==='combo'){
+    // Combo optional pricing retained; product options feature removed.
+    if(data.type==='combo'){
       const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
       // Always charge for selected combo optionals
       chosen.forEach(o=>{ base += (o.price_gross||0); });
@@ -1601,10 +1555,8 @@
   displayChoices.push(`${drinkObj ? drinkObj.name : '#'+cfg.drink}`);
       }
     }
-    // Product options
-    if(baseData.type==='product'){
-      (baseData.options||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
-    } else if(baseData.type==='combo'){
+    // Combo optional choices only (product options removed)
+    if(baseData.type==='combo'){
       (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
     }
     // Free choice groups display capture
@@ -1616,7 +1568,7 @@
       }
     });
     const meta = {
-      options: [...cfg.optionalSelected],
+      options: baseData.type==='combo' ? [...cfg.optionalSelected] : [],
       fries: cfg.meal? effectiveFries : null,
       drink: cfg.meal? effectiveDrink : null,
       variant_code: cfg.currentVariant || null,
