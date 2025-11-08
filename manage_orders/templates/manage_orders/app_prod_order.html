@@ -550,6 +550,16 @@
   }
 
   function priceForDisplay(prod){
+    // Prefer precomputed Kids Meal composite price for kids items when available
+    if(prod && prod.meal_type === 'kids'){
+      if(showNet){
+        if(vatBasis==='eat'){
+          return Number.isFinite(prod.kids_meal_price_net_eat) ? prod.kids_meal_price_net_eat : prod.price_net_eat;
+        }
+        return Number.isFinite(prod.kids_meal_price_net_take) ? prod.kids_meal_price_net_take : prod.price_net_take;
+      }
+      return Number.isFinite(prod.kids_meal_price_gross) ? prod.kids_meal_price_gross : prod.price_gross;
+    }
     if(showNet){ return vatBasis==='eat'? prod.price_net_eat : prod.price_net_take; }
     return prod.price_gross;
   }
@@ -575,12 +585,14 @@
   card.setAttribute('data-open', String(prod.code));
       card.setAttribute('data-item-type', prod.type);
       card.style.cursor = 'pointer';
-    const basePrice = priceForDisplay(prod);
-    const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
+  const basePrice = priceForDisplay(prod);
+  const isKids = (prod.meal_type === 'kids');
+  const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
     const codeHtml = IS_SUPERUSER ? ` <span class='text-muted small'>#${prod.code}</span>` : '';
-  const mealLabel = prod.meal_type === 'kids' ? 'Kids Meal' : 'Meal';
+  const mealLabel = isKids ? 'Kids Meal' : 'Meal';
   const mealBadge = prod.meal_flag ? ` <span class='badge bg-info text-dark'>${mealLabel}</span>` : '';
-      const discountHtml = prod.has_discount ? ` <span class='badge bg-warning text-dark'>Meal ${money(priceForDiscountDisplay(prod))}</span>` : '';
+    // For Kids items we already show the meal price, so hide the discount badge
+    const discountHtml = isKids ? '' : (prod.has_discount ? ` <span class='badge bg-warning text-dark'>Meal ${money(priceForDiscountDisplay(prod))}</span>` : '');
       let variantsHtml='';
       if(prod.variants && prod.variants.length){
         variantsHtml = `<div class='mt-1 small d-flex flex-wrap gap-1'>` + prod.variants.map(v=>{

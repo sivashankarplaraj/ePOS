@@ -413,6 +413,29 @@ def api_category_items(request: HttpRequest, group_id: int):
     app_prod_meta = {ap.PRODNUMB: ap for ap in AppProd.objects.filter(PRODNUMB__in=prod_nums)}
 
     items: list[dict] = []
+    # Preload defaults for kids meal preview (fries and kids drinks)
+    std_col = _price_column_name(band, discounted=False)
+    dc_col = _price_column_name(band, discounted=True)
+    fries_list = list(PdItem.objects.filter(PRODNUMB__in=[30, 31]).only('PRODNUMB', std_col, dc_col, 'TAKE_VAT_CLASS', 'EAT_VAT_CLASS'))
+    kids_drink_codes = list(EposProd.objects.filter(EPOS_GROUP=99).values_list('PRODNUMB', flat=True))
+    kids_drinks_map = {p.PRODNUMB: p for p in PdItem.objects.filter(PRODNUMB__in=kids_drink_codes).only('PRODNUMB', std_col, dc_col, 'TAKE_VAT_CLASS', 'EAT_VAT_CLASS')}
+
+    def comp_price(it):
+        if not it:
+            return 0
+        dc = getattr(it, dc_col, None) or 0
+        std = getattr(it, std_col, None) or 0
+        return int(dc) if dc and int(dc) > 0 else int(std)
+
+    def comp_net(it, gross: int, basis: str) -> int:
+        if not it or not gross:
+            return 0
+        vat_class = getattr(it, 'EAT_VAT_CLASS' if basis == 'eat' else 'TAKE_VAT_CLASS', None)
+        rate = vat_rates.get(vat_class, 0.0)
+        try:
+            return int(round(gross / (1 + (rate/100.0))))
+        except ZeroDivisionError:
+            return gross
     for ep in epos_products:
         pd_item = pd_items_map.get(ep.PRODNUMB)
         if not pd_item:
@@ -420,6 +443,44 @@ def api_category_items(request: HttpRequest, group_id: int):
         prod_obj = _serialize_product(pd_item, band, app_meta=app_prod_meta.get(ep.PRODNUMB), vat_rates=vat_rates)
         # Attach EPOS group id for frontend policy (e.g., kids = group 4)
         prod_obj['epos_group_id'] = group_id
+        # If Kids Meal (meal_id==2), compute a preview meal price for display: burger + default fries + default kids drink
+        try:
+            if int(prod_obj.get('meal_id') or 0) == 2:
+                # Burger component price used in meal: discounted if available else standard
+                burger_price = comp_price(pd_item)
+                # Default fries: pick the lowest priced meal component among available fries
+                fries_price = 0
+                fries_choice = None
+                if fries_list:
+                    fries_choice = min(fries_list, key=lambda f: comp_price(f))
+                    fries_price = comp_price(fries_choice)
+                # Default kids drink: pick the lowest priced among kids drinks
+                drink_price = 0
+                drink_choice = None
+                if kids_drinks_map:
+                    drink_choice = min(kids_drinks_map.values(), key=lambda d: comp_price(d))
+                    drink_price = comp_price(drink_choice)
+                meal_gross = int((burger_price or 0) + (fries_price or 0) + (drink_price or 0))
+                # Compute preview net values by summing per-component net for both bases
+                take_net = 0
+                eat_net = 0
+                if meal_gross:
+                    take_net = (
+                        comp_net(pd_item, burger_price, 'take') +
+                        comp_net(fries_choice, fries_price, 'take') +
+                        comp_net(drink_choice, drink_price, 'take')
+                    )
+                    eat_net = (
+                        comp_net(pd_item, burger_price, 'eat') +
+                        comp_net(fries_choice, fries_price, 'eat') +
+                        comp_net(drink_choice, drink_price, 'eat')
+                    )
+                prod_obj['kids_meal_price_gross'] = meal_gross
+                prod_obj['kids_meal_price_net_take'] = int(take_net)
+                prod_obj['kids_meal_price_net_eat'] = int(eat_net)
+        except Exception:
+            # If any issue in preview computation, skip silently
+            pass
         # Attach RGB colour from EposProd if present
         try:
             r = int(getattr(ep, 'COLOUR_RED', 0) or 0)
