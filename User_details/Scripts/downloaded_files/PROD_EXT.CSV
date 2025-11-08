@@ -1,198 +1,198 @@
-"PRODNUMB","PRODNAME","NAME_ON_MENU","COOK_ZONE","PROD_DESC"
-"1","HAMBURGER","Hamburger","1","100% beef patty with freshly cut lettuce"
-"2","DBL HAMBURGER","Double Hamburger","1","Two 100% beef patties with freshly cut lettuce"
-"3","CHEESEBURGER","Cheeseburger","1","100% beef patty topped with cheese"
-"4","DBL CHEESEBURGR","Double Cheeseburger","1","Two 100% beef patties topped with cheese"
-"5","CHILLIBURGER","Chilliburger","1","100% beef patty with our famous home-made chilli sauce"
-"6","DBL CHILLIBURGER","Double Chilliburger","1","Two 100% beef patties with our famous home-made chilli sauce"
-"7","ORIGINAL","Original","1","100% beef patty with freshly cut lettuce"
-"8","DBL ORIGINAL","Double Original","1","Two 100% beef patties with freshly cut lettuce"
-"9","BLUECHEESE BGR","Bluecheese Burger","1","100% beef patty topped with real blue cheese"
-"10","DBL BLUE CHSEBGR","Double Bluecheese Burger","1","Two 100% beef patties topped with real blue cheese"
-"11","VEGGIE BURGER","Veggie Burger","3","Veggie patty with freshly cut lettuce"
-"12","VEGGIE instead","Veggie Patty Instead","3","Replace the patty in a beef or chicken burger with a vegetarian alternative."
-"13","KIDS HAMBURGER","Kids Hamburger","1","100% beef patty with ketchup served in a toasted sesame seed bun."
-"14","XTR MEAT","Beef Patty","1",""
-"15","GARLIC BURGER","Garlic Burger","1","100% beef patty with home-made garlic mayonnaise"
-"16","DBL GARLIC BGR","Double Garlic Burger","1","Two 100% beef patties with home-made garlic mayonnaise"
-"17","HAWAIIAN BURGER","Hawaiian Burger","1","100% beef patty topped with grilled pineapple"
-"18","DBL HAWAIIAN BGR","Double Hawaiian Burger","1","Two 100% beef patties topped with grilled pineapple"
-"19","CHICKEN SAMWICH","Chicken Samwich","3","Crispy coated chicken fillet with freshly cut lettuce"
-"20","ALLSTAR BURGER","Allstar Burger","1","100% beef patty topped with cheese"
-"21","DBL ALLSTAR BGR","Double Allstar Burger","1","Two 100% beef patties topped with cheese"
-"22","1000 ISLAND BGR","1000 Island Burger","1","100% beef patty topped with thousand island sauce"
-"23","DBL CHILI n CHSE","Double Chilli 'n' Cheese","1","Two 100% beef patties with our famous home-made chilli sauce"
-"24","XMAS CHICKN SAMW","Feastive Chicken","3","Crispy coated chicken fillet with freshly cut lettuce"
-"25","BACON CHEESE BGR","Bacon Cheeseburger","1","100% beef patty topped with smokey bacon"
-"26","DIP KETCHUP","Ketchup Dip","0","Ketchup Dip"
-"27","DIP MAYO","Mayonnaise Dip","0","Mayonnaise Dip"
-"28","DIP CHILLI","Chilli Sauce Dip","0","Our famous home-made chilli sauce - very hot!"
-"29","DIP GARLC MAYO","Garlic Mayonnaise Dip","0","Home-made garlic mayonnaise."
-"30","REGULAR FRIES","Regular Fries","3","Crispy french fries cooked fresh for every order."
-"31","LARGE FRIES","Large Fries","3","Crispy french fries cooked fresh for every order."
-"32","CHICKEN ALLSTAR","Chicken Allstar","3","Crispy coated chicken fillet topped with cheese"
-"33","XTR CHICkN","Chicken Fillet","3",""
-"34","XTR VEGGIE","Veggie Patty","3",""
-"35","KIDS CHEESE-BGR","Kids Cheese Burger","1","100% beef patty topped with cheese & ketchup served in a toasted sesame seed bun."
-"36","XTR BACON","Bacon","3",""
-"37","XTR GARLIC MAY","Garlic Mayonnaise","0",""
-"38","XTR PINAPL","Grilled Pineapple","0",""
-"39","DIP BBQ","BBQ Dip","0","BBQ Dip"
-"40","XTR KETCH","Ketchup","0",""
-"41","XTR MAYO","Mayonnaise","0",""
-"42","XTR CHILLI","Chilli Sauce","0",""
-"43","XTR MISC 25p ","Misc 25p","0",""
-"44","VEGIE SALAD SAMW","Veggie Salad Samwich","1","Double cheese"
-"45","XTR CHEEZ","Cheese","0",""
-"46","XTR MISC 10p","Misc 10p","0",""
-"47","XTR BLUE","Bluecheese Sauce","0",""
-"48","CHICKEN CHILLI","Chicken Chilli","3","Crispy coated chicken fillet topped with our famous home-made chilli sauce"
-"49","COLA","Cola","2","Cola"
-"50","LRG COLA","Large Cola","2","Large Cola"
-"51","COKE CLASSIC CAN","Coca Cola Can (330ml)","2","Coca Cola Can (330ml)"
-"52","TANGO CAN","Tango Can (330ml)","2","Tango Can (330ml)"
-"53","DIET COKE CAN","Diet Coke Can (330ml)","2","Diet Coke Can (330ml)"
-"54","DBL BACON CHEESE","Double Bacon Cheeseburger","1","Two 100% beef patties topped with smokey bacon"
-"55","OUR BIGGEST BGR","Our Biggest Burger","1","Two 100% beef patties topped with smokey bacon"
-"56","FIZZY ORANGE","Fizzy Orange","2","Fizzy Orange"
-"57","LRG ORANGE","Large Fizzy Orange","2","Large Fizzy Orange"
-"58","DIET COLA","Diet Cola","2","Diet Cola"
-"59","LGR DIET COLA","Large Diet Cola","2","Large Diet Cola"
-"60","BANANA SHAKE","Banana Thick Shake","2","Our classic real dairy thickshake"
-"61","CHOCOLATE SHAKE","Chocolate Thick Shake","2","Our classic real dairy thickshake"
-"62","STRAWBERRY SHK","Strawberry Thick Shake","2","Our classic real dairy thickshake"
-"64","VEGGIE BACN SAM","Veggie Bacon Samwich","3","Veggie bacon"
-"65","TEXAN BURGER","Texan Burger","1","100% beef patty topped with three crispy onion rings"
-"66","BANANA SHK LARGE","Large Banana Thick Shake","2","Our classic real dairy thickshake"
-"67","CHOC SHK LARGE","Large Chocolate Thick Shake","2","Our classic real dairy thickshake"
-"68","STRAW SHK LARGE","Large Strawberry Thick Shake","2","Our classic real dairy thickshake"
-"69","VANILLA SHAKE","Vanilla Thick Shake","2","Our classic real dairy thickshake"
-"70","VANILLA SK LARGE","Large Vanilla Thick Shake","2","Our classic real dairy thickshake"
-"71","SIX  BITES","Six Chicken Bites","3","Crispy coated chicken bites. Served with your choice of dip."
-"72","NINE BITES","Nine Chicken Bites","3","Crispy coated chicken bites. Served with your choice of dip."
-"73","FRIES Lrg Go Lrg","Go Large Fries Only","3",""
-"74","HALLOUMI STICKS","Halloumi Sticks","3","4x Fried Halloumi sticks"
-"75","7UP LEMON CAN","7up Can (330ml)","2","7up Can (330ml)"
-"76","CHOC SHKE KIDS","Small Chocolate Thick Shake","2","Our classic real dairy thickshake"
-"77","BLT SAMWICH","BLT Samwich","3","Bacon (x2)"
-"78","CHICKEN EL FUEGO","Chicken El Fuego","3","Crispy coated chicken fillet topped with three crispy onion rings"
-"79","Pepper Burger","","1",""
-"80","MUSHROOM","Mushroom","0",""
-"81","HOT APPLE PIE","Hot Apple Pie","3","Crispy pastry with a delicious sweet apple filling."
-"82","ONION RINGS 8","Regular Onion Rings","3","8 crispy battered onion rings."
-"83","BEAN BURGER","Spicy Bean Burger","3","Spicy bean patty with freshly cut lettuce"
-"84","BANANA SHKE KIDS","Small Banana Thick Shake","2","Our classic real dairy thickshake"
-"85","STRAWB SHKE KIDS","Small Strawberry Thick Shake","2","Our classic real dairy thickshake"
-"86","VANILLA SHK KIDS","Small Vanilla Thick Shake","2","Our classic real dairy thickshake"
-"87","COFFEE     165","Coffee","2","Coffee"
-"89","COLA KIDS","Small Cola","2","Small Cola"
-"90","CHICKEN BACN CHS","Chicken Bacon Cheese","3","Crispy coated chicken fillet with bacon"
-"91","BOTTLED WATER","Bottled Water (500ml)","2","Bottled Water (500ml)"
-"92","VEGGIE DE-LUXE","Veggie DeLuxe","3","Veggie patty with Quorn veggie bacon"
-"93","KIDS WATER","Kids Water","2","Kids Water"
-"94","CHICKEN WRAP","Chicken Wrap","3","Crispy coated chicken strips"
-"95","MOZARELA FINGERS","Mozzarella Fingers","3","3 melted mozzarella fingers in a crispy breadcrumb coating."
-"96","VEGGIE BAC SAMpk","Veggie Bacon Samwich","3","Quorn veggie bacon. cheese"
-"97","XTR BEAN PATTY","Extra Spicy Bean Patty","3","Extra spicy bean burger patty"
-"98","FZY ORANGE KIDS","Small Fizzy Orange","2","Small Fizzy Orange"
-"99","CLASSIC COKE 500","Coca-Cola Bottle (500ml)","2","Coca-Cola Bottle (500ml)"
-"100","XTR BBQ","Barbeque Sauce","0",""
-"101","DIP 1000 ISLE","1000 Island Sauce","0","1000 Island Sauce Dip"
-"102","ONION RINGS 12","Large Onion Rings","3","12 crispy battered onion rings."
-"103","VEGG  SLD SAM PK","Veggie Salad Samwich","0","Double cheese"
-"104","DIP BLUECHEESE","Bluecheese Sauce Dip","0","Bluecheese Sauce Dip"
-"105","DBL 1000 ISL BGR","Double 1000 Island Burger","1","Two 100% beef patties topped with thousand island sauce"
-"107","XTR VGBACN","Veggie Bacon","3",""
-"108","PLATTER 2nd dip","Sharing Platter 2nd Dip","0",""
-"109","XTR 1000","1000 Island Sauce","0",""
-"110","DIP NONE","No Dip","0","No Dip"
-"111","XTR NONE","None","0",""
-"112","DIET COLA KIDS","Small Diet Cola","2","Small Diet Cola"
-"113","DBL TEXAN BURGER","Double Texan Burger","1","Two 100% beef patties topped with three crispy onion rings"
-"115","CHICKN BBQ TEXAN","Chicken BBQ Texan","3","Crispy coated chicken fillet topped with three crispy onion rings"
-"118","KIDS  4  BITES  ","Kids Chicken Bites Meal","3","4 pieces chicken bites with a ketchup dip."
-"121","FIZZY LEMON","Fizzy Lemon","2","Fizzy Lemon"
-"122","LEMON LARGE","Large Fizzy Lemon","2","Large Fizzy Lemon"
-"123","FZY LEMON KIDS","Small Fizzy Lemon","2","Small Fizzy Lemon"
-"124","7UP LEMON 500m","7up Bottle (500ml)","2","7up Bottle (500ml)"
-"125","TANGO ORANGE 500","Tango Orange Bottle (500ml)","2","Tango Orange Bottle (500ml)"
-"126","EXPRESSO     200","Espresso","2","Espresso"
-"128","MILKY COFFEE 175","Milky Coffee","2","Milky Coffee"
-"130","CAPPUCCINO   200","Cappuccino","2","Cappuccino"
-"132","LATTE        200","Latte","2","Latte"
-"133","TEA         165","Tea","2","Tea"
-"134","HOT CHOC     175","Hot Chocolate","2","Hot Chocolate"
-"136","CHILLI  tub","Chilli Sauce Tub","0","Extra large portion of our famous homemade chilli sauce!"
-"138","DIET COKE 500ml","Diet Coke Bottle (500ml)","2","Diet Coke Bottle (500ml)"
-"145","Voucher  FF  Reg","Voucher Free Regular Fries","0",""
-"146","TOFFEE SHAKE","Toffee Thick Shake","2","Our classic real dairy thickshake"
-"147","TOFFEE SK LARGE","Large Toffee Thick Shake","2","Our classic real dairy thickshake"
-"148","TOFFEE SHK KIDS","Small Toffee Thick Shake","2","Our classic real dairy thickshake"
-"149","AMERICANO    200","Americano","2","Americano"
-"151","CARDEN TEA   195","Carden Tea","2",""
-"160","Delivery Chr 50p","Delivery 50p","0",""
-"166","DELIVERY �2.50 ","Delivery �2.50","0",""
-"171","TRPL CHEESEBRGR","Triple Cheeseburger","1","Three 100% beef patties topped with cheese"
-"172","TRPL ALLSTAR BRG","Triple Allstar Burger","1","Three 100% beef patties topped with cheese"
-"173","TRPL BACON CHEES","Triple Bacon Cheeseburger","1","Three100% beef patties topped with smokey bacon"
-"175","VEGAN MUSHROOM B","Vegan Mushroom Burger","1","Vegan Mushroom Burger"
-"176","VEGAN BEAN BRGR","Vegan Bean Burger","1","Vegan Bean Burger"
-"190","KIDS D COKE CAN","Kids Diet Coke Can","2","Kids Diet Coke Can"
-"191","KIDS FRT-SH ORNG","Kids Fruit Shoot- Orange","2","Fruit shoot orange"
-"192","KIDS TANGO CAN","Kids Tango Can","2","Kids Tango Can"
-"193","KIDS 7UP CAN","Kids 7up Can","2","Kids 7up Can"
-"194","KID FRT-SH A-BLC","Kids Fruit Shoot- Apl Blckcrnt","2","Fruit shoot apple and blackcurrent"
-"195","KIDS CLASIC COKE","Kids Coca-cola Can","2","Kids Coca-cola Can"
-"197","CHICKEN 3 STRIPS","3 Chicken Strips","3","Southern Fried chicken strips and a choice of dip."
-"198","CHICKEN 5 STRIPS","5 Chicken Strips","3","Southern Fried chicken strips and a choice of dip."
-"199","CHICKEN 8 STRIPS","8 Chicken Strips","3","Southern Fried chicken strips and a choice of dip."
-"200","SUPER SHAKE OREO","Oreo Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Oreo Crumb / Chocolate Sauce - Size 400ml."
-"201","SUPER SHKE LOTUS","Lotus Biscoff Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 400ml."
-"202","SUPER SHKE FLAKE","Cadbury Flake Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Cadburys Flake crumb / Caramel Sauce - Size 400ml."
-"203","SUPER SHK SMARTI","Smarties Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Smarties   - Size 400ml."
-"204","SUPR SHK KITKAT","KitKat Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Kit kat  / Chocolate Sauce - Size 400ml."
-"205","SPR TOFFE CRUNCH","Toffee Crisp Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Toffee Crisp  / Chocolate Sauce - Size 400ml."
-"206","SPR CREAM EGG","Cream Egg Super Shake","2","Our amazing milkshake with a twist! Size 400ml."
-"207","SUPER MINT AERO","Mint Aero Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / crushed Mint Areo / Chocolate Sauce - Size 400ml."
-"208","SUPER CHOC ORANG","Chocolate Orange Super Shake","1","Our amazing milkshake with a twist!  - Size 400ml."
-"209","GUEST SUPERSHAKE","","1",""
-"210","SUPER SHK ORE XL","XL Oreo Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Oreo Crumb / Chocolate Sauce - Size 500ml."
-"211","SPR SHK LOTUS XL","XL Lotus Biscoff Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 500ml."
-"212","SUP SHK FLAKE XL","XL Flake Super Shake","2","Our amazing milkshake with a twist!"
-"213","SPR SHK SMART XL","XL Smarties Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Smarties - Size 500ml."
-"214","SPR SH KITKAT XL","XL KitKat Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Kit kat   / Chocolate Sauce - Size 500ml."
-"215","SPR TOF CRNCH XL","XL Toffee Crisp Super Shake","2","Our amazing milkshake with a twist!"
-"216","SPR CREAM EGG XL","XL Cream Egg Super Shake","2","Our amazing milkshake with a twist!"
-"217","SPR MINT AERO XL","XL Mint Aero Super Shake","2","Our amazing milkshake with a twist!   Vanilla Milkshake / Double Crushed Mint Areo  / Chocolate Sauce - Size 500ml."
-"260","SINGLE CONE","Single Cone","0","Single Cone"
-"261","DOUBLE CONE","Double Cone","0","Double Cone"
-"265","300ml TUB","300ml Tub","0","300ml Tub"
-"266","600ml TUB","600ml Tub","0","600ml Tub"
-"270","FLAKE STICK","Flake Stick","0","Flake Stick"
-"280","ICE CREAM TRAY","Ice Cream Tray","0","Our delicious summer special ice cream tray"
-"301","CRUNCHIE BROWNIE","Crunchie Brownie","0","Crunchie Brownie"
-"302","KINDER BU BROWNE","Kinder Bueno Brownie","0","Kinder Bueno Brownie"
-"303","LOTUS BIS BROWNE","Lotus Biscoff Brownie","0","Lotus Biscoff Brownie"
-"304","MNT AERO BROWNIE","Mint Aero Brownie","0","Mint Aero Brownie"
-"305","SNICKERS BROWNIE","Snickers Brownie","0","Snickers Brownie"
-"395","MOZARELA FREE!","","1",""
-"400","XTR LETTUCE","","1",""
-"401","XTR DILL","","1",""
-"402","XTR TOMATO","","1",""
-"403","XTR ONIONS","","1",""
-"994","CHICKEN WRAP PK","","1",""
-"1026","Ketchup Dip Free","","1",""
-"1027","Mayo Dip Free","","1",""
-"1028","Chilli Dip Free","","1",""
-"1029","GrlikMay Dp Free","","1",""
-"1039","BBQ Dip Free","","1",""
-"1101","1000Isl Dip Free","","1",""
-"1104","BLChees Dip Free","","1",""
-"1110","No Dip Required","","1",""
-"2026","DIP KETCHUP","","1",""
-"2027","DIP MAYO","","1",""
-"2028","DIP CHILLI","","1",""
-"2029","DIP GARLIC MAYO","","1",""
-"2039","DIP BBQ","","1",""
-"2101","DIP 1000 ISLE","","1",""
-"2104","DIP BLUECHEESE","","1",""
+PRODNUMB,PRODNAME,NAME_ON_MENU,COOK_ZONE,PROD_DESC
+1,HAMBURGER,Hamburger,1,100% beef patty with freshly cut lettuce
+2,DBL HAMBURGER,Double Hamburger,1,Two 100% beef patties with freshly cut lettuce
+3,CHEESEBURGER,Cheeseburger,1,100% beef patty topped with cheese
+4,DBL CHEESEBURGR,Double Cheeseburger,1,Two 100% beef patties topped with cheese
+5,CHILLIBURGER,Chilliburger,1,100% beef patty with our famous home-made chilli sauce
+6,DBL CHILLIBURGER,Double Chilliburger,1,Two 100% beef patties with our famous home-made chilli sauce
+7,ORIGINAL,Original,1,100% beef patty with freshly cut lettuce
+8,DBL ORIGINAL,Double Original,1,Two 100% beef patties with freshly cut lettuce
+9,BLUECHEESE BGR,Bluecheese Burger,1,100% beef patty topped with real blue cheese
+10,DBL BLUE CHSEBGR,Double Bluecheese Burger,1,Two 100% beef patties topped with real blue cheese
+11,VEGGIE BURGER,Veggie Burger,3,Veggie patty with freshly cut lettuce
+12,VEGGIE instead,Veggie Patty Instead,3,Replace the patty in a beef or chicken burger with a vegetarian alternative.
+13,KIDS HAMBURGER,Kids Hamburger,1,100% beef patty with ketchup served in a toasted sesame seed bun.
+14,XTR MEAT,Beef Patty,1,
+15,GARLIC BURGER,Garlic Burger,1,100% beef patty with home-made garlic mayonnaise
+16,DBL GARLIC BGR,Double Garlic Burger,1,Two 100% beef patties with home-made garlic mayonnaise
+17,HAWAIIAN BURGER,Hawaiian Burger,1,100% beef patty topped with grilled pineapple
+18,DBL HAWAIIAN BGR,Double Hawaiian Burger,1,Two 100% beef patties topped with grilled pineapple
+19,CHICKEN SAMWICH,Chicken Samwich,3,Crispy coated chicken fillet with freshly cut lettuce
+20,ALLSTAR BURGER,Allstar Burger,1,100% beef patty topped with cheese
+21,DBL ALLSTAR BGR,Double Allstar Burger,1,Two 100% beef patties topped with cheese
+22,1000 ISLAND BGR,1000 Island Burger,1,100% beef patty topped with thousand island sauce
+23,DBL CHILI n CHSE,Double Chilli 'n' Cheese,1,Two 100% beef patties with our famous home-made chilli sauce
+24,XMAS CHICKN SAMW,Feastive Chicken,3,Crispy coated chicken fillet with freshly cut lettuce
+25,BACON CHEESE BGR,Bacon Cheeseburger,1,100% beef patty topped with smokey bacon
+26,DIP KETCHUP,Ketchup Dip,0,Ketchup Dip
+27,DIP MAYO,Mayonnaise Dip,0,Mayonnaise Dip
+28,DIP CHILLI,Chilli Sauce Dip,0,Our famous home-made chilli sauce - very hot!
+29,DIP GARLC MAYO,Garlic Mayonnaise Dip,0,Home-made garlic mayonnaise.
+30,REGULAR FRIES,Regular Fries,3,Crispy french fries cooked fresh for every order.
+31,LARGE FRIES,Large Fries,3,Crispy french fries cooked fresh for every order.
+32,CHICKEN ALLSTAR,Chicken Allstar,3,Crispy coated chicken fillet topped with cheese
+33,XTR CHICkN,Chicken Fillet,3,
+34,XTR VEGGIE,Veggie Patty,3,
+35,KIDS CHEESE-BGR,Kids Cheese Burger,1,100% beef patty topped with cheese & ketchup served in a toasted sesame seed bun.
+36,XTR BACON,Bacon,3,
+37,XTR GARLIC MAY,Garlic Mayonnaise,0,
+38,XTR PINAPL,Grilled Pineapple,0,
+39,DIP BBQ,BBQ Dip,0,BBQ Dip
+40,XTR KETCH,Ketchup,0,
+41,XTR MAYO,Mayonnaise,0,
+42,XTR CHILLI,Chilli Sauce,0,
+43,XTR MISC 25p ,Misc 25p,0,
+44,VEGIE SALAD SAMW,Veggie Salad Samwich,1,Double cheese
+45,XTR CHEEZ,Cheese,0,
+46,XTR MISC 10p,Misc 10p,0,
+47,XTR BLUE,Bluecheese Sauce,0,
+48,CHICKEN CHILLI,Chicken Chilli,3,Crispy coated chicken fillet topped with our famous home-made chilli sauce
+49,COLA,Cola,2,Cola
+50,LRG COLA,Large Cola,2,Large Cola
+51,COKE CLASSIC CAN,Coca Cola Can (330ml),2,Coca Cola Can (330ml)
+52,TANGO CAN,Tango Can (330ml),2,Tango Can (330ml)
+53,DIET COKE CAN,Diet Coke Can (330ml),2,Diet Coke Can (330ml)
+54,DBL BACON CHEESE,Double Bacon Cheeseburger,1,Two 100% beef patties topped with smokey bacon
+55,OUR BIGGEST BGR,Our Biggest Burger,1,Two 100% beef patties topped with smokey bacon
+56,FIZZY ORANGE,Fizzy Orange,2,Fizzy Orange
+57,LRG ORANGE,Large Fizzy Orange,2,Large Fizzy Orange
+58,DIET COLA,Diet Cola,2,Diet Cola
+59,LGR DIET COLA,Large Diet Cola,2,Large Diet Cola
+60,BANANA SHAKE,Banana Thick Shake,2,Our classic real dairy thickshake
+61,CHOCOLATE SHAKE,Chocolate Thick Shake,2,Our classic real dairy thickshake
+62,STRAWBERRY SHK,Strawberry Thick Shake,2,Our classic real dairy thickshake
+64,VEGGIE BACN SAM,Veggie Bacon Samwich,3,Veggie bacon
+65,TEXAN BURGER,Texan Burger,1,100% beef patty topped with three crispy onion rings
+66,BANANA SHK LARGE,Large Banana Thick Shake,2,Our classic real dairy thickshake
+67,CHOC SHK LARGE,Large Chocolate Thick Shake,2,Our classic real dairy thickshake
+68,STRAW SHK LARGE,Large Strawberry Thick Shake,2,Our classic real dairy thickshake
+69,VANILLA SHAKE,Vanilla Thick Shake,2,Our classic real dairy thickshake
+70,VANILLA SK LARGE,Large Vanilla Thick Shake,2,Our classic real dairy thickshake
+71,SIX  BITES,Six Chicken Bites,3,Crispy coated chicken bites. Served with your choice of dip.
+72,NINE BITES,Nine Chicken Bites,3,Crispy coated chicken bites. Served with your choice of dip.
+73,FRIES Lrg Go Lrg,Go Large Fries Only,3,
+74,HALLOUMI STICKS,Halloumi Sticks,3,4x Fried Halloumi sticks
+75,7UP LEMON CAN,7up Can (330ml),2,7up Can (330ml)
+76,CHOC SHKE KIDS,Small Chocolate Thick Shake,2,Our classic real dairy thickshake
+77,BLT SAMWICH,BLT Samwich,3,Bacon (x2)
+78,CHICKEN EL FUEGO,Chicken El Fuego,3,Crispy coated chicken fillet topped with three crispy onion rings
+79,Pepper Burger,,1,
+80,MUSHROOM,Mushroom,0,
+81,HOT APPLE PIE,Hot Apple Pie,3,Crispy pastry with a delicious sweet apple filling.
+82,ONION RINGS 8,Regular Onion Rings,3,8 crispy battered onion rings.
+83,BEAN BURGER,Spicy Bean Burger,3,Spicy bean patty with freshly cut lettuce
+84,BANANA SHKE KIDS,Small Banana Thick Shake,2,Our classic real dairy thickshake
+85,STRAWB SHKE KIDS,Small Strawberry Thick Shake,2,Our classic real dairy thickshake
+86,VANILLA SHK KIDS,Small Vanilla Thick Shake,2,Our classic real dairy thickshake
+87,COFFEE     165,Coffee,2,Coffee
+89,COLA KIDS,Small Cola,2,Small Cola
+90,CHICKEN BACN CHS,Chicken Bacon Cheese,3,Crispy coated chicken fillet with bacon
+91,BOTTLED WATER,Bottled Water (500ml),2,Bottled Water (500ml)
+92,VEGGIE DE-LUXE,Veggie DeLuxe,3,Veggie patty with Quorn veggie bacon
+93,KIDS WATER,Kids Water,2,Kids Water
+94,CHICKEN WRAP,Chicken Wrap,3,Crispy coated chicken strips
+95,MOZARELA FINGERS,Mozzarella Fingers,3,3 melted mozzarella fingers in a crispy breadcrumb coating.
+96,VEGGIE BAC SAMpk,Veggie Bacon Samwich,3,Quorn veggie bacon. cheese
+97,XTR BEAN PATTY,Extra Spicy Bean Patty,3,Extra spicy bean burger patty
+98,FZY ORANGE KIDS,Small Fizzy Orange,2,Small Fizzy Orange
+99,CLASSIC COKE 500,Coca-Cola Bottle (500ml),2,Coca-Cola Bottle (500ml)
+100,XTR BBQ,Barbeque Sauce,0,
+101,DIP 1000 ISLE,1000 Island Sauce,0,1000 Island Sauce Dip
+102,ONION RINGS 12,Large Onion Rings,3,12 crispy battered onion rings.
+103,VEGG  SLD SAM PK,Veggie Salad Samwich,0,Double cheese
+104,DIP BLUECHEESE,Bluecheese Sauce Dip,0,Bluecheese Sauce Dip
+105,DBL 1000 ISL BGR,Double 1000 Island Burger,1,Two 100% beef patties topped with thousand island sauce
+107,XTR VGBACN,Veggie Bacon,3,
+108,PLATTER 2nd dip,Sharing Platter 2nd Dip,0,
+109,XTR 1000,1000 Island Sauce,0,
+110,DIP NONE,No Dip,0,No Dip
+111,XTR NONE,None,0,
+112,DIET COLA KIDS,Small Diet Cola,2,Small Diet Cola
+113,DBL TEXAN BURGER,Double Texan Burger,1,Two 100% beef patties topped with three crispy onion rings
+115,CHICKN BBQ TEXAN,Chicken BBQ Texan,3,Crispy coated chicken fillet topped with three crispy onion rings
+118,KIDS  4  BITES  ,Kids Chicken Bites Meal,3,4 pieces chicken bites with a ketchup dip.
+121,FIZZY LEMON,Fizzy Lemon,2,Fizzy Lemon
+122,LEMON LARGE,Large Fizzy Lemon,2,Large Fizzy Lemon
+123,FZY LEMON KIDS,Small Fizzy Lemon,2,Small Fizzy Lemon
+124,7UP LEMON 500m,7up Bottle (500ml),2,7up Bottle (500ml)
+125,TANGO ORANGE 500,Tango Orange Bottle (500ml),2,Tango Orange Bottle (500ml)
+126,EXPRESSO     200,Espresso,2,Espresso
+128,MILKY COFFEE 175,Milky Coffee,2,Milky Coffee
+130,CAPPUCCINO   200,Cappuccino,2,Cappuccino
+132,LATTE        200,Latte,2,Latte
+133,TEA         165,Tea,2,Tea
+134,HOT CHOC     175,Hot Chocolate,2,Hot Chocolate
+136,CHILLI  tub,Chilli Sauce Tub,0,Extra large portion of our famous homemade chilli sauce!
+138,DIET COKE 500ml,Diet Coke Bottle (500ml),2,Diet Coke Bottle (500ml)
+145,Voucher  FF  Reg,Voucher Free Regular Fries,0,
+146,TOFFEE SHAKE,Toffee Thick Shake,2,Our classic real dairy thickshake
+147,TOFFEE SK LARGE,Large Toffee Thick Shake,2,Our classic real dairy thickshake
+148,TOFFEE SHK KIDS,Small Toffee Thick Shake,2,Our classic real dairy thickshake
+149,AMERICANO    200,Americano,2,Americano
+151,CARDEN TEA   195,Carden Tea,2,
+160,Delivery Chr 50p,Delivery 50p,0,
+166,DELIVERY �2.50 ,Delivery �2.50,0,
+171,TRPL CHEESEBRGR,Triple Cheeseburger,1,Three 100% beef patties topped with cheese
+172,TRPL ALLSTAR BRG,Triple Allstar Burger,1,Three 100% beef patties topped with cheese
+173,TRPL BACON CHEES,Triple Bacon Cheeseburger,1,Three100% beef patties topped with smokey bacon
+175,VEGAN MUSHROOM B,Vegan Mushroom Burger,1,Vegan Mushroom Burger
+176,VEGAN BEAN BRGR,Vegan Bean Burger,1,Vegan Bean Burger
+190,KIDS D COKE CAN,Kids Diet Coke Can,2,Kids Diet Coke Can
+191,KIDS FRT-SH ORNG,Kids Fruit Shoot- Orange,2,Fruit shoot orange
+192,KIDS TANGO CAN,Kids Tango Can,2,Kids Tango Can
+193,KIDS 7UP CAN,Kids 7up Can,2,Kids 7up Can
+194,KID FRT-SH A-BLC,Kids Fruit Shoot- Apl Blckcrnt,2,Fruit shoot apple and blackcurrent
+195,KIDS CLASIC COKE,Kids Coca-cola Can,2,Kids Coca-cola Can
+197,CHICKEN 3 STRIPS,3 Chicken Strips,3,Southern Fried chicken strips and a choice of dip.
+198,CHICKEN 5 STRIPS,5 Chicken Strips,3,Southern Fried chicken strips and a choice of dip.
+199,CHICKEN 8 STRIPS,8 Chicken Strips,3,Southern Fried chicken strips and a choice of dip.
+200,SUPER SHAKE OREO,Oreo Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Oreo Crumb / Chocolate Sauce - Size 400ml.
+201,SUPER SHKE LOTUS,Lotus Biscoff Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 400ml.
+202,SUPER SHKE FLAKE,Cadbury Flake Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Cadburys Flake crumb / Caramel Sauce - Size 400ml.
+203,SUPER SHK SMARTI,Smarties Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Smarties   - Size 400ml.
+204,SUPR SHK KITKAT,KitKat Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Kit kat  / Chocolate Sauce - Size 400ml.
+205,SPR TOFFE CRUNCH,Toffee Crisp Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Toffee Crisp  / Chocolate Sauce - Size 400ml.
+206,SPR CREAM EGG,Cream Egg Super Shake,2,Our amazing milkshake with a twist! Size 400ml.
+207,SUPER MINT AERO,Mint Aero Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / crushed Mint Areo / Chocolate Sauce - Size 400ml.
+208,SUPER CHOC ORANG,Chocolate Orange Super Shake,1,Our amazing milkshake with a twist!  - Size 400ml.
+209,GUEST SUPERSHAKE,,1,
+210,SUPER SHK ORE XL,XL Oreo Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Oreo Crumb / Chocolate Sauce - Size 500ml.
+211,SPR SHK LOTUS XL,XL Lotus Biscoff Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 500ml.
+212,SUP SHK FLAKE XL,XL Flake Super Shake,2,Our amazing milkshake with a twist!
+213,SPR SHK SMART XL,XL Smarties Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Smarties - Size 500ml.
+214,SPR SH KITKAT XL,XL KitKat Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / DOUBLE Kit kat   / Chocolate Sauce - Size 500ml.
+215,SPR TOF CRNCH XL,XL Toffee Crisp Super Shake,2,Our amazing milkshake with a twist!
+216,SPR CREAM EGG XL,XL Cream Egg Super Shake,2,Our amazing milkshake with a twist!
+217,SPR MINT AERO XL,XL Mint Aero Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Double Crushed Mint Areo  / Chocolate Sauce - Size 500ml.
+260,SINGLE CONE,Single Cone,0,Single Cone
+261,DOUBLE CONE,Double Cone,0,Double Cone
+265,300ml TUB,300ml Tub,0,300ml Tub
+266,600ml TUB,600ml Tub,0,600ml Tub
+270,FLAKE STICK,Flake Stick,0,Flake Stick
+280,ICE CREAM TRAY,Ice Cream Tray,0,Our delicious summer special ice cream tray
+301,CRUNCHIE BROWNIE,Crunchie Brownie,0,Crunchie Brownie
+302,KINDER BU BROWNE,Kinder Bueno Brownie,0,Kinder Bueno Brownie
+303,LOTUS BIS BROWNE,Lotus Biscoff Brownie,0,Lotus Biscoff Brownie
+304,MNT AERO BROWNIE,Mint Aero Brownie,0,Mint Aero Brownie
+305,SNICKERS BROWNIE,Snickers Brownie,0,Snickers Brownie
+395,MOZARELA FREE!,,1,
+400,XTR LETTUCE,,1,
+401,XTR DILL,,1,
+402,XTR TOMATO,,1,
+403,XTR ONIONS,,1,
+994,CHICKEN WRAP PK,,1,
+1026,Ketchup Dip Free,,1,
+1027,Mayo Dip Free,,1,
+1028,Chilli Dip Free,,1,
+1029,GrlikMay Dp Free,,1,
+1039,BBQ Dip Free,,1,
+1101,1000Isl Dip Free,,1,
+1104,BLChees Dip Free,,1,
+1110,No Dip Required,,1,
+2026,DIP KETCHUP,,1,
+2027,DIP MAYO,,1,
+2028,DIP CHILLI,,1,
+2029,DIP GARLIC MAYO,,1,
+2039,DIP BBQ,,1,
+2101,DIP 1000 ISLE,,1,
+2104,DIP BLUECHEESE,,1,
