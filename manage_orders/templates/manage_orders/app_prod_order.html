@@ -247,7 +247,6 @@
           <!-- Config Tabs: Extras appears only when options/choices exist -->
           <div class="mb-3 d-flex gap-2" id="cfg-tabbar">
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 active" data-cfg-tab="main">Configure</button>
-            <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-extras-tab" data-cfg-tab="extras">Extras</button>
             <button type="button" class="btn btn-outline-secondary btn-lg px-3 py-2 d-none" id="cfg-modify-tab" data-cfg-tab="modify">Modify</button>
           </div>
           <div id="cfg-variants" class="mb-4 d-none">
@@ -1327,8 +1326,6 @@
           if(resp && Array.isArray(resp.options) && resp.options.length){
             data.options = resp.options.map(o=>({ code:o.code, name:o.name, price_gross:o.price_gross }));
             renderProductOptions();
-            const extrasTabBtn = document.getElementById('cfg-extras-tab');
-            if(extrasTabBtn){ extrasTabBtn.classList.toggle('d-none', false); }
             syncConfigTabs();
           }
         })
@@ -1354,11 +1351,6 @@
     } else comboStruct.classList.add('d-none');
 
     // Extras tab visibility (show when product choices or combo optionals exist)
-    const extrasTabBtn = document.getElementById('cfg-extras-tab');
-    const hasExtras = (data.options && data.options.length) || (data.type==='combo' && data.optional && data.optional.length);
-    if(extrasTabBtn){
-      extrasTabBtn.classList.toggle('d-none', !hasExtras);
-    }
     const hasAddons = !!(data.addons && data.addons.length);
     cfgTab = 'main';
     syncConfigTabs();
@@ -1406,8 +1398,7 @@
       btns.forEach(b=> b.classList.toggle('active', b.getAttribute('data-cfg-tab')===cfgTab));
     }
     const data = cfg.data; if(!data) return;
-    const hasExtras = (data.options && data.options.length) || (data.type==='combo' && data.optional && data.optional.length);
-    const hasAddons = !!(data.addons && data.addons.length);
+  const hasAddons = !!(data.addons && data.addons.length);
     // Reset default visibility based on data
     const vWrap = document.getElementById('cfg-variants');
     const mealSection = document.getElementById('cfg-meal-section');
@@ -1421,37 +1412,13 @@
     if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
     if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
     // If on Extras tab, focus only on extras lists
-    if(hasExtras && cfgTab==='extras'){
-      if(vWrap) vWrap.classList.add('d-none');
-      if(mealSection) mealSection.classList.add('d-none');
-      if(data.type==='combo'){
-        // Hide compulsory column but keep optional side visible
-        const compUL = document.getElementById('cfg-compulsory');
-        const compCol = compUL ? compUL.closest('.col-md-6') : null;
-        const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
-        if(compCol) compCol.classList.add('d-none');
-        if(optCol) optCol.classList.remove('d-none');
-        if(comboStruct) comboStruct.classList.remove('d-none');
-      }
-      if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
-      // On Extras tab hide product non-extras sections already handled above
-    } else {
-      // Configure (main) tab: show core sections, hide extras if we have a dedicated Extras tab
-      const compUL = document.getElementById('cfg-compulsory');
-      const compCol = compUL ? compUL.closest('.col-md-6') : null;
-      const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
-      if(compCol) compCol.classList.remove('d-none');
-      if(hasExtras){
-        // Hide product options on main
-        if(optWrap) optWrap.classList.add('d-none');
-        // Hide combo optional column on main, keep compulsory visible
-        if(optCol) optCol.classList.add('d-none');
-      } else {
-        // If no extras, keep default visibility
-        if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
-        if(optCol) optCol.classList.remove('d-none');
-      }
-    }
+    // Configure tab now always shows product options and combo optional column (when present)
+    const compUL = document.getElementById('cfg-compulsory');
+    const compCol = compUL ? compUL.closest('.col-md-6') : null;
+    const optCol = document.getElementById('cfg-optional')?.closest('.col-md-6');
+    if(compCol) compCol.classList.remove('d-none');
+    if(optWrap) optWrap.classList.toggle('d-none', !(data.options && data.options.length));
+    if(optCol) optCol.classList.remove('d-none');
     // Modify tab visibility (already toggled when toppings loaded); show only its section when active
     if(toppingsWrap){
       const onModify = (cfgTab==='modify');
