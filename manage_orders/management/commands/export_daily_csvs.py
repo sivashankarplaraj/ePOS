@@ -47,7 +47,21 @@ class Command(BaseCommand):
             f.write(','.join(str(row.get(k, 0)) for k in keys))
             f.write('\n')
 
-        self.stdout.write(self.style.SUCCESS(f"Built stats and exported {mp_name}, {pd_name}, {rv_name} to {outdir}"))
+        # Write K_WK_VAT.csv snapshot for all VAT classes
+        kwk_name = "K_WK_VAT.csv"
+        with open(outdir / kwk_name, 'w', newline='', encoding='utf-8') as f:
+            header = ['VAT_CLASS','VAT_RATE','TOT_VAT_1','TOT_VAT_2','TOT_VAT_3','TOT_VAT_4','TOT_VAT_5','TOT_VAT_6','TOT_VAT_7',
+                      'T_VAL_EXCLVAT_1','T_VAL_EXCLVAT_2','T_VAL_EXCLVAT_3','T_VAL_EXCLVAT_4','T_VAL_EXCLVAT_5','T_VAL_EXCLVAT_6','T_VAL_EXCLVAT_7']
+            f.write(','.join(header) + '\n')
+            for row in KWkVat.objects.all().order_by('VAT_CLASS').values():
+                vals = [
+                    row.get('VAT_CLASS', 0), row.get('VAT_RATE', 0),
+                    row.get('TOT_VAT_1', 0.0), row.get('TOT_VAT_2', 0.0), row.get('TOT_VAT_3', 0.0), row.get('TOT_VAT_4', 0.0), row.get('TOT_VAT_5', 0.0), row.get('TOT_VAT_6', 0.0), row.get('TOT_VAT_7', 0.0),
+                    row.get('T_VAL_EXCLVAT_1', 0.0), row.get('T_VAL_EXCLVAT_2', 0.0), row.get('T_VAL_EXCLVAT_3', 0.0), row.get('T_VAL_EXCLVAT_4', 0.0), row.get('T_VAL_EXCLVAT_5', 0.0), row.get('T_VAL_EXCLVAT_6', 0.0), row.get('T_VAL_EXCLVAT_7', 0.0),
+                ]
+                f.write(','.join(str(v) for v in vals) + '\n')
+
+        self.stdout.write(self.style.SUCCESS(f"Built stats and exported {mp_name}, {pd_name}, {rv_name}, K_WK_VAT.csv to {outdir}"))
 
         if options.get('clear'):
             with transaction.atomic():

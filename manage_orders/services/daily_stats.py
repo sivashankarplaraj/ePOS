@@ -69,10 +69,11 @@ def _aggregate_orders(export_date: date) -> DailyStats:
         'voucher': 'TCOUPVAL',         # UI button: Voucher (treated as coupon value)
         'paid out': 'TPAYOUTVA',       # UI button: Paid Out
         'paid_out': 'TPAYOUTVA',
-        'crew food': 'TSTAFFVAL',      # UI button: Crew Food (staff meals)
-        'crew_food': 'TSTAFFVAL',
-        'waste food': 'TWASTEVAL',     # UI button: Waste food
-        'waste_food': 'TWASTEVAL',
+        # Crew/Waste are handled specially in VAT pass to record NET values; do not accumulate here
+        'crew food': None,             # handled in VAT pass
+        'crew_food': None,
+        'waste food': None,
+        'waste_food': None,
         # Additional potential future mappings could include tokens or discounts if UI adds them:
         # 'token': 'TTOKENVAL', 'discount': 'TDISCNTVA'
     }
@@ -158,7 +159,9 @@ def _aggregate_orders(export_date: date) -> DailyStats:
         norm_method = ' '.join(raw_method.split())
         pay_key = pay_map.get(norm_method) or pay_map.get(norm_method.replace(' ', '_'))
         if pay_key:
-            rev[pay_key] += o.total_gross or 0
+            # Only accumulate transactional tenders here (cash/card/etc). Crew/Waste handled in VAT pass as NET.
+            if pay_key in {'TCASHVAL','TCARDVAL','TCHQVAL','TONACCOUNT','TCOUPVAL','TPAYOUTVA'}:
+                rev[pay_key] += o.total_gross or 0
         is_staff_order = norm_method in {'crew food','crew_food'}
         is_waste_order = norm_method in {'waste food','waste_food'}
 
@@ -249,6 +252,26 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     if key_free not in kpro_counts:
                         kpro_counts[key_free] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
                     kpro_counts[key_free]['OPTION'] += line.qty
+                # Extras attached as separate priced products should increment basis counts (not OPTION)
+                extras = meta.get('extras_products') or []
+                if isinstance(extras, list) and extras:
+                    for ex in extras:
+                        try:
+                            ex_code = int(ex.get('code'))
+                        except Exception:
+                            ex_code = None
+                        if not ex_code:
+                            continue
+                        key_extra = (ex_code, False)
+                        if key_extra not in kpro_counts:
+                            kpro_counts[key_extra] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        kpro_counts[key_extra][basis] += line.qty
+                        if is_staff_order:
+                            kpro_counts[key_extra]['STAFF'] += line.qty
+                        if is_waste_order:
+                            kpro_counts[key_extra]['WASTE'] += line.qty
+                        # Count extras/add-ons as OPTION when attached to a product (not combos)
+                        kpro_counts[key_extra]['OPTION'] += line.qty
             elif line.item_type == 'combo':
                 # Combination discount (TDISCNTVA): (Sum compulsory standard prices + sum selected optional prices considered free) - combo price.
                 # Spec: A = amount due for all compulsory + chosen optional products; B = amount due for combo product; discount = A - B.
@@ -262,13 +285,7 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                             selected_opts.append(int(oc))
                         except Exception:
                             continue
-                # Increment OPTION counts for selected optional products within the combo as they are chosen as optional items.
-                for oc in selected_opts:
-                    key_opt_combo = (oc, False)
-                    if key_opt_combo not in kpro_counts:
-                        kpro_counts[key_opt_combo] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                    kpro_counts[key_opt_combo]['OPTION'] += line.qty
-                # Free choices in combo context
+                # Free choices in combo context (treat as selected optional components, not OPTION counts for combos)
                 meta = line.meta or {}
                 free_list_combo: List[int] = []
                 raw_free_combo = meta.get('free_choices') or []
@@ -278,17 +295,16 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                             free_list_combo.append(int(fc))
                         except Exception:
                             continue
-                for fc in free_list_combo:
-                    key_free_combo = (fc, False)
-                    if key_free_combo not in kpro_counts:
-                        kpro_counts[key_free_combo] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                    kpro_counts[key_free_combo]['OPTION'] += line.qty
                 compulsory, possible_optional = _combo_component_codes(line.item_code)
                 comp_codes = compulsory[:]  # copy
                 # Only include selected optional codes that are defined as optional for this combo
                 for oc in selected_opts:
                     if oc in possible_optional:
                         comp_codes.append(oc)
+                # Also include explicitly selected free choices (if provided) as components to count
+                for fc in free_list_combo:
+                    if fc not in comp_codes:
+                        comp_codes.append(fc)
                 # PD file requirement: compulsory and selected optional component products must increment their own TAKEAWAY/EATIN counts (COMBO = False)
                 if comp_codes:
                     for comp_code in comp_codes:
@@ -392,6 +408,8 @@ def build_daily_stats(export_date: date) -> DailyStats:
     vat_due_by_class: Dict[int, int] = {}
     excl_val_by_class: Dict[int, int] = {}
     total_vat_all = 0
+    staff_net_total = 0
+    waste_net_total = 0
     for o in orders:
         # Identify staff/waste orders for KWkVat exclusion; KRev VAT includes all
         raw_method = (o.payment_method or '').strip().lower()
@@ -437,25 +455,135 @@ def build_daily_stats(export_date: date) -> DailyStats:
                         if not (is_staff or is_waste):
                             vat_due_by_class[vat_class] = (vat_due_by_class.get(vat_class, 0) or 0) + vat_amt
                             excl_val_by_class[vat_class] = (excl_val_by_class.get(vat_class, 0) or 0) + net
-                        total_vat_all += vat_amt
+                        else:
+                            # accumulate staff/waste NET totals for meal components
+                            if is_staff:
+                                staff_net_total += net
+                            if is_waste:
+                                waste_net_total += net
+                        total_vat_all += (0 if (is_staff or is_waste) else vat_amt)
                 # Done with meal expansion for this line
                 continue
-            # Non-meal lines: existing behavior
-            if line.item_type == 'product':
-                eat_cls, take_cls = pd_items.get(line.item_code, (None, None))
-            else:
-                eat_cls, take_cls = combos.get(line.item_code, (None, None))
-            vat_class = take_cls if basis == 'TAKEAWAY' else eat_cls
-            rate = vat_rate_by_class.get(vat_class)
-            if rate is None or not line.line_total_gross:
+            # Non-meal lines: handle combos with VAT apportion; products may include extras needing VAT split by product
+            if line.item_type == 'combo':
+                # Expand combo into components and apportion gross price by standard component prices
+                meta = line.meta or {}
+                # Build component list
+                # Fetch compulsory and optional components for this combo
+                comp_objs = list(CompPro.objects.filter(COMBONUMB=line.item_code).only('PRODNUMB'))
+                opt_objs = list(OptPro.objects.filter(COMBONUMB=line.item_code).only('PRODNUMB'))
+                compulsory = [c.PRODNUMB for c in comp_objs]
+                possible_optional = {o.PRODNUMB for o in opt_objs}
+                selected_opts: List[int] = []
+                raw_opts = meta.get('options') or []
+                if isinstance(raw_opts, list):
+                    for oc in raw_opts:
+                        try:
+                            selected_opts.append(int(oc))
+                        except Exception:
+                            continue
+                comp_codes: List[int] = list(compulsory)
+                for oc in selected_opts:
+                    if oc in possible_optional and oc not in comp_codes:
+                        comp_codes.append(oc)
+                # Also include free choices if provided
+                raw_free_combo = meta.get('free_choices') or []
+                if isinstance(raw_free_combo, list):
+                    for fc in raw_free_combo:
+                        try:
+                            ic = int(fc)
+                        except Exception:
+                            ic = None
+                        if ic and ic not in comp_codes:
+                            comp_codes.append(ic)
+                if not comp_codes:
+                    continue
+                # Compute sum of standard prices for components
+                def std_col(n: int) -> str:
+                    return 'VATPR' if n == 1 else f'VATPR_{n}'
+                std_name = std_col(o.price_band)
+                comp_std: Dict[int, int] = {}
+                total_std = 0
+                for code in comp_codes:
+                    it = _vat_get_pditem(code)
+                    if it:
+                        val = getattr(it, std_name, 0) or 0
+                        comp_std[code] = val
+                        total_std += val
+                if total_std <= 0:
+                    continue
+                combo_gross = int(line.line_total_gross or 0)
+                # Allocate gross to each component and compute VAT by its class
+                for code, std_val in comp_std.items():
+                    # proportional allocation; integer rounding per component
+                    share_gross = int(round(combo_gross * (std_val / float(total_std)) ))
+                    eat_cls, take_cls = pd_items.get(code, (None, None))
+                    vat_class = take_cls if basis == 'TAKEAWAY' else eat_cls
+                    rate = vat_rate_by_class.get(vat_class)
+                    if rate is None:
+                        continue
+                    net = int(round(share_gross * 100.0 / (100.0 + rate))) if rate > 0 else share_gross
+                    vat_amt = share_gross - net
+                    if not (is_staff or is_waste):
+                        vat_due_by_class[vat_class] = (vat_due_by_class.get(vat_class, 0) or 0) + vat_amt
+                        excl_val_by_class[vat_class] = (excl_val_by_class.get(vat_class, 0) or 0) + net
+                    else:
+                        # accumulate staff/waste net totals
+                        if is_staff:
+                            staff_net_total += net
+                        if is_waste:
+                            waste_net_total += net
+                    total_vat_all += (0 if (is_staff or is_waste) else vat_amt)
                 continue
-            g = int(line.line_total_gross)
-            net = int(round(g * 100.0 / (100.0 + rate))) if rate > 0 else g
-            vat_amt = g - net
-            if not (is_staff or is_waste):
-                vat_due_by_class[vat_class] = (vat_due_by_class.get(vat_class, 0) or 0) + vat_amt
-                excl_val_by_class[vat_class] = (excl_val_by_class.get(vat_class, 0) or 0) + net
-            total_vat_all += vat_amt
+            # Product line: split extras_products (if any) by their own VAT classes
+            eat_cls, take_cls = pd_items.get(line.item_code, (None, None))
+            vat_class_main = take_cls if basis == 'TAKEAWAY' else eat_cls
+            if not line.line_total_gross:
+                continue
+            g_total = int(line.line_total_gross)
+            meta = line.meta or {}
+            extras = meta.get('extras_products') or []
+            extras_gross_total = 0
+            if isinstance(extras, list) and extras:
+                for ex in extras:
+                    try:
+                        ex_code = int(ex.get('code'))
+                    except Exception:
+                        ex_code = None
+                    ex_price = int(ex.get('price_gross') or 0) * int(line.qty or 1)
+                    extras_gross_total += ex_price
+                    if ex_code:
+                        eat_cls_ex, take_cls_ex = pd_items.get(ex_code, (None, None))
+                        vat_class_ex = take_cls_ex if basis == 'TAKEAWAY' else eat_cls_ex
+                        rate_ex = vat_rate_by_class.get(vat_class_ex)
+                        if rate_ex is not None and ex_price > 0:
+                            net_ex = int(round(ex_price * 100.0 / (100.0 + rate_ex))) if rate_ex > 0 else ex_price
+                            vat_ex = ex_price - net_ex
+                            if not (is_staff or is_waste):
+                                vat_due_by_class[vat_class_ex] = (vat_due_by_class.get(vat_class_ex, 0) or 0) + vat_ex
+                                excl_val_by_class[vat_class_ex] = (excl_val_by_class.get(vat_class_ex, 0) or 0) + net_ex
+                            else:
+                                if is_staff:
+                                    staff_net_total += net_ex
+                                if is_waste:
+                                    waste_net_total += net_ex
+                            total_vat_all += (0 if (is_staff or is_waste) else vat_ex)
+            # Remaining gross belongs to main product VAT class
+            main_gross = max(0, g_total - extras_gross_total)
+            if main_gross > 0 and vat_class_main is not None:
+                rate = vat_rate_by_class.get(vat_class_main)
+                if rate is not None:
+                    net = int(round(main_gross * 100.0 / (100.0 + rate))) if rate > 0 else main_gross
+                    vat_amt = main_gross - net
+                    if not (is_staff or is_waste):
+                        vat_due_by_class[vat_class_main] = (vat_due_by_class.get(vat_class_main, 0) or 0) + vat_amt
+                        excl_val_by_class[vat_class_main] = (excl_val_by_class.get(vat_class_main, 0) or 0) + net
+                    else:
+                        if is_staff:
+                            staff_net_total += net
+                        if is_waste:
+                            waste_net_total += net
+                    total_vat_all += (0 if (is_staff or is_waste) else vat_amt)
 
     weekday = export_date.isoweekday()  # 1..7
     for vat_class, rate in vat_rate_by_class.items():
@@ -476,6 +604,11 @@ def build_daily_stats(export_date: date) -> DailyStats:
     total_vat = total_vat_all
     # Refresh / update KRev VAT & ACT* if unset
     krevc = KRev.objects.select_for_update().get(stat_date=export_date)
+    # Update staff/waste NET totals from VAT pass computation
+    if krevc.TSTAFFVAL != staff_net_total:
+        krevc.TSTAFFVAL = staff_net_total
+    if krevc.TWASTEVAL != waste_net_total:
+        krevc.TWASTEVAL = waste_net_total
     if krevc.VAT != total_vat:
         krevc.VAT = total_vat
     # Mirror ACTCASH/ACTCARD/ACTCHQ to transactional totals if they are zero (no manual reconciliation captured).
@@ -485,5 +618,5 @@ def build_daily_stats(export_date: date) -> DailyStats:
         krevc.ACTCARD = krevc.TCARDVAL
     if krevc.ACTCHQ == 0:
         krevc.ACTCHQ = krevc.TCHQVAL
-    krevc.save(update_fields=['VAT','ACTCASH','ACTCARD','ACTCHQ','last_updated'])
+    krevc.save(update_fields=['TSTAFFVAL','TWASTEVAL','VAT','ACTCASH','ACTCARD','ACTCHQ','last_updated'])
     return stats
