@@ -1,5 +1,5 @@
-# Use a lightweight Python image as the base
-FROM python:3.12-slim
+# Use a lightweight Python image as the base (aligned with README Python 3.13)
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -8,36 +8,28 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy requirements and install (upgrade pip + deps in one layer for cache efficiency)
 COPY requirements.txt /app/
+RUN pip install --upgrade pip && \
+	pip install --no-cache-dir -r requirements.txt
 
-# Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy EPOS project files into the container
+# Copy project source
 COPY . /app/
 
-# Install openssl for optional in-container TLS (self-signed generation)
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends openssl \
-	&& rm -rf /var/lib/apt/lists/*
+# Optional: openssl kept for legacy start.sh TLS; remove to slim further
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
-# Collect static files (if applicable)
+# Collect static files (ensure settings module defined)
+ENV DJANGO_SETTINGS_MODULE=epos.settings
 RUN python manage.py collectstatic --noinput
 
-# Expose the port that the application will run on
-EXPOSE 80
+EXPOSE 8000
 
-# Runtime: use start.sh to optionally enable TLS based on env vars
-# Defaults: HTTP only; set USE_SSL=true to enable TLS. Provide CERT_FILE/KEY_FILE or allow self-signed generation.
-ENV USE_SSL=true \
-	BIND_ADDR=0.0.0.0:80 \
-	CERT_FILE=/app/certs/cert.pem \
-	KEY_FILE=/app/certs/key.pem
+# Simplified runtime (gunicorn HTTP). Remove TLS complexity.
+ENV BIND_ADDR=0.0.0.0:8000
 
-# Ensure start script is executable
-RUN chmod +x /app/start.sh
+# Healthcheck for container orchestration
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD python -c "import urllib.request,sys;\n try: urllib.request.urlopen('http://127.0.0.1:8000/'); sys.exit(0)\n except Exception: sys.exit(1)"
 
-# Start via helper script (TLS optional)
-CMD ["/app/start.sh"]
+CMD ["gunicorn", "epos.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
 
