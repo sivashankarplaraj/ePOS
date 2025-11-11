@@ -10,6 +10,8 @@ __pycache__/
 .gitignore
 *.sql
 docx/
+docs/
+exports_tmp/
 *.CSV
 *.csv
 *.md
