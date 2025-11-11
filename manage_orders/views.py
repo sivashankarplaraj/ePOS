@@ -1259,7 +1259,8 @@ def export_daily_csvs_zip(request: HttpRequest):
         mp = f"MP{target_date:%d%m%y}.CSV"
         pd = f"PD{target_date:%d%m%y}.CSV"
         rv = f"RV{target_date:%d%m%y}.CSV"
-        filenames = [mp, pd, rv]
+        kwk = "K_WK_VAT.csv"  # weekly VAT summary snapshot
+        filenames = [mp, pd, rv, kwk]
         memfile = io.BytesIO()
         with zipfile.ZipFile(memfile, 'w', zipfile.ZIP_DEFLATED) as zf:
             for name in filenames:

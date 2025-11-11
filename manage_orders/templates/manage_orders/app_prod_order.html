@@ -1520,11 +1520,28 @@
     }
     // Gate Add button
     const addBtn = document.getElementById('cfg-add-btn');
+    // Require free choices selection (if any groups exist) before enabling Add
+    const freeGroupsContainer = document.getElementById('cfg-free-choices-groups');
+    let freeOk = true;
+    if(freeGroupsContainer){
+      const groups = Array.from(freeGroupsContainer.querySelectorAll('[id^="freegrp-"], [data-free-choice-group]')).reduce((acc, btn)=>{
+        // collect unique group ids from buttons
+        const gid = btn.getAttribute('data-free-choice-group');
+        if(gid) acc.add(gid); return acc;
+      }, new Set());
+      if(groups.size > 0){
+        // For each group id, ensure exactly one button is active
+        for(const gid of groups){
+          const any = freeGroupsContainer.querySelector(`[data-free-choice-group='${gid}'].active`);
+          if(!any){ freeOk = false; break; }
+        }
+      }
+    }
     if(cfg.meal){
-      const ready = mealApplied; // apply rule: require fries & drink so meal applied
+      const ready = mealApplied && freeOk; // require fries & drink and free choices
       addBtn.disabled = !ready;
     } else {
-      addBtn.disabled = false;
+      addBtn.disabled = !freeOk;
     }
   }
 

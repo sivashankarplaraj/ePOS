@@ -163,11 +163,11 @@ class StatsAggregationTests(TestCase):
         # WASTE count for product 71
         prod_row = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=71, COMBO=False)
         self.assertEqual(prod_row.WASTE, 1)
-        # OPTION count for dips (26 and 39)
+        # OPTION count for dips (26 and 39) inside combo should be 0 (combo free items do not count in OPTION)
         dip26 = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=26, COMBO=False)
         dip39 = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=39, COMBO=False)
-        self.assertEqual(dip26.OPTION, 1)
-        self.assertEqual(dip39.OPTION, 1)
+        self.assertEqual(dip26.OPTION, 0)
+        self.assertEqual(dip39.OPTION, 0)
 
     def test_go_large_and_meal_discount(self):
         # Burger + fries + drink with discounted meal prices
