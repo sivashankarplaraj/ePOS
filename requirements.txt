@@ -3,3 +3,6 @@ asgiref==3.9.1
 sqlparse==0.5.3
 tzdata==2025.2
 python-dotenv==1.0.1
+pytest==8.3.2
+pytest-playwright==0.5.2
+playwright==1.48.0

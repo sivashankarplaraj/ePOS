@@ -84,3 +84,22 @@ To quickly inspect aggregated totals without exporting files:
 # Print KRev totals (and optionally selected KPro rows)
 python manage.py inspect_daily --date YYYY-MM-DD
 ```
+
+## UI tests (Playwright, optional)
+
+End-to-end UI smoke tests use Playwright via pytest. They are skipped by default.
+
+Setup (one-time):
+
+```powershell
+pip install -r requirements.txt
+python -m playwright install
+```
+
+Run smoke test (server must be running locally):
+
+```powershell
+$env:EPOS_E2E = "1"       # enable e2e tests
+$env:EPOS_BASE_URL = "http://127.0.0.1:8090"  # optional, defaults to this
+pytest -m e2e tests/e2e/test_smoke.py -q
+```
