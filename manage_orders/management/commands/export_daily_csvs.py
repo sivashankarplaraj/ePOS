@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from manage_orders.services.daily_stats import build_daily_stats
 from django.db import transaction
-from update_till.models import KMeal, KPro, KRev, KWkVat
+from update_till.models import KMeal, KPro, KRev, KWkVat, PdItem, CombTb
 
 
 class Command(BaseCommand):
@@ -30,15 +30,35 @@ class Command(BaseCommand):
         pd_name = f"PD{export_date:%d%m%y}.CSV"
         rv_name = f"RV{export_date:%d%m%y}.CSV"
 
+        # MP: include ALL products available (from PdItem), even if zero sales; join counts from KMeal when present
         with open(outdir / mp_name, 'w', newline='', encoding='utf-8') as f:
             f.write('PRODNUMB,TAKEAWAY,EATIN\n')
-            for row in KMeal.objects.filter(stat_date=export_date).order_by('PRODNUMB').values('PRODNUMB','TAKEAWAY','EATIN'):
-                f.write(f"{row['PRODNUMB']},{row['TAKEAWAY']},{row['EATIN']}\n")
+            # Cache meal counts for fast lookup
+            meal_map = {m['PRODNUMB']:(m['TAKEAWAY'], m['EATIN']) for m in KMeal.objects.filter(stat_date=export_date).values('PRODNUMB','TAKEAWAY','EATIN')}
+            for prod in PdItem.objects.all().only('PRODNUMB').order_by('PRODNUMB'):
+                tw, ei = meal_map.get(prod.PRODNUMB, (0,0))
+                f.write(f"{prod.PRODNUMB},{tw},{ei}\n")
 
+        # PD: include ALL products (PdItem) and ALL combos (CombTb) – even with zero sales.
+        # Join any existing KPro counts for the date.
         with open(outdir / pd_name, 'w', newline='', encoding='utf-8') as f:
             f.write('PRODNUMB,COMBO,TAKEAWAY,EATIN,WASTE,STAFF,OPTION\n')
-            for row in KPro.objects.filter(stat_date=export_date).order_by('PRODNUMB','COMBO').values('PRODNUMB','COMBO','TAKEAWAY','EATIN','WASTE','STAFF','OPTION'):
-                f.write(f"{row['PRODNUMB']},{1 if row['COMBO'] else 0},{row['TAKEAWAY']},{row['EATIN']},{row['WASTE']},{row['STAFF']},{row['OPTION']}\n")
+            kpro_rows = {
+                (r['PRODNUMB'], bool(r['COMBO'])): (
+                    r['TAKEAWAY'], r['EATIN'], r['WASTE'], r['STAFF'], r['OPTION']
+                )
+                for r in KPro.objects.filter(stat_date=export_date).values(
+                    'PRODNUMB','COMBO','TAKEAWAY','EATIN','WASTE','STAFF','OPTION'
+                )
+            }
+            # Products first (COMBO=FALSE) ordered by PRODNUMB
+            for prod in PdItem.objects.all().only('PRODNUMB').order_by('PRODNUMB'):
+                tw, ei, wa, st, op = kpro_rows.get((prod.PRODNUMB, False), (0,0,0,0,0))
+                f.write(f"{prod.PRODNUMB},FALSE,{tw},{ei},{wa},{st},{op}\n")
+            # Then combos (COMBO=TRUE) ordered by COMBONUMB
+            for combo in CombTb.objects.all().only('COMBONUMB').order_by('COMBONUMB'):
+                tw, ei, wa, st, op = kpro_rows.get((combo.COMBONUMB, True), (0,0,0,0,0))
+                f.write(f"{combo.COMBONUMB},TRUE,{tw},{ei},{wa},{st},{op}\n")
 
         with open(outdir / rv_name, 'w', newline='', encoding='utf-8') as f:
             f.write('TCASHVAL,TCHQVAL,TCARDVAL,TONACCOUNT,TSTAFFVAL,TWASTEVAL,TCOUPVAL,TPAYOUTVA,TTOKENVAL,TDISCNTVA,TTOKENNOVR,TGOLARGENU,TMEAL_DISCNT,ACTCASH,ACTCHQ,ACTCARD,VAT,XPV\n')

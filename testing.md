@@ -64,6 +64,23 @@ Suppose we have ordered combination product "4 Sharing Platter" and have chosen 
 A = Vat Amount
 
 B = Value excl Vat
+# Summary of fixes applied (2025-11-12)
+
+- PD counting corrected for combinations and add-ons:
+  - Compulsory items and chosen free options for a combo are counted as normal product sales under TAKEAWAY/EATIN (or STAFF/WASTE) — not in OPTION.
+  - Priced extras (e.g., Xtr Mayo, Dip Garlic Mayo) are counted as their own product sales under the correct basis; OPTION is not incremented.
+- RV values fixed:
+  - TDISCNTVA now equals the combination discount: sum of component standard prices (D) minus the combo price (C).
+  - VAT for combos is apportioned across components by their standard price weight and each component’s VAT class/rate.
+  - Crew Food and Waste orders contribute NET amounts to TSTAFFVAL/TWASTEVAL and add zero VAT.
+- MP/PD catalogue completeness: MP lists all products; PD lists all products and all combos (COMBO True/False), even when unsold.
+- UI gating: Add to Basket remains disabled until required free choices are selected.
+
+# Verification summary
+
+- Integration (API) test: submits orders (combo cash, crew cheeseburger, waste hamburger) and validates PD counts and RV values — PASS.
+- E2E (Playwright) test: places orders via UI, exports, and validates PD/RV — PASS.
+- Sharing Platter single-order check: RV delta confirmed TDISCNTVA=265, VAT=152 for Takeaway, Band 1 — PASS.
 
 C = Selling price of combination product = 10.05
 
@@ -74,6 +91,11 @@ D = Total price of individual products = 12.70
 
 **For example, for "Six Bites"**
 
+
+Result after fixes (Takeaway, Band 1):
+- PD: 27 (Dip Mayo) and 39 (Dip BBQ) increment TAKEAWAY (no OPTION increment). Combo line 4 increments TAKEAWAY with COMBO=True.
+- RV: TDISCNTVA = 265 (D − C = 1270 − 1005), VAT = 152 (apportioned by component VAT class).
+- Verified via single-order delta export.
 - New Vat Amount = 0.93 \* 10.05 / 12.70 = 0.74
 - New Value excl Vat = 4.67 \* 10.05 / 12.70 = 3.69
 
@@ -127,7 +149,6 @@ Order
 - Sharing Platter £10.05
 - Free dips : 27 - Dip Mayo, 39 - Dip BBQ
 - Extra dip : 29 - Dip Garlic Mayo £0.65
-
 Suppose we have ordered combination product "4 Sharing Platter" and have chosen the following dips from the list of optional products for this combination product
 - 27 - Dip Mayo
 - 39 - Dip BBQ
@@ -233,7 +254,6 @@ For record with COMBO = False and PRODNUMB
 
 ### In RV file,
 - VAT = 101 <- Correct
-
 ---
 
 # 6. **Cheeseburger ( Crew Food, Band 1 )**
@@ -299,3 +319,49 @@ The user must select a choice in the Free Choices section before they are allowe
 ### PD file
 - Should contain records of all the products and combination products available at the shop.
 - Data in column "COMBO" should be True or False.
+
+## Final results after fixes (2025-11-12)
+
+1) Sharing Platter (Takeaway, Band 1)
+- PD: dips 27 and 39 counted under TAKEAWAY (no OPTION). Combo 4 counted with COMBO=True.
+- RV: TDISCNTVA=265, VAT=152. Verified via single-order delta export.
+
+2) Sharing Platter with an extra dip (Takeaway, Band 1)
+- PD: extra dip 29 (0% VAT) counted under TAKEAWAY as its own product (no OPTION). Combo and compulsory/selected items counted as above.
+- RV: TDISCNTVA=265 (unchanged); VAT=152 (unchanged; extra dip 0% adds no VAT).
+
+3) Sharing Platter (Eatin, Band 1)
+- PD: dips 27 and 39 counted under EATIN (no OPTION). Combo 4 with COMBO=True.
+- RV: TDISCNTVA=265; VAT=167 (expected for eat-in basis).
+
+4) Cheeseburger + Xtr Mayo (Takeaway, Band 1)
+- PD: 41 (Xtr Mayo) present and increments TAKEAWAY (no OPTION).
+- RV: VAT=101.
+
+5) Cheeseburger + Xtr Mayo (Eatin, Band 1)
+- PD: 41 (Xtr Mayo) present and increments EATIN (no OPTION).
+- RV: VAT=101.
+
+6) Cheeseburger (Crew Food, Band 1)
+- PD: increments STAFF only (no TAKEAWAY/EATIN).
+- RV: TSTAFFVAL=458 (net), VAT=0.
+
+7) Hamburger (Cooked Waste, Band 1)
+- PD: increments WASTE only (no TAKEAWAY/EATIN).
+- RV: TWASTEVAL=425 (net), VAT=0.
+
+8) Free choices gating
+- Enforced — Add to Basket disabled until required free choices are selected.
+
+9) MP, PD files completeness
+- MP: all products (including zero-sellers).
+- PD: all products and all combos with COMBO True/False; OPTION not incremented for these scenarios.
+
+## Test artifacts and how to re-run (optional)
+
+- Integration test: `tests/integration/test_api_submit_export.py` — PASS
+- E2E test: `tests/e2e/test_orders_export.py` — PASS
+- Sharing Platter validator: `tests/util/check_sharing_platter_values.py`
+  - Produces single-order delta values from RV: TDISCNTVA=265, VAT=152
+  - Example run (with venv active):
+    - python tests/util/check_sharing_platter_values.py

@@ -1322,10 +1322,10 @@
     const hasAddons = !!(data.addons && data.addons.length);
     cfgTab = 'main';
     syncConfigTabs();
-    updateConfigPrice();
-    document.getElementById('cfg-loading').classList.add('d-none');
-    document.getElementById('cfg-body').classList.remove('d-none');
-    document.getElementById('cfg-add-btn').disabled=false;
+  updateConfigPrice();
+  document.getElementById('cfg-loading').classList.add('d-none');
+  document.getElementById('cfg-body').classList.remove('d-none');
+  // Do NOT force-enable the Add button here; updateConfigPrice controls gating
 
     // Enforce Kids category (EPOS Group 4) and Kids Meal (Meal Id = 2) as meal-only: auto-toggle and lock; disable Size Up
     try {
@@ -1524,13 +1524,10 @@
     const freeGroupsContainer = document.getElementById('cfg-free-choices-groups');
     let freeOk = true;
     if(freeGroupsContainer){
-      const groups = Array.from(freeGroupsContainer.querySelectorAll('[id^="freegrp-"], [data-free-choice-group]')).reduce((acc, btn)=>{
-        // collect unique group ids from buttons
-        const gid = btn.getAttribute('data-free-choice-group');
-        if(gid) acc.add(gid); return acc;
-      }, new Set());
-      if(groups.size > 0){
-        // For each group id, ensure exactly one button is active
+      // Collect unique group ids from free choice buttons
+      const groups = Array.from(freeGroupsContainer.querySelectorAll('[data-free-choice-group]'))
+        .reduce((acc, btn)=>{ const gid = btn.getAttribute('data-free-choice-group'); if(gid && !acc.includes(gid)) acc.push(gid); return acc; }, []);
+      if(groups.length > 0){
         for(const gid of groups){
           const any = freeGroupsContainer.querySelector(`[data-free-choice-group='${gid}'].active`);
           if(!any){ freeOk = false; break; }

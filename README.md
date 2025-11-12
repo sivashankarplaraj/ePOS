@@ -74,9 +74,16 @@ This writes the following files into the chosen folder:
 - RV<ddmmyy>.CSV
 - K_WK_VAT.csv (added)
 
-Notes:
-- Crew Food and Waste food orders are excluded from VAT totals and their net values are recorded in RV as TSTAFFVAL and TWASTEVAL respectively.
-- PD OPTION counts reflect add-on/extra items attached to products; free items selected as part of combos are not added to OPTION.
+Notes / Rules implemented:
+- MP file now includes the full product catalogue (all `PdItem` rows) with per-day TAKEAWAY/EATIN counts (zero when unsold). It does not list combos.
+- PD file includes both products (COMBO=FALSE) and combination products (COMBO=TRUE).
+- COMBO column outputs literal TRUE/FALSE (matching legacy format expectations).
+- Crew Food and Waste food orders do NOT increment TAKEAWAY/EATIN counts; they increment only STAFF or WASTE respectively and are excluded from VAT. Their NET totals appear in RV as TSTAFFVAL and TWASTEVAL.
+- Combination products: compulsory + selected optional + selected free-choice component products increment their own basis counts (TAKEAWAY/EATIN) in PD; none of these count toward OPTION.
+- Extras / add-ons priced separately on a product increment basis counts AND OPTION for their own product code.
+- Free choices attached to a product do NOT increment OPTION (only paid extras do).
+- Combination discount (TDISCNTVA) = Sum(standard prices of compulsory + selected optional components) - combo price, aggregated across orders.
+- Meal discount (TMEAL_DISCNT) = (Sum singles standard prices) - (Sum discounted meal component prices) per meal line when positive.
 
 To quickly inspect aggregated totals without exporting files:
 
@@ -102,4 +109,29 @@ Run smoke test (server must be running locally):
 $env:EPOS_E2E = "1"       # enable e2e tests
 $env:EPOS_BASE_URL = "http://127.0.0.1:8090"  # optional, defaults to this
 pytest -m e2e tests/e2e/test_smoke.py -q
+
+## Pull Request Summary (template)
+
+Use this template when creating a PR for the CSV/statistics logic changes:
+
+```
+Summary:
+	- MP export now lists full product catalogue (zero-filled counts) for the day.
+	- PD export writes COMBO as TRUE/FALSE and applies new counting rules:
+			* Staff/Waste -> only STAFF/WASTE columns; no basis increment.
+			* Extras/add-ons -> basis + OPTION.
+			* Free choices (product or combo) -> basis only (combo) or ignored for OPTION (product).
+	- VAT pass apportions combo gross across components by standard prices and splits meal VAT by component classes.
+	- Crew/Waste VAT excluded; net totals recorded in TSTAFFVAL/TWASTEVAL.
+	- Weekly VAT snapshot (K_WK_VAT.csv) added to export set and Zip.
+	- Tests added for staff/waste isolation, combo option exclusion, meal discount, VAT basis selection.
+
+Testing:
+	- 12 unit tests passing (`python manage.py test manage_orders`).
+	- Manual export run for sample date: verified PD/MP/RV/K_WK_VAT structure.
+
+Follow-ups:
+	- Add Playwright spec for automated export ZIP validation.
+	- Parameterize free-choice allowances for combos if business rules require partial free options.
+```
 ```

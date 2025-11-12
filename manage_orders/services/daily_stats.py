@@ -167,14 +167,18 @@ def _aggregate_orders(export_date: date) -> DailyStats:
 
         for line in o.lines.all():
             basis = 'TAKEAWAY' if o.vat_basis == 'take' else 'EATIN'
+            # Helper to apply counting rules: staff/waste orders increment only STAFF/WASTE, not basis columns
+            def add_counts(k: Tuple[int,bool], qty: int):
+                if k not in kpro_counts:
+                    kpro_counts[k] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                if is_staff_order:
+                    kpro_counts[k]['STAFF'] += qty
+                elif is_waste_order:
+                    kpro_counts[k]['WASTE'] += qty
+                else:
+                    kpro_counts[k][basis] += qty
             key = (line.item_code, line.item_type == 'combo')
-            if key not in kpro_counts:
-                kpro_counts[key] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-            kpro_counts[key][basis] += line.qty
-            if is_staff_order:
-                kpro_counts[key]['STAFF'] += line.qty
-            if is_waste_order:
-                kpro_counts[key]['WASTE'] += line.qty
+            add_counts(key, line.qty)
             if line.is_meal:
                 m = meal_counts.setdefault(line.item_code, {'TAKEAWAY': 0, 'EATIN': 0})
                 m[basis] += line.qty
@@ -203,55 +207,13 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 for comp_code in (fries_code, drink_code):
                     if comp_code:
                         key_comp = (comp_code, False)
-                        if key_comp not in kpro_counts:
-                            kpro_counts[key_comp] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                        kpro_counts[key_comp][basis] += line.qty
-                        if is_staff_order:
-                            kpro_counts[key_comp]['STAFF'] += line.qty
-                        if is_waste_order:
-                            kpro_counts[key_comp]['WASTE'] += line.qty
+                        add_counts(key_comp, line.qty)
             if line.item_type == 'product':
                 meta = line.meta or {}
-                # Legacy single option_code handling
-                opt = meta.get('option_code')
-                if opt:
-                    try:
-                        opt_int = int(opt)
-                        key_opt = (opt_int, False)
-                        if key_opt not in kpro_counts:
-                            kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                        kpro_counts[key_opt]['OPTION'] += line.qty
-                    except Exception:
-                        pass
-                # Multiple optional products (OPTIONAL_PROD spec): increment OPTION count for each optional product chosen.
-                # Definition: OPTION is total number of this product chosen as optional product for products on the date.
-                opt_list: List[int] = []
-                raw_opts = meta.get('options') or []
-                if isinstance(raw_opts, list):
-                    for oc in raw_opts:
-                        try:
-                            opt_list.append(int(oc))
-                        except Exception:
-                            continue
-                for oc in opt_list:
-                    key_opt2 = (oc, False)
-                    if key_opt2 not in kpro_counts:
-                        kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                    kpro_counts[key_opt2]['OPTION'] += line.qty  # count appearances
-                # Free choices (free_choices list) should also contribute to OPTION counts per spec (chosen as free item for a product)
-                free_list: List[int] = []
-                raw_free = meta.get('free_choices') or []
-                if isinstance(raw_free, list):
-                    for fc in raw_free:
-                        try:
-                            free_list.append(int(fc))
-                        except Exception:
-                            continue
-                for fc in free_list:
-                    key_free = (fc, False)
-                    if key_free not in kpro_counts:
-                        kpro_counts[key_free] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                    kpro_counts[key_free]['OPTION'] += line.qty
+                # Deprecated: OPTION column increments (option_code/options/free_choices) are not recorded in PD.
+                # As per current testing.md, both free choices and extra add-ons must be counted as product sales in the
+                # appropriate TAKEAWAY/EATIN/STAFF/WASTE columns, and OPTION should not be incremented.
+                # Therefore, we deliberately do not update any 'OPTION' counters here.
                 # Extras attached as separate priced products should increment basis counts (not OPTION)
                 extras = meta.get('extras_products') or []
                 if isinstance(extras, list) and extras:
@@ -263,15 +225,7 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                         if not ex_code:
                             continue
                         key_extra = (ex_code, False)
-                        if key_extra not in kpro_counts:
-                            kpro_counts[key_extra] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                        kpro_counts[key_extra][basis] += line.qty
-                        if is_staff_order:
-                            kpro_counts[key_extra]['STAFF'] += line.qty
-                        if is_waste_order:
-                            kpro_counts[key_extra]['WASTE'] += line.qty
-                        # Count extras/add-ons as OPTION when attached to a product (not combos)
-                        kpro_counts[key_extra]['OPTION'] += line.qty
+                        add_counts(key_extra, line.qty)
             elif line.item_type == 'combo':
                 # Combination discount (TDISCNTVA): (Sum compulsory standard prices + sum selected optional prices considered free) - combo price.
                 # Spec: A = amount due for all compulsory + chosen optional products; B = amount due for combo product; discount = A - B.
@@ -309,13 +263,7 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 if comp_codes:
                     for comp_code in comp_codes:
                         key_comp = (comp_code, False)
-                        if key_comp not in kpro_counts:
-                            kpro_counts[key_comp] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                        kpro_counts[key_comp][basis] += line.qty
-                        if is_staff_order:
-                            kpro_counts[key_comp]['STAFF'] += line.qty
-                        if is_waste_order:
-                            kpro_counts[key_comp]['WASTE'] += line.qty
+                        add_counts(key_comp, line.qty)
                 if comp_codes:
                     # Sum standard prices for each component in the order's price band
                     def std_col(n: int) -> str:
