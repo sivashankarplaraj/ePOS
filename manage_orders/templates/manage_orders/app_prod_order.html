@@ -24,6 +24,16 @@
   @keyframes basketPulse { 0%{ transform:scale(1); box-shadow:0 0 0 0 var(--bs-primary); } 40%{ transform:scale(1.03); box-shadow:0 0 0 .35rem rgba(var(--bs-primary-rgb), .15); } 100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(var(--bs-primary-rgb), 0); } }
   .basket-pulse { animation:basketPulse 550ms ease-out; }
   @media (prefers-reduced-motion: reduce){ .basket-pulse { animation:none; } }
+  /* Category strip: prevent wrap and layout flicker on small screens */
+  #category-strip{ scrollbar-gutter: stable both-edges; }
+  #category-strip .btn{ white-space:nowrap; flex:0 0 auto; line-height:1.2; padding:.5rem 1rem; border-width:2px; }
+  #category-strip .btn.active{ border-width:2px; }
+  /* Avoid height jitter on press/active */
+  #category-strip .btn:active{ transform:none !important; box-shadow:none !important; }
+  /* Slightly reduce font on very small screens to keep a single row */
+  @media (max-width: 576px){
+    #category-strip{ font-size:1.05rem !important; }
+  }
 </style>
 <style>
   /* Toppings (Modify tab) redesigned as chip toggles */
@@ -507,16 +517,27 @@
   }
 
   function renderCategories(){
+    const prevScroll = categoryStrip.scrollLeft || 0;
     categoryStrip.innerHTML='';
     (categories||[]).forEach(cat=>{
       const btn = document.createElement('button');
-      btn.className = 'btn btn-outline-secondary';
-      btn.textContent = cat.name + (cat.item_count? ` (${cat.item_count})` : '');
+      btn.className = 'btn btn-outline-secondary text-nowrap';
+      btn.textContent = cat.name;
+      if(IS_SUPERUSER){
+        btn.textContent += (cat.item_count? ` (${cat.item_count})` : '');
+      }
       btn.dataset.catId = cat.id;
       if(cat.id === activeCategoryId) btn.classList.add('active');
       btn.addEventListener('click', ()=>{ selectCategory(cat.id); });
       categoryStrip.appendChild(btn);
     });
+    // Restore scroll position to avoid noticeable jump/flicker on re-render
+    categoryStrip.scrollLeft = prevScroll;
+  }
+
+  function setActiveCategoryButton(){
+    const btns = categoryStrip.querySelectorAll('button[data-cat-id]');
+    btns.forEach(b => b.classList.toggle('active', String(b.dataset.catId) === String(activeCategoryId)));
   }
 
   function autoSelectFirst(){
@@ -529,7 +550,8 @@
 
   function selectCategory(catId){
     activeCategoryId = catId;
-    renderCategories();
+    // Only toggle button active state instead of rebuilding all to avoid flicker
+    setActiveCategoryButton();
     itemsContainer.innerHTML = '<div class="text-muted small">Loading items...</div>';
     if(catId === TOPPINGS_CAT_ID){
       renderToppings();
