@@ -160,14 +160,36 @@ class StatsAggregationTests(TestCase):
         # STAFF count for combo product
         combo_row = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=4, COMBO=True)
         self.assertEqual(combo_row.STAFF, 1)
+        # Staff combo should not increment TAKEAWAY/EATIN basis counts
+        self.assertEqual(combo_row.TAKEAWAY, 0)
+        self.assertEqual(combo_row.EATIN, 0)
         # WASTE count for product 71
         prod_row = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=71, COMBO=False)
         self.assertEqual(prod_row.WASTE, 1)
+        # Waste product should not increment TAKEAWAY/EATIN basis counts
+        self.assertEqual(prod_row.TAKEAWAY, 0)
+        self.assertEqual(prod_row.EATIN, 0)
         # OPTION count for dips (26 and 39) inside combo should be 0 (combo free items do not count in OPTION)
         dip26 = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=26, COMBO=False)
         dip39 = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=39, COMBO=False)
         self.assertEqual(dip26.OPTION, 0)
         self.assertEqual(dip39.OPTION, 0)
+
+    def test_staff_and_waste_single_product_counts(self):
+        # Product and VAT setup
+        self._prod(200,'Sample Prod',500)
+        day = timezone.localdate() + timedelta(days=4)
+        staff_order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Crew Food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=staff_order, item_code=200, item_type='product', name='Sample Prod', variant_label='', is_meal=False, qty=2, unit_price_gross=500, line_total_gross=1000, meta={})
+        waste_order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Waste food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=waste_order, item_code=200, item_type='product', name='Sample Prod', variant_label='', is_meal=False, qty=3, unit_price_gross=500, line_total_gross=1500, meta={})
+        build_daily_stats(day)
+        from update_till.models import KPro
+        row = KPro.objects.get(stat_date=day, PRODNUMB=200, COMBO=False)
+        self.assertEqual(row.STAFF, 2, 'Staff quantity should accumulate in STAFF only')
+        self.assertEqual(row.WASTE, 3, 'Waste quantity should accumulate in WASTE only')
+        self.assertEqual(row.TAKEAWAY, 0, 'TAKEAWAY basis should not increment for staff/waste orders')
+        self.assertEqual(row.EATIN, 0, 'EATIN basis should not increment for staff/waste orders')
 
     def test_go_large_and_meal_discount(self):
         # Burger + fries + drink with discounted meal prices
