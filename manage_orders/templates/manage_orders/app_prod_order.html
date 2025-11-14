@@ -1265,7 +1265,8 @@
           const groupId = `freegrp-${data.code}-${gi}`;
             const inner = document.createElement('div');
             inner.className='border rounded p-3';
-            inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free (${g.options.length} options)</div>`;
+            // inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free (${g.options.length} options)</div>`;
+            inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free</div>`;
             const optListDiv=document.createElement('div'); optListDiv.className='d-flex flex-wrap gap-2';
             g.options.forEach(o=>{
               const btn=document.createElement('button');
