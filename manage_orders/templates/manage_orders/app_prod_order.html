@@ -303,6 +303,7 @@
             <div id="cfg-toppings-list"></div>
             <div id="cfg-toppings-note" class="form-text">Tap to toggle. Strikethrough = will be removed.</div>
           </div>
+          <!-- Combo structure UI disabled per request
           <div id="cfg-combo-structure" class="mb-4 d-none">
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Combination Components</label>
             <div class="row g-2">
@@ -320,6 +321,7 @@
               </div>
             </div>
           </div>
+          -->
           <!-- Free Choices Section (dynamic, inserted/updated by JS) -->
           <div id="cfg-free-choices" class="mb-4 d-none">
             <label class="form-label fw-semibold" style="font-size:1.15rem;">Free Choices</label>
@@ -1321,7 +1323,8 @@
         .catch(()=>{ modifyTabBtn?.classList.add('d-none'); });
     } else modifyTabBtn?.classList.add('d-none');
     // Product options API fallback removed along with UI; combos still supported.
-    // Combo structure
+    // Combo structure UI disabled per request
+    /*
     const comboStruct = document.getElementById('cfg-combo-structure');
     const compUL = document.getElementById('cfg-compulsory');
     const optDiv = document.getElementById('cfg-optional');
@@ -1330,7 +1333,6 @@
       comboStruct.classList.remove('d-none');
       (data.compulsory||[]).forEach(c=>{ compUL.insertAdjacentHTML('beforeend', `<li>${c.name} ${money(c.price_gross)}</li>`); });
       if(data.optional && data.optional.length){
-        // Extras for combos are not free; suppress any '(First N free)' text
         freeLbl.textContent = '';
         data.optional.forEach(o=>{
           const id=`opt-combo-${o.code}`;
@@ -1339,6 +1341,7 @@
         optDiv.addEventListener('change', e=>{ const cb=e.target.closest('[data-combo-opt]'); if(cb){ const code=parseInt(cb.dataset.comboOpt,10); if(cb.checked) cfg.optionalSelected.add(code); else cfg.optionalSelected.delete(code); updateConfigPrice(); }});
       }
     } else comboStruct.classList.add('d-none');
+    */
 
     // Extras tab visibility (show when product choices or combo optionals exist)
     const hasAddons = !!(data.addons && data.addons.length);
@@ -1392,13 +1395,13 @@
     // Reset default visibility based on data
     const vWrap = document.getElementById('cfg-variants');
     const mealSection = document.getElementById('cfg-meal-section');
-    const comboStruct = document.getElementById('cfg-combo-structure');
+    // const comboStruct = document.getElementById('cfg-combo-structure'); // disabled
     const toppingsWrap = document.getElementById('cfg-toppings');
     const addExtrasWrap = document.getElementById('cfg-add-extras');
     if(vWrap) vWrap.classList.toggle('d-none', !(data.variants && data.variants.length));
     const mealOkay = data.meal_flag && data.meal_components && data.meal_components.fries && data.meal_components.fries.length;
     if(mealSection) mealSection.classList.toggle('d-none', !mealOkay);
-    if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
+    // if(comboStruct) comboStruct.classList.toggle('d-none', data.type!=='combo');
     // If on Extras tab, focus only on extras lists
     // Configure tab now always shows product options and combo optional column (when present)
     const compUL = document.getElementById('cfg-compulsory');
@@ -1415,7 +1418,7 @@
         // Hide other sections when in modify view for clarity
         if(vWrap) vWrap.classList.add('d-none');
         if(mealSection) mealSection.classList.add('d-none');
-        if(comboStruct) comboStruct.classList.add('d-none');
+        // if(comboStruct) comboStruct.classList.add('d-none');
       }
     }
   }
@@ -1511,11 +1514,11 @@
       // noteEl.textContent='';
     }
     // Combo optional pricing retained; product options feature removed.
-    if(data.type==='combo'){
-      const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
-      // Always charge for selected combo optionals
-      chosen.forEach(o=>{ base += (o.price_gross||0); });
-    }
+    // Combo optional pricing disabled
+    // if(data.type==='combo'){
+    //   const chosen = (data.optional||[]).filter(o=>cfg.optionalSelected.has(o.code));
+    //   chosen.forEach(o=>{ base += (o.price_gross||0); });
+    // }
     // Compute display total including add-ons for user feedback
     let addonsTotal = 0;
     if(data.type==='product' && cfg.addonsSelected && cfg.addonsSelected.size){
@@ -1597,10 +1600,10 @@
   displayChoices.push(`${drinkObj ? drinkObj.name : '#'+cfg.drink}`);
       }
     }
-    // Combo optional choices only (product options removed)
-    if(baseData.type==='combo'){
-      (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
-    }
+    // Combo optional choices display disabled
+    // if(baseData.type==='combo'){
+    //   (baseData.optional||[]).forEach(o=>{ if(cfg.optionalSelected.has(o.code)) displayChoices.push(`${o.name} ${money(o.price_gross||0)}`); });
+    // }
     // Free choice groups display capture
     const freeChosen=[]; (baseData.free_choice_groups||[]).forEach((g,gi)=>{
       const active = document.querySelector(`#cfg-free-choices-groups [data-free-choice-group='freegrp-${baseData.code}-${gi}'].active`);
@@ -1610,7 +1613,7 @@
       }
     });
     const meta = {
-      options: baseData.type==='combo' ? [...cfg.optionalSelected] : [],
+      options: [],
       fries: cfg.meal? effectiveFries : null,
       drink: cfg.meal? effectiveDrink : null,
       variant_code: cfg.currentVariant || null,
