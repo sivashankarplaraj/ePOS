@@ -133,6 +133,11 @@ def app_prod_order(request):
 def reports(request):
     return render(request, 'manage_orders/reports.html', {'is_staff': getattr(request.user, 'is_staff', False)})
 
+@ensure_csrf_cookie
+def kitchen_monitor(request):
+    """Simple kitchen monitor page (initial placeholder)."""
+    return render(request, 'manage_orders/kitchen_monitor.html')
+
 def _price_column_name(band: str, discounted: bool) -> str:
     """Return model field name for given band and discounted flag.
 
