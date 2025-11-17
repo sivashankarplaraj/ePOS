@@ -164,11 +164,9 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 # For Paid Out, the amount is now recorded in Order.total_gross (cash leaving till).
                 # Historical records may have it in total_net, so fallback if gross is zero.
                 if pay_key == 'TPAYOUTVA':
+                    # Paid Out amount always recorded in total_gross (no legacy fallback required)
                     amt = (o.total_gross or 0)
-                    if amt == 0:
-                        amt = (o.total_net or 0)
                     rev['TPAYOUTVA'] += amt
-                    # Reduce cash takings accordingly (can go negative during the day before sales offset)
                     rev['TCASHVAL'] -= amt
                 else:
                     rev[pay_key] += o.total_gross or 0

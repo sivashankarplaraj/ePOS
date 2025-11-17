@@ -1,4 +1,5 @@
 import os
+import re
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -17,7 +18,7 @@ def test_smoke_loads_products_page(page: Page):
     if page.get_by_role("button", name="Choose channel for price band").is_visible():
         page.get_by_role("button", name="Choose channel for price band").click()
         # Walk In button contains this label - fallback to first Band 1 option if text differs
-        walkin = page.get_by_role("button", name=lambda s: "Walk In" in s)
+        walkin = page.get_by_role("button", name=re.compile("Walk In", re.I))
         if walkin.count() == 0:
             # fallback: click first button in Band 1
             page.get_by_text("Band 1").first.click()
