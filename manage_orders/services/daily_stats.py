@@ -161,7 +161,17 @@ def _aggregate_orders(export_date: date) -> DailyStats:
         if pay_key:
             # Only accumulate transactional tenders here (cash/card/etc). Crew/Waste handled in VAT pass as NET.
             if pay_key in {'TCASHVAL','TCARDVAL','TCHQVAL','TONACCOUNT','TCOUPVAL','TPAYOUTVA'}:
-                rev[pay_key] += o.total_gross or 0
+                # For Paid Out, the amount is recorded in Order.total_net (no VAT), and it should also reduce TCASHVAL
+                if pay_key == 'TPAYOUTVA':
+                    amt = (o.total_net or 0)
+                    # Fallback to gross if net is not populated
+                    if amt == 0:
+                        amt = (o.total_gross or 0)
+                    rev['TPAYOUTVA'] += amt
+                    # Reduce cash takings accordingly (can go negative during the day before sales offset)
+                    rev['TCASHVAL'] -= amt
+                else:
+                    rev[pay_key] += o.total_gross or 0
         is_staff_order = norm_method in {'crew food','crew_food'}
         is_waste_order = norm_method in {'waste food','waste_food'}
 

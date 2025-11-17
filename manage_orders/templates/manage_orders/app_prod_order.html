@@ -78,6 +78,10 @@
 <!-- Categories below Price Band (horizontal scroll) -->
 <div id="categories-section" class="mb-3">
   <div class="fw-semibold small text-uppercase text-secondary mb-2">Categories</div>
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <button type="button" id="paid-out-btn" class="btn btn-warning btn-lg">Paid Out</button>
+    <input type="text" id="paid-out-notes" class="form-control" style="max-width:420px;" placeholder="Notes for Paid Out (optional)" />
+  </div>
   <div id="category-strip" class="d-flex flex-nowrap overflow-auto gap-3 py-3" style="font-size:1.35rem; -webkit-overflow-scrolling: touch;"></div>
 </div>
 
@@ -142,7 +146,6 @@
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Card">Card</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="On Account">On Account</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Voucher">Voucher</button>
-            <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Paid Out">Paid Out</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Crew Food">Crew Food</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Waste food">Waste food</button>
           </div>
@@ -497,7 +500,7 @@
     for(const k of Object.keys(catItemsCache)) delete catItemsCache[k];
     itemsContainer.innerHTML='';
     categoryStrip.innerHTML='<div class="text-muted small">Loading...</div>';
-    fetch(`/api/menu/categories?band=${currentBand}`)
+  fetch(`/api/menu/categories?band=${currentBand}&include_empty=1`)
       .then(r=>r.json())
       .then(data=>{ 
         categories = data.categories || []; 
@@ -1730,6 +1733,49 @@
 
   // Initial channel load (will select first or last used channel and then fetch menu)
   loadChannels();
+  // Paid Out flow
+  function submitPaidOut(amountPence, notes){
+    if(!amountPence || amountPence <= 0){ alert('Enter a valid amount for Paid Out.'); return; }
+    // Enforce allowed bands: 1 (Standard) or 5 (Standard (B))
+    if(!(String(currentBand)==='1' || String(currentBand)==='5')){
+      alert('Please choose the Standard band (1 or 5) to record Paid Out.');
+      if(typeof openChannelModal==='function') openChannelModal();
+      return;
+    }
+    const payload = { price_band: String(currentBand), band_co_number: bandCoNumber, amount_pence: parseInt(amountPence,10)||0, notes: (notes||'').slice(0,500) };
+    fetch('/api/paid-out', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
+      .then(r=>r.json())
+      .then(resp=>{
+        if(resp && resp.status==='ok'){
+          alert('Paid Out recorded: ' + money(payload.amount_pence));
+          const notesEl = document.getElementById('paid-out-notes'); if(notesEl) notesEl.value='';
+        } else {
+          alert('Failed to record Paid Out: ' + (resp && resp.error ? resp.error : 'unknown error'));
+        }
+      })
+      .catch(()=> alert('Network error recording Paid Out'));
+  }
+  const paidOutBtn = document.getElementById('paid-out-btn');
+  if(paidOutBtn){
+    paidOutBtn.addEventListener('click', ()=>{
+      // Require channel selection first
+      if(!currentBand || !bandCoNumber){ if(typeof openChannelModal==='function') openChannelModal(); return; }
+      ensureCashModal();
+      cashState.receivedPence = 0;
+      // For paid out we always treat VAT basis as Eat-In per spec
+      vatBasis = 'eat'; setCashBasisButtons(); updateCashUI(); cashModal.show();
+      const okBtn = document.getElementById('cash-ok');
+      if(okBtn){
+        // One-time handler for this activation
+        okBtn.onclick = ()=>{
+          const notesVal = (document.getElementById('paid-out-notes')?.value||'').trim();
+          const amt = cashState.receivedPence||0;
+          cashModal.hide();
+          submitPaidOut(amt, notesVal);
+        };
+      }
+    });
+  }
   // Channel selection modal logic
   const channelBtn = document.getElementById('band-channel-btn');
   function openChannelModal(){
@@ -1776,10 +1822,8 @@
     if(window.bootstrap){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
   }
   if(channelBtn){ channelBtn.addEventListener('click', openChannelModal); }
-  // Always prompt user to choose a channel on page load by opening the modal (loadChannels will also attempt to open it once data arrives)
-  // This ensures no implicit default is used.
-  // If channels load slightly later, modal will be opened from loadChannels; this call shows it immediately as a cue.
-  openChannelModal();
+  // Do not auto-open the modal here; loadChannels() will open it once channel data arrives.
+  // This avoids E2E clicks being intercepted by the modal backdrop and keeps tests deterministic.
 
   // Accessibility: improve modal focus/inert handling to prevent aria-hidden warnings.
   (function manageModalA11y(){

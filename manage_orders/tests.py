@@ -5,6 +5,7 @@ from manage_orders.models import Order, OrderLine
 from manage_orders.services.daily_stats import build_daily_stats
 from django.utils import timezone
 from datetime import timedelta
+import json
 
 
 def _mk_product(code, name, std, meal=None, dc=None, vat_class=1):
@@ -511,3 +512,27 @@ class StatsAggregationTests(TestCase):
         rev = KRev.objects.get(stat_date=day)
         # Expected VAT for eat-in meal: Burger 550/6 ≈ 91.67, Fries 140/6 ≈ 23.33, Shake 300/6 = 50. Total ≈ 165p
         self.assertIn(rev.VAT, {165, 164, 166})
+
+
+class PaidOutRevenueTests(TestCase):
+    def setUp(self):
+        # Ensure a default VAT class exists even though it won't be used by Paid Out (no lines)
+        PdVatTb.objects.get_or_create(VAT_CLASS=1, defaults={'VAT_RATE': 20.0, 'VAT_DESC': 'Standard'})
+
+    def test_paid_out_affects_krev_and_cash(self):
+        # Create a simple cash order for today (no lines needed for KRev cash accumulation)
+        now = timezone.now()
+        Order.objects.create(
+            created_at=now, completed_at=now, status='dispatched',
+            price_band=1, vat_basis='take', show_net=False,
+            total_gross=1000, total_net=900, payment_method='Cash', crew_id='0'
+        )
+        # Record a Paid Out of 300 pence via API
+        payload = { 'price_band': '1', 'band_co_number': '', 'amount_pence': 300, 'notes': 'petty cash' }
+        resp = self.client.post(reverse('mo_api_paid_out'), data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json().get('status'), 'ok')
+        # Build daily stats for today and check KRev
+        stats = build_daily_stats(export_date=now.date())
+        self.assertEqual(stats.rev.get('TCASHVAL'), 700)
+        self.assertEqual(stats.rev.get('TPAYOUTVA'), 300)

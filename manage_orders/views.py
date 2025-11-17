@@ -380,7 +380,8 @@ def api_menu_categories(request: HttpRequest):
         combo_counts[ec.EPOS_GROUP] = combo_counts.get(ec.EPOS_GROUP, 0) + 1
 
     categories = []
-    for grp in EposGroup.objects.all().order_by('EPOS_GROUP_ID'):
+    epos_groups = list(EposGroup.objects.all().order_by('EPOS_GROUP_ID'))
+    for grp in epos_groups:
         prod_count = prod_counts.get(grp.EPOS_GROUP_ID, 0)
         comb_count = combo_counts.get(grp.EPOS_GROUP_ID, 0)
         total = prod_count + comb_count
@@ -393,6 +394,18 @@ def api_menu_categories(request: HttpRequest):
                 'item_count': total,
                 'has_combos': comb_count > 0,
             })
+    # Fallback: if no EPOS groups found (e.g., initial data load), use legacy GroupTb categories so the UI can render.
+    if not categories:
+        for grp in GroupTb.objects.all().order_by('GROUP_ID'):
+            if include_empty or True:
+                categories.append({
+                    'id': grp.GROUP_ID,
+                    'name': (grp.GROUP_NAME or '').strip(),
+                    'source_type': grp.SOURCE_TYPE,
+                    'meal_group': grp.MEAL_GROUP,
+                    'item_count': 0,
+                    'has_combos': False,
+                })
     return JsonResponse({'band': band, 'categories': categories})
 
 
@@ -1240,6 +1253,71 @@ def api_daily_sales_hourly(request: HttpRequest):
             b['total_gross'] += o.total_gross
     ordered = [buckets[h] for h in range(24)]
     return JsonResponse({'date': str(target_date), 'hours': ordered})
+
+
+@require_POST
+def api_paid_out(request: HttpRequest):
+    """Record a cash Paid Out event as an Order with no lines.
+
+    Expected JSON body:
+      { "price_band":"1"|"5", "band_co_number": "SO|JE|...", "amount_pence": 1234, "notes": "..." }
+
+    Server behavior:
+      - Creates an Order with created_at/packed_at/completed_at = now, status = dispatched
+      - vat_basis = 'eat', show_net = False
+      - payment_method = 'Paid Out'
+      - total_gross = 0, total_net = amount_pence
+      - price_band must be '1' or '5'
+      - band_co_number validated against allowed suffix tokens and active PriceBand.PARENT_IDs
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    band = str(payload.get('price_band'))
+    if band not in {'1','5'}:
+        return JsonResponse({'error': 'Paid Out allowed only for Standard bands 1 or 5'}, status=400)
+    band_co_number = (payload.get('band_co_number') or '').strip().upper()[:4]
+    # Validate band CO using same rules as api_submit_order
+    if band_co_number:
+        allowed_codes = set()
+        for k in _price_band_map().keys():
+            parts = k.rsplit('-', 2)
+            if len(parts) >= 2:
+                token = parts[-2]
+                if 0 < len(token) <= 4:
+                    allowed_codes.add(token.upper())
+        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('PARENT_ID'):
+            if pb.PARENT_ID is not None:
+                allowed_codes.add(str(pb.PARENT_ID).upper())
+        if band_co_number.upper() not in allowed_codes:
+            return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
+    try:
+        amount_pence = int(payload.get('amount_pence'))
+    except Exception:
+        return JsonResponse({'error': 'Invalid amount_pence'}, status=400)
+    if amount_pence <= 0:
+        return JsonResponse({'error': 'amount_pence must be > 0'}, status=400)
+    notes = (payload.get('notes') or '').strip()
+    from .models import Order
+    now = timezone.now()
+    with transaction.atomic():
+        order = Order.objects.create(
+            created_at=now,
+            packed_at=now,
+            completed_at=now,
+            status='dispatched',
+            price_band=int(band),
+            vat_basis='eat',
+            show_net=False,
+            total_gross=0,
+            total_net=int(amount_pence),
+            payment_method='Paid Out',
+            crew_id='0',
+            band_co_number=band_co_number,
+            notes=notes[:1000]
+        )
+    return JsonResponse({'status': 'ok', 'order_id': order.id})
 
 
 @require_GET
