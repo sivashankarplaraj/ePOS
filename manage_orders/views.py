@@ -1262,13 +1262,14 @@ def api_paid_out(request: HttpRequest):
     Expected JSON body:
       { "price_band":"1"|"5", "band_co_number": "SO|JE|...", "amount_pence": 1234, "notes": "..." }
 
-    Server behavior:
-      - Creates an Order with created_at/packed_at/completed_at = now, status = dispatched
-      - vat_basis = 'eat', show_net = False
-      - payment_method = 'Paid Out'
-      - total_gross = 0, total_net = amount_pence
-      - price_band must be '1' or '5'
-      - band_co_number validated against allowed suffix tokens and active PriceBand.PARENT_IDs
+        Server behavior:
+            - Creates an Order with created_at/packed_at/completed_at = now, status = dispatched
+            - vat_basis = 'eat', show_net = False
+            - payment_method = 'Paid Out'
+            - total_gross = amount_pence (cash leaving till)
+            - total_net = 0 (kept zero; historical records may have amount in total_net)
+            - price_band must be '1' or '5'
+            - band_co_number validated against allowed suffix tokens and active PriceBand.PARENT_IDs
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
@@ -1310,8 +1311,8 @@ def api_paid_out(request: HttpRequest):
             price_band=int(band),
             vat_basis='eat',
             show_net=False,
-            total_gross=0,
-            total_net=int(amount_pence),
+            total_gross=int(amount_pence),
+            total_net=0,
             payment_method='Paid Out',
             crew_id='0',
             band_co_number=band_co_number,

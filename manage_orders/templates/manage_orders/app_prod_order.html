@@ -78,10 +78,6 @@
 <!-- Categories below Price Band (horizontal scroll) -->
 <div id="categories-section" class="mb-3">
   <div class="fw-semibold small text-uppercase text-secondary mb-2">Categories</div>
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <button type="button" id="paid-out-btn" class="btn btn-warning btn-lg">Paid Out</button>
-    <input type="text" id="paid-out-notes" class="form-control" style="max-width:420px;" placeholder="Notes for Paid Out (optional)" />
-  </div>
   <div id="category-strip" class="d-flex flex-nowrap overflow-auto gap-3 py-3" style="font-size:1.35rem; -webkit-overflow-scrolling: touch;"></div>
 </div>
 
@@ -533,6 +529,10 @@
       btn.className = 'btn btn-outline-secondary text-nowrap';
       btn.textContent = cat.name;
       if(IS_SUPERUSER){
+  // Auto-open channel chooser if no band selected yet so tests/UI can progress
+  if(!bandCoNumber){
+    setTimeout(()=>{ try { openChannelModal(); } catch(e){} }, 50);
+  }
         btn.textContent += (cat.item_count? ` (${cat.item_count})` : '');
       }
       btn.dataset.catId = cat.id;
@@ -540,6 +540,15 @@
       btn.addEventListener('click', ()=>{ selectCategory(cat.id); });
       categoryStrip.appendChild(btn);
     });
+    // Inject Paid Out button at end only for allowed bands 1 and 5
+    if(String(currentBand)==='1' || String(currentBand)==='5'){
+      const paidBtn = document.createElement('button');
+      paidBtn.id = 'paid-out-btn';
+      paidBtn.className = 'btn btn-outline-secondary text-nowrap'; // match category style
+      paidBtn.textContent = 'Paid Out';
+      paidBtn.addEventListener('click', ()=>{ openPaidOut(); });
+      categoryStrip.appendChild(paidBtn);
+    }
     // Restore scroll position to avoid noticeable jump/flicker on re-render
     categoryStrip.scrollLeft = prevScroll;
   }
@@ -1260,34 +1269,34 @@
     const freeChoiceWrap = document.getElementById('cfg-free-choices');
     const freeGroupsContainer = document.getElementById('cfg-free-choices-groups');
     const renderFreeChoices = () => {
+      if(!freeGroupsContainer) return;
       freeGroupsContainer.innerHTML='';
-      const groups = data.free_choice_groups || [];
+      const groups = (data && data.free_choice_groups) || [];
       if(groups.length){
-        freeChoiceWrap.classList.remove('d-none');
+        if(freeChoiceWrap) freeChoiceWrap.classList.remove('d-none');
         groups.forEach((g,gi)=>{
-          const groupId = `freegrp-${data.code}-${gi}`;
-            const inner = document.createElement('div');
-            inner.className='border rounded p-3';
-            // inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free (${g.options.length} options)</div>`;
-            inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free</div>`;
-            const optListDiv=document.createElement('div'); optListDiv.className='d-flex flex-wrap gap-2';
-            g.options.forEach(o=>{
-              const btn=document.createElement('button');
-              btn.type='button'; btn.className='btn btn-outline-success';
-              btn.dataset.freeChoiceGroup=groupId; btn.dataset.freeChoiceCode=o.code;
-              btn.textContent = o.name;
-              btn.addEventListener('click',()=>{
-                [...optListDiv.querySelectorAll('[data-free-choice-group]')].forEach(b=> b.classList.remove('active'));
-                btn.classList.add('active');
-                updateConfigPrice();
-              });
-              optListDiv.appendChild(btn);
+          const groupId = `freegrp-${(data && data.code)||'X'}-${gi}`;
+          const inner = document.createElement('div');
+          inner.className='border rounded p-3';
+          inner.innerHTML = `<div class='fw-semibold mb-2 small'>Pick 1 free</div>`;
+          const optListDiv=document.createElement('div'); optListDiv.className='d-flex flex-wrap gap-2';
+          (g.options||[]).forEach(o=>{
+            const btn=document.createElement('button');
+            btn.type='button'; btn.className='btn btn-outline-success';
+            btn.dataset.freeChoiceGroup=groupId; btn.dataset.freeChoiceCode=o.code;
+            btn.textContent = o.name;
+            btn.addEventListener('click', ()=>{
+              // Single selection per group: toggle active state
+              optListDiv.querySelectorAll(`button[data-free-choice-group='${groupId}']`).forEach(b=> b.classList.remove('active'));
+              btn.classList.add('active');
             });
-            inner.appendChild(optListDiv);
-            freeGroupsContainer.appendChild(inner);
+            optListDiv.appendChild(btn);
+          });
+          inner.appendChild(optListDiv);
+          freeGroupsContainer.appendChild(inner);
         });
       } else {
-        freeChoiceWrap.classList.add('d-none');
+        if(freeChoiceWrap) freeChoiceWrap.classList.add('d-none');
       }
     };
     renderFreeChoices();
@@ -1755,26 +1764,24 @@
       })
       .catch(()=> alert('Network error recording Paid Out'));
   }
-  const paidOutBtn = document.getElementById('paid-out-btn');
-  if(paidOutBtn){
-    paidOutBtn.addEventListener('click', ()=>{
-      // Require channel selection first
-      if(!currentBand || !bandCoNumber){ if(typeof openChannelModal==='function') openChannelModal(); return; }
-      ensureCashModal();
-      cashState.receivedPence = 0;
-      // For paid out we always treat VAT basis as Eat-In per spec
-      vatBasis = 'eat'; setCashBasisButtons(); updateCashUI(); cashModal.show();
-      const okBtn = document.getElementById('cash-ok');
-      if(okBtn){
-        // One-time handler for this activation
-        okBtn.onclick = ()=>{
-          const notesVal = (document.getElementById('paid-out-notes')?.value||'').trim();
-          const amt = cashState.receivedPence||0;
-          cashModal.hide();
-          submitPaidOut(amt, notesVal);
-        };
-      }
-    });
+  function openPaidOut(){
+    // Require channel selection first
+    if(!currentBand || !bandCoNumber){ if(typeof openChannelModal==='function') openChannelModal(); return; }
+    ensureCashModal();
+    cashState.receivedPence = 0;
+    // For paid out we always treat VAT basis as Eat-In per spec
+    vatBasis = 'eat'; setCashBasisButtons(); updateCashUI(); cashModal.show();
+    const okBtn = document.getElementById('cash-ok');
+    if(okBtn){
+      // One-time handler for this activation
+      okBtn.onclick = ()=>{
+        // Prompt for notes at submission time (kept out of main UI per spec)
+        const notesVal = (prompt('Notes for Paid Out (optional)','')||'').trim();
+        const amt = cashState.receivedPence||0;
+        cashModal.hide();
+        submitPaidOut(amt, notesVal);
+      };
+    }
   }
   // Channel selection modal logic
   const channelBtn = document.getElementById('band-channel-btn');

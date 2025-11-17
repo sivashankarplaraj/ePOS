@@ -536,3 +536,8 @@ class PaidOutRevenueTests(TestCase):
         stats = build_daily_stats(export_date=now.date())
         self.assertEqual(stats.rev.get('TCASHVAL'), 700)
         self.assertEqual(stats.rev.get('TPAYOUTVA'), 300)
+        # Verify Paid Out order stored amount in total_gross (new spec)
+        paid_out_order = Order.objects.filter(payment_method='Paid Out').order_by('-id').first()
+        self.assertIsNotNone(paid_out_order)
+        self.assertEqual(paid_out_order.total_gross, 300)
+        self.assertEqual(paid_out_order.total_net, 0)
