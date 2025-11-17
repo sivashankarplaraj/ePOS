@@ -14,7 +14,10 @@ def test_category_strip_no_flicker_and_single_row():
         page = context.new_page()
         page.goto(f"{BASE_URL}/manage_orders/app_prod_order/", wait_until="networkidle")
 
-        # Choose a channel from the modal so categories can load
+        # Open channel modal if not auto-opened, then choose a channel so categories can load
+        if not page.query_selector('#bandChannelModal'):
+            # Click the underlying channel chooser button (aria-label)
+            page.get_by_role('button', name='Choose channel for price band').click()
         page.wait_for_selector("#bandChannelModal [data-channel-band]")
         # Click the first available channel; force in case backdrop layers intercept pointer
         page.locator("#bandChannelModal [data-channel-band]").first.click(force=True)

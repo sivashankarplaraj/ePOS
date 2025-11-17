@@ -215,6 +215,11 @@
             </div>
           </div>
         </div>
+        <!-- Paid Out Notes (hidden unless in Paid Out flow) -->
+        <div id="paid-out-notes-wrap" class="mt-3 d-none">
+          <label for="paid-out-notes-modal" class="form-label small fw-semibold mb-1">Paid Out Notes (optional)</label>
+          <input type="text" id="paid-out-notes-modal" class="form-control" maxlength="500" placeholder="Reason / description" />
+        </div>
       </div>
       <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div class="btn-group" role="group" aria-label="VAT basis">
@@ -407,8 +412,7 @@
       .then(r=>r.json())
       .then(data=>{
         CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number, third: !!c.is_third_party_delivery }));
-        // Prompt user to choose a channel
-        if(typeof openChannelModal === 'function') openChannelModal();
+        // Removed auto-open to avoid backdrop intercept issues; user/test will click the button.
       })
       .catch(()=>{});
   }
@@ -529,10 +533,7 @@
       btn.className = 'btn btn-outline-secondary text-nowrap';
       btn.textContent = cat.name;
       if(IS_SUPERUSER){
-  // Auto-open channel chooser if no band selected yet so tests/UI can progress
-  if(!bandCoNumber){
-    setTimeout(()=>{ try { openChannelModal(); } catch(e){} }, 50);
-  }
+        // Show item counts for superusers; removed previous auto-open logic.
         btn.textContent += (cat.item_count? ` (${cat.item_count})` : '');
       }
       btn.dataset.catId = cat.id;
@@ -544,7 +545,8 @@
     if(String(currentBand)==='1' || String(currentBand)==='5'){
       const paidBtn = document.createElement('button');
       paidBtn.id = 'paid-out-btn';
-      paidBtn.className = 'btn btn-outline-secondary text-nowrap'; // match category style
+      paidBtn.dataset.paidOut = '1';
+      paidBtn.className = 'btn btn-outline-warning text-nowrap'; // match category style
       paidBtn.textContent = 'Paid Out';
       paidBtn.addEventListener('click', ()=>{ openPaidOut(); });
       categoryStrip.appendChild(paidBtn);
@@ -872,15 +874,15 @@
   }
   // Prevent Bootstrap auto-dismiss when pinned
   offcanvasEl.addEventListener('hide.bs.offcanvas', (e)=>{ if(basketPinned){ e.preventDefault(); } });
-  // Load user preference on startup (default to pinned)
+  // Load user preference on startup (default to unpinned to avoid intercepting initial interactions)
   try {
     const saved = localStorage.getItem('epos_basket_pinned');
     if(saved === null){
-      basketPinned = true;
+      basketPinned = false;
     } else {
       basketPinned = (saved === '1' || saved === 'true');
     }
-  } catch(_) { basketPinned = true; }
+  } catch(_) { basketPinned = false; }
   applyPinState();
   // Checkout flow opens modal to collect payment method and crew ID
   let checkoutModal = null; const ensureCheckoutModal=()=>{ if(!checkoutModal){ checkoutModal = new bootstrap.Modal(document.getElementById('checkoutModal')); } };
@@ -1289,6 +1291,8 @@
               // Single selection per group: toggle active state
               optListDiv.querySelectorAll(`button[data-free-choice-group='${groupId}']`).forEach(b=> b.classList.remove('active'));
               btn.classList.add('active');
+              // Trigger price/gating recompute so Add button can enable
+              updateConfigPrice();
             });
             optListDiv.appendChild(btn);
           });
@@ -1771,14 +1775,17 @@
     cashState.receivedPence = 0;
     // For paid out we always treat VAT basis as Eat-In per spec
     vatBasis = 'eat'; setCashBasisButtons(); updateCashUI(); cashModal.show();
+    // Show notes field
+    const notesWrap = document.getElementById('paid-out-notes-wrap'); if(notesWrap) notesWrap.classList.remove('d-none');
+    const notesInput = document.getElementById('paid-out-notes-modal'); if(notesInput) notesInput.value='';
     const okBtn = document.getElementById('cash-ok');
     if(okBtn){
       // One-time handler for this activation
       okBtn.onclick = ()=>{
-        // Prompt for notes at submission time (kept out of main UI per spec)
-        const notesVal = (prompt('Notes for Paid Out (optional)','')||'').trim();
+        const notesVal = (document.getElementById('paid-out-notes-modal')?.value||'').trim();
         const amt = cashState.receivedPence||0;
         cashModal.hide();
+        if(notesWrap) notesWrap.classList.add('d-none');
         submitPaidOut(amt, notesVal);
       };
     }
@@ -1806,6 +1813,10 @@
         </button>`).join('');
         return `<div class='mb-4'><h6 class='fw-bold'>Band ${b}</h6><div class='list-group'>${rows}</div></div>`;
       }).join('');
+      // Attach direct click handlers to channel buttons (force bubbling delegation reliability)
+      body.querySelectorAll('[data-channel-band]').forEach(btnEl=>{
+        btnEl.addEventListener('click', channelSelectHandler);
+      });
     }
     if(window.bootstrap) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     // Avoid attaching duplicate listeners if modal is reopened
@@ -1813,6 +1824,32 @@
       modalEl.addEventListener('click', channelSelectHandler, { once:false });
       modalEl.dataset.listenerAdded = '1';
     }
+  }
+  // Forcefully and synchronously close & neutralize the channel modal after a selection.
+  function fullyCloseChannelModal(){
+    const modalEl = document.getElementById('bandChannelModal');
+    if(!modalEl) return;
+    try {
+      // Ask Bootstrap to hide (triggers events); then hard-fallback adjustments.
+      const inst = window.bootstrap ? window.bootstrap.Modal.getInstance(modalEl) : null;
+      if(inst){ inst.hide(); }
+    } catch(_){}
+    // Immediate forced teardown to prevent pointer interception race.
+    modalEl.classList.remove('show');
+    modalEl.style.display='none';
+    modalEl.setAttribute('aria-hidden','true');
+    modalEl.style.pointerEvents='none';
+    // Remove body modal-open side effects
+    document.body.classList.remove('modal-open');
+    try { document.body.style.removeProperty('padding-right'); document.body.style.removeProperty('overflow'); } catch(_){ }
+    // Remove any lingering backdrops
+    document.querySelectorAll('.modal-backdrop').forEach(b=> b.remove());
+    // As an extra guard, schedule a second cleanup after animation window.
+    setTimeout(()=>{
+      if(modalEl.classList.contains('show')) modalEl.classList.remove('show');
+      modalEl.style.pointerEvents='none';
+      document.querySelectorAll('.modal-backdrop').forEach(b=> b.remove());
+    }, 120);
   }
   function channelSelectHandler(e){
     const btn = e.target.closest('[data-channel-band]');
@@ -1825,8 +1862,8 @@
     activeCategoryId = null;
     // apply selection (sets isThirdPartyDelivery and prefetches hot drinks), then fetch menu
     applyChannelSelection(selectedBand, selectedCo, btn.querySelector('strong').textContent, true, selectedCode);
-    const modalEl = document.getElementById('bandChannelModal');
-    if(window.bootstrap){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
+    // Fully close & neutralize modal immediately to unblock underlying category buttons
+    fullyCloseChannelModal();
   }
   if(channelBtn){ channelBtn.addEventListener('click', openChannelModal); }
   // Do not auto-open the modal here; loadChannels() will open it once channel data arrives.
