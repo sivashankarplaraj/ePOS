@@ -137,7 +137,8 @@ def app_prod_order(request):
 
 @ensure_csrf_cookie
 def reports(request):
-    return render(request, 'manage_orders/reports.html', {'is_staff': getattr(request.user, 'is_staff', False)})
+    # Use superuser flag for privileged report export controls
+    return render(request, 'manage_orders/reports.html', {'is_superuser': getattr(request.user, 'is_superuser', False)})
 
 @ensure_csrf_cookie
 def kitchen_monitor(request):

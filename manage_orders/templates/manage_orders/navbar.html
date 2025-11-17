@@ -36,7 +36,7 @@
         <li class="nav-item">
           <a class="nav-link rounded px-3 py-2 {% if '/cashup/' in request.path %}nav-active{% endif %}" href="/cashup/">Cashup</a>
         </li>
-        {% if request.user.is_staff %}
+        {% if request.user.is_superuser %}
         <li class="nav-item">
           <a class="nav-link rounded px-3 py-2 {% if '/update_till/' in request.path %}nav-active{% endif %}" href="{% url 'update_till_import' %}">Update Till</a>
         </li>
