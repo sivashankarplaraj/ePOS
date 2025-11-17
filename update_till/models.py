@@ -443,7 +443,7 @@ class PriceBand(models.Model):
     ACC_FIRM_NUM = models.IntegerField(help_text="ID in On_Acc table if on account company, else 0.")
     ACCEPT_CASH = models.BooleanField(help_text="True if this company accepts cash payment.")
     ACCEPT_CARD = models.BooleanField(help_text="True if this company accepts card payment.")
-    ACCEPT_ON_ACC = models.BooleanField(help_text="True if this company accepts on account payment.")
+    ACCEPT_ONACC = models.BooleanField(help_text="True if this company accepts on account payment.")
     ACCEPT_COOKED_WASTE = models.BooleanField(help_text="True if this company accepts cooked waste payment.")
     ACCEPT_CREW_FOOD = models.BooleanField(help_text="True if this company accepts crew food.")
     ACCEPT_VOUCHER = models.BooleanField(help_text="True if this company accepts voucher payment.")
@@ -453,14 +453,14 @@ class PriceBand(models.Model):
         return f"Price Band {self.PRICE_ID} - Supplier: {self.SUPPLIER_NAME}, Apply Here: {self.APPLY_HERE}, Last Updated: {self.last_updated}"
 
 # Table 29: E_Stock
-# Stores ePOS stock item details (SCODEALPH, ST_CODENUM, ITEM)
+# Stores ePOS stock item details (CODEALPH, ST_CODENUM, ITEM)
 # CSV file: E_ST<n>.CSV
 # <n> is the shop number (1-15)
 class EStock(models.Model):
-    SCODEALPH = models.CharField(max_length=1, help_text="First part of stock item code (letter).")
+    CODEALPH = models.CharField(max_length=1, help_text="First part of stock item code (letter).")
     ST_CODENUM = models.IntegerField(help_text="Second part of stock item code (4-digit number).")
     ITEM = models.CharField(max_length=18, help_text="Description for this stock item.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
-        return f"ePOS Stock Item {self.SCODEALPH}{self.ST_CODENUM} - Description: {self.ITEM}, Last Updated: {self.last_updated}"
+        return f"ePOS Stock Item {self.CODEALPH}{self.ST_CODENUM} - Description: {self.ITEM}, Last Updated: {self.last_updated}"
     
