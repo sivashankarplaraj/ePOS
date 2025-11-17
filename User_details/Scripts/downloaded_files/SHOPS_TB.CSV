@@ -1,5 +1,14 @@
-SHOP_CODE,SHOP_NAME,SHOP_ABBREV,FRANCHISEE,FULL_NAME,ADDRESS_1,ADDRESS_2,ADDRESS_3,POST_CODE,VAT_NUMB,TELEPHONE,COMPANY_NAME,
-2,Montpelier Road,MR,Paul Tomlinson,T/A UNCLE SAMS HAMBURGER EXPRESS,4a Montpelier Road,Brighton,Sussex,BN1 2LQ,123,01273 050802,Catering Express Ltd.,
-8,Patcham,PA,J Chapman+J Everest LLP,T/A UNCLE SAMS HAMBURGER EXPRESS,197 CARDEN AVENUE,Brighton,EAST SUSSEX,BN1 8LE,123,01273 123456,KJHKJ Ltd.,
-9,BVroadwater Road,BW,Rifay  ,T/A UNCLE SAMS HAMBURGER EXPRESS,34 Broadwater Road,Worthing ,West Sussex,BN14 8AG,123,01903 529988,KJHKJ Ltd.,
-15,Furnace Green,FG,Mahesh Choudari,T/A UNCLE SAMS CRAWLEY,5 FURNACE PARADE,Furnace Green,Crawley,RH10 6NX,123,01903 529988,KJHKJ Ltd.,
+SHOP_CODE,SHOP_NAME,SHOP_ABBREV,FRANCHISEE,FULL_NAME,ADDRESS_1,ADDRESS_2,ADDRESS_3,POST_CODE,VAT_NUMB,TELEPHONE,OPERATORS
+2,Montpelier Road,MR,Paul Tomlinson,T/A Uncle Sams Hamburger Express - Montpelier,4a Montpelier Road,Brighton,Sussex,BN1 2LQ,GB191 123 585,01273-050802,Catering Express Ltd.
+3,Rodmill,RM,Luay Khouri,T/A Uncle Sams Hamburger Express - Rodmill,28 Framfield Way,Rodmill,Eastbourne,BN21 2RB,GB931 157 343,01323-723700,Khouri Ltd.
+4,Hangleton,HN,Mahesh Choudari,T/A Uncle Sams Hamburger Express - Hangleton,13 Queens Parade,Hangleton ,Hove,BN3 9JG,GB587 747 375,01273-233130,Hangleton Chaudhari Burger Ltd
+5,Portsmouth,PM,Jane Crawford,T/A Uncle Sams Hamburger Express - Portsmouth,102 London Road ,North End,Portsmouth,PO2 0LZ,GB750 546 926,02392-797595,Jane Crawford
+6,Burgess Hill,BH,Mahesh Choudari,T/A Uncle Sams Hamburger Express - Burgess Hill,21 Station Road,Burgess Hill,West Sussex,RH15 9DE,GB419 977 343,01444-232652,Neetaben and Maheshkumar Chaudhari
+7,Lancing,LC,Mike Whittington,T/A Uncle Sams Hamburger Express - Lancing,72 Crabtree Lane,Lancing,West Sussex,BN15 9PJ,GB389 532 157,01903-529371,JM Fast Foods Ltd.
+8,Patcham,PA,J Chapman+J Everest LLP,T/A Uncle Sams Hamburger Express - Patcham,197 Carden Avenue,Brighton,East Sussex,BN1 8LE,GB324 675 102,01273-700748,JJE Catering Ltd
+9,Broadwater Road,BW,Rifay  ,T/A Uncle Sams Hamburger Express - Broadwater,34 Broadwater Road,Worthing ,West Sussex,BN14 8AG,GB470 622 504,01903-529988,Rifayudheen Abdul Gani
+10,Shoreham,SM,Steve Hanson,T/A Uncle Sams Hamburger Express - Shoreham,276 Uper Shoreham Rd,Shoreham,West Sussex,BN43 6BF,GB442 970 973,01273-441146, Stephen Hanson
+11,Woodingdean,WD,Harvey Aloof & Charli Belcher,T/A Uncle Sams Hamburger Express - Woodingdean,102 Warren Road,Woodingdean,East Sussex,BN2 6BA,GB651 250 271,01273-700373,Harvel Ltd
+12,Rustington,RT,Richard Brant,T/A Uncle Sams Hamburger Express - Rustington,26 Worthing Road,Rustington,West Sussex,BN16 3JX,GB675 623 510,01903-776699,Richard Brant
+14,Goring,GR,Mohammad ,T/A Uncle Sams Hamburger Express - Goring,2 Strand Parade ,The Strand,Goring-by-Sea,BN12 6DJ,GB421 283 526,01903-500033,Mantaz Fast foods Ltd.
+15,Furnace Green,FG,Mahesh Choudari,T/A Uncle Sams Hamburger Express - Furness Green,5 Furnace Parade,Furnace Green,Crawley,RH10 6NX,GB419 977 343,01903-529988,Crawley Chaudhari Burger Ltd.

@@ -51,6 +51,8 @@ csv_to_table = {
     f"EPOS_COMB{shop_number}.CSV": "update_till_EPOSCOMB",
     "TOPPING_DEL.CSV": "update_till_TOPPINGDEL",
     "EPOS_ADD_ONS.CSV": "update_till_EPOSADDONS",
+    f"PRICE{shop_number}.CSV": "update_till_PRICEBAND",
+    f"E_ST{shop_number}.CSV": "update_till_ESTOCK",
 }
 
 

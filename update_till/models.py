@@ -317,6 +317,7 @@ class ProdExt(models.Model):
 
 # Table 20: SHOPS_TB
 # Stores shop details.
+# (SHOP_CODE, SHOP_NAME, SHOP_ABBREV, FRANCHISEE, FULL_NAME, ADDRESS_1, ADDRESS_2, ADDRESS_3, POST_CODE, VAT_NUMB, TELEPHONE, OPERATORS)
 # CSV file: SHOPS_TB.CSV
 class ShopsTb(models.Model):
     SHOP_CODE = models.PositiveSmallIntegerField(help_text="Shop code.")
@@ -328,6 +329,9 @@ class ShopsTb(models.Model):
     ADDRESS_2 = models.CharField(max_length=20, help_text="Second line of shop address.")
     ADDRESS_3 = models.CharField(max_length=17, help_text="Third line of shop address.")
     POST_CODE = models.CharField(max_length=8, help_text="Postcode of shop address.")
+    VAT_NUMB = models.CharField(max_length=12, help_text="VAT number of shop.")
+    TELEPHONE = models.CharField(max_length=13, help_text="Shop telephone number.")
+    OPERATORS = models.CharField(max_length=40, help_text="Names of shop operators.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"Shop {self.SHOP_CODE} - Name: {self.SHOP_NAME}, Abbreviation: {self.SHOP_ABBREV}, Last Updated: {self.last_updated}"
@@ -421,3 +425,42 @@ class EposAddOns(models.Model):
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):
         return f"ePOS Add-Ons for Product {self.PRODNUMB} - Add-Ons: {self.ADD_ONS}, Last Updated: {self.last_updated}"
+    
+# Table 28: Price_Band
+# Shops price band details 
+# (REC_ID, PRICE_ID, PRICE_SUB_ID, SEQ_ORDER, SUPPLIER_CODE, SUPPLIER_NAME, APPLY_HERE, PARENT_ID, ACC_FIRM_NUM, ACCEPT_CASH, ACCEPT_CARD, ACCEPT_ONACC, ACCEPT_COOKED_WASTE, ACCEPT_CREW_FOOD, ACCEPT_VOUCHER, HOT_DRINK)
+# CSV file: Price<n>.CSV
+# <n> is the shop number (1-15)
+class PriceBand(models.Model):
+    REC_ID = models.AutoField(primary_key=True, help_text="ID of this record.")
+    PRICE_ID = models.IntegerField(help_text="Price band.")
+    PRICE_SUB_ID = models.IntegerField(help_text="Sub ID for company under price band.")
+    SEQ_ORDER = models.IntegerField(help_text="Order for cycling through companies.")
+    SUPPLIER_CODE = models.CharField(max_length=4, help_text="Abbreviation of the name of this company.")
+    SUPPLIER_NAME = models.CharField(max_length=25, help_text="Name of this company.")
+    APPLY_HERE = models.BooleanField(help_text="True if this company is applicable to this shop.")
+    PARENT_ID = models.IntegerField(help_text="ID of its parent company.")
+    ACC_FIRM_NUM = models.IntegerField(help_text="ID in On_Acc table if on account company, else 0.")
+    ACCEPT_CASH = models.BooleanField(help_text="True if this company accepts cash payment.")
+    ACCEPT_CARD = models.BooleanField(help_text="True if this company accepts card payment.")
+    ACCEPT_ON_ACC = models.BooleanField(help_text="True if this company accepts on account payment.")
+    ACCEPT_COOKED_WASTE = models.BooleanField(help_text="True if this company accepts cooked waste payment.")
+    ACCEPT_CREW_FOOD = models.BooleanField(help_text="True if this company accepts crew food.")
+    ACCEPT_VOUCHER = models.BooleanField(help_text="True if this company accepts voucher payment.")
+    HOT_DRINK = models.BooleanField(help_text="True if hot drinks can be ordered via this company.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"Price Band {self.PRICE_ID} - Supplier: {self.SUPPLIER_NAME}, Apply Here: {self.APPLY_HERE}, Last Updated: {self.last_updated}"
+
+# Table 29: E_Stock
+# Stores ePOS stock item details (SCODEALPH, ST_CODENUM, ITEM)
+# CSV file: E_ST<n>.CSV
+# <n> is the shop number (1-15)
+class EStock(models.Model):
+    SCODEALPH = models.CharField(max_length=1, help_text="First part of stock item code (letter).")
+    ST_CODENUM = models.IntegerField(help_text="Second part of stock item code (4-digit number).")
+    ITEM = models.CharField(max_length=18, help_text="Description for this stock item.")
+    last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
+    def __str__(self):
+        return f"ePOS Stock Item {self.SCODEALPH}{self.ST_CODENUM} - Description: {self.ITEM}, Last Updated: {self.last_updated}"
+    
