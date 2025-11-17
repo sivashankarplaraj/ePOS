@@ -503,7 +503,7 @@
         categories = data.categories || []; 
         // If third-party delivery, exclude Hot Drinks category (group 11)
         if(isThirdPartyDelivery){ categories = categories.filter(c=> String(c.id) !== String(HOT_DRINKS_GROUP_ID)); }
-        injectStaticCategories();
+        // injectStaticCategories();
         renderCategories(); 
         autoSelectFirst(); 
       })
