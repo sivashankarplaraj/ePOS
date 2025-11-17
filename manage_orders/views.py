@@ -10,9 +10,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
     EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes,
-    EposAddOns,
+    EposAddOns, PriceBand
 )
-from .models import ChannelMapping
 from pathlib import Path
 import json
 
@@ -85,23 +84,30 @@ def _price_band_map():
 
 @require_GET
 def api_channel_mappings(request: HttpRequest):
-    """Return active channel mappings grouped by band.
+        """Return active channels sourced from PriceBand with mapped fields.
 
-    Response:
-      { "channels": [ { id, name, band, channel_code, co_number }, ... ] }
-    """
-    rows = ChannelMapping.objects.filter(active=True)
-    data = [
-        {
-            'id': r.id,
-            'name': r.name,
-            'band': r.band,
-            'channel_code': r.channel_code,
-            'co_number': r.co_number,
-            'is_third_party_delivery': bool(getattr(r, 'is_third_party_delivery', False)),
-        } for r in rows
-    ]
-    return JsonResponse({'channels': data})
+        Mapping:
+            name  <- SUPPLIER_NAME
+            band  <- PRICE_ID
+            channel_code <- SUPPLIER_CODE
+            co_number <- PARENT_ID (coerced to string)
+            is_third_party_delivery <- NOT of (HOT_DRINK)
+
+        Response:
+            { "channels": [ { id, name, band, channel_code, co_number, is_third_party_delivery }, ... ] }
+        """
+        rows = PriceBand.objects.filter(APPLY_HERE=True).order_by('SEQ_ORDER', 'SUPPLIER_NAME')
+        data = []
+        for r in rows:
+                data.append({
+                        'id': getattr(r, 'REC_ID', None) or None,
+                        'name': r.SUPPLIER_NAME,
+                        'band': r.PRICE_ID,
+                        'channel_code': r.SUPPLIER_CODE,
+                        'co_number': str(r.PARENT_ID) if r.PARENT_ID is not None else '',
+                        'is_third_party_delivery': not bool(r.HOT_DRINK),
+                })
+        return JsonResponse({'channels': data})
 
 @ensure_csrf_cookie
 def index(request):    
@@ -900,10 +906,10 @@ def api_submit_order(request: HttpRequest):
                 token = parts[-2]
                 if 0 < len(token) <= 4:
                     allowed_codes.add(token.upper())
-        # Dynamic ChannelMapping codes (active only)
-        for cm in ChannelMapping.objects.filter(active=True).only('co_number'):
-            if cm.co_number:
-                allowed_codes.add(cm.co_number.upper())
+        # Dynamic codes from PriceBand (APPLY_HERE only)
+        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('PARENT_ID'):
+            if pb.PARENT_ID is not None:
+                allowed_codes.add(str(pb.PARENT_ID).upper())
         if band_co_number.upper() not in allowed_codes:
             return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
     vat_basis = payload.get('vat_basis')

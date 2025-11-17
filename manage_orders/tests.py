@@ -115,6 +115,102 @@ class ManageOrdersBasicTests(TestCase):
         self.assertEqual(resp.json()['total_gross'], 485 + 125 + 260)
 
 
+class ChannelMappingTests(TestCase):
+    """Tests for /api/channels endpoint after migration to PriceBand."""
+    def setUp(self):
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Std')
+        from update_till.models import PriceBand
+        # APPLY_HERE True rows
+        PriceBand.objects.create(
+            PRICE_ID=1, PRICE_SUB_ID=0, SEQ_ORDER=1, SUPPLIER_CODE='OT-C', SUPPLIER_NAME='Standard',
+            APPLY_HERE=True, PARENT_ID=1, ACC_FIRM_NUM=0,
+            ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
+            ACCEPT_COOKED_WASTE=True, ACCEPT_CREW_FOOD=True, ACCEPT_VOUCHER=True,
+            HOT_DRINK=True
+        )
+        PriceBand.objects.create(
+            PRICE_ID=6, PRICE_SUB_ID=0, SEQ_ORDER=2, SUPPLIER_CODE='JE-D', SUPPLIER_NAME='Just Eat - Deliver',
+            APPLY_HERE=True, PARENT_ID=3, ACC_FIRM_NUM=0,
+            ACCEPT_CASH=False, ACCEPT_CARD=True, ACCEPT_ONACC=False,
+            ACCEPT_COOKED_WASTE=False, ACCEPT_CREW_FOOD=False, ACCEPT_VOUCHER=False,
+            HOT_DRINK=False
+        )
+        # APPLY_HERE False row (should be filtered out)
+        PriceBand.objects.create(
+            PRICE_ID=2, PRICE_SUB_ID=0, SEQ_ORDER=3, SUPPLIER_CODE='XX-C', SUPPLIER_NAME='Hidden Channel',
+            APPLY_HERE=False, PARENT_ID=9, ACC_FIRM_NUM=0,
+            ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
+            ACCEPT_COOKED_WASTE=False, ACCEPT_CREW_FOOD=False, ACCEPT_VOUCHER=False,
+            HOT_DRINK=True
+        )
+
+    def test_api_channels_filters_and_maps_fields(self):
+        resp = self.client.get(reverse('mo_api_channels'))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['channels']
+        # Hidden channel excluded
+        codes = [c['channel_code'] for c in data]
+        self.assertNotIn('XX-C', codes)
+        # Present codes
+        self.assertIn('OT-C', codes)
+        self.assertIn('JE-D', codes)
+        # Field mapping and ordering (SEQ_ORDER ascending)
+        self.assertGreaterEqual(len(data), 2)
+        self.assertEqual(data[0]['channel_code'], 'OT-C')  # SEQ_ORDER 1 first
+        standard = next(c for c in data if c['channel_code'] == 'OT-C')
+        justeat = next(c for c in data if c['channel_code'] == 'JE-D')
+        # band mapping
+        self.assertEqual(standard['band'], 1)
+        self.assertEqual(justeat['band'], 6)
+        # co_number from PARENT_ID stringified
+        self.assertEqual(standard['co_number'], '1')
+        self.assertEqual(justeat['co_number'], '3')
+        # is_third_party_delivery is inverse of HOT_DRINK
+        self.assertFalse(standard['is_third_party_delivery'])  # HOT_DRINK True -> False
+        self.assertTrue(justeat['is_third_party_delivery'])    # HOT_DRINK False -> True
+
+
+class BandCoNumberValidationTests(TestCase):
+    """Tests for band_co_number validation using dynamic PriceBand PARENT_ID codes."""
+    def setUp(self):
+        PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Std')
+        from update_till.models import PriceBand
+        PriceBand.objects.create(
+            PRICE_ID=1, PRICE_SUB_ID=0, SEQ_ORDER=1, SUPPLIER_CODE='OT-C', SUPPLIER_NAME='Standard',
+            APPLY_HERE=True, PARENT_ID=77, ACC_FIRM_NUM=0,
+            ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
+            ACCEPT_COOKED_WASTE=True, ACCEPT_CREW_FOOD=True, ACCEPT_VOUCHER=True,
+            HOT_DRINK=True
+        )
+        _mk_product(1001, 'Test Prod', 250, dc=250)
+
+    def test_submit_order_with_valid_band_co_number(self):
+        payload = {
+            'price_band': '1', 'vat_basis': 'take', 'show_net': False,
+            'band_co_number': '77',
+            'lines': [{
+                'code': 1001, 'type': 'product', 'name': 'Test Prod', 'variant': None,
+                'meal': False, 'qty': 1, 'price_gross': 250, 'meta': {}
+            }]
+        }
+        resp = self.client.post(reverse('mo_api_submit_order'), data=payload, content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['total_gross'], 250)
+
+    def test_submit_order_with_invalid_band_co_number(self):
+        payload = {
+            'price_band': '1', 'vat_basis': 'take', 'show_net': False,
+            'band_co_number': 'ZZZZ',  # not in static mapping or PriceBand PARENT_ID
+            'lines': [{
+                'code': 1001, 'type': 'product', 'name': 'Test Prod', 'variant': None,
+                'meal': False, 'qty': 1, 'price_gross': 250, 'meta': {}
+            }]
+        }
+        resp = self.client.post(reverse('mo_api_submit_order'), data=payload, content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('Invalid band_co_number', resp.content.decode('utf-8'))
+
+
 class StatsAggregationTests(TestCase):
     def setUp(self):
         PdVatTb.objects.create(VAT_CLASS=1, VAT_RATE=20.0, VAT_DESC='Standard')

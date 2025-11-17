@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderLine, ChannelMapping
+from .models import Order, OrderLine
 
 
 class OrderLineInline(admin.TabularInline):
@@ -16,9 +16,4 @@ class OrderAdmin(admin.ModelAdmin):
 	readonly_fields = ("created_at","completed_at")
 
 
-@admin.register(ChannelMapping)
-class ChannelMappingAdmin(admin.ModelAdmin):
-	list_display = ("name", "band", "channel_code", "co_number", "is_third_party_delivery", "active", "sort_order")
-	list_filter = ("band", "is_third_party_delivery", "active")
-	search_fields = ("name", "channel_code", "co_number")
-	list_editable = ("band", "is_third_party_delivery", "active", "sort_order")
+# ChannelMapping has been deprecated in favour of update_till.PriceBand
