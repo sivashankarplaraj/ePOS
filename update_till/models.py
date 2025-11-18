@@ -428,7 +428,7 @@ class EposAddOns(models.Model):
     
 # Table 28: Price_Band
 # Shops price band details 
-# (REC_ID, PRICE_ID, PRICE_SUB_ID, SEQ_ORDER, SUPPLIER_CODE, SUPPLIER_NAME, APPLY_HERE, PARENT_ID, ACC_FIRM_NUM, ACCEPT_CASH, ACCEPT_CARD, ACCEPT_ONACC, ACCEPT_COOKED_WASTE, ACCEPT_CREW_FOOD, ACCEPT_VOUCHER, HOT_DRINK)
+# (REC_ID, PRICE_ID, PRICE_SUB_ID, SEQ_ORDER, SUPPLIER_CODE, SUPPLIER_NAME, APPLY_HERE, PARENT_ID, ACC_FIRM_NUM, ACCEPT_CASH, ACCEPT_CARD, ACCEPT_ONACC, ACCEPT_COOKED_WASTE, ACCEPT_CREW_FOOD, ACCEPT_VOUCHER, DELIV_SUPPLIER, HOT_DRINK)
 # CSV file: Price<n>.CSV
 # <n> is the shop number (1-15)
 class PriceBand(models.Model):
@@ -447,6 +447,7 @@ class PriceBand(models.Model):
     ACCEPT_COOKED_WASTE = models.BooleanField(help_text="True if this company accepts cooked waste payment.")
     ACCEPT_CREW_FOOD = models.BooleanField(help_text="True if this company accepts crew food.")
     ACCEPT_VOUCHER = models.BooleanField(help_text="True if this company accepts voucher payment.")
+    DELIV_SUPPLIER = models.BooleanField(help_text="True if this company delivers orders.")
     HOT_DRINK = models.BooleanField(help_text="True if hot drinks can be ordered via this company.")
     last_updated = models.DateTimeField(auto_now=True, help_text="Last updated timestamp.")
     def __str__(self):

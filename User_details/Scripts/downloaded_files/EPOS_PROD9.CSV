@@ -1,117 +1,117 @@
-"PRODNUMB","PRODNAME","ITEM_DESC","EPOS_GROUP","EPOS_SEQUENCE","COLOUR_RED","COLOUR_GREEN","COLOUR_BLUE"
-"1","HAMBURGER","Hamburger","1","1","231","52","52"
-"2","DBL HAMBURGER","Dbl Hamburger","0","0","231","52","52"
-"3","CHEESEBURGER","Cheeseburger","1","2","255","255","0"
-"4","DBL CHEESEBURGR","Dbl Cheese Bgr","0","0","255","255","0"
-"5","CHILLIBURGER","Chilliburger","1","3","255","0","0"
-"6","DBL CHILLIBURGER","Dbl Chillibgr","0","0","255","0","0"
-"7","ORIGINAL","Original","1","4","0","102","255"
-"8","DBL ORIGINAL","Dbl Original","0","0","0","102","255"
-"9","BLUECHEESE BGR","Blue Cheesebgr","1","11","102","153","0"
-"10","DBL BLUE CHSEBGR","Dbl BluChsebgr","0","0","102","153","0"
-"11","VEGGIE BURGER","Veggie Burger","3","1","51","204","51"
-"12","VEGGIE instead","Veggie Instead","3","7","51","204","51"
-"13","KIDS HAMBURGER","Kids Hamburger","4","1","231","52","52"
-"14","XTR MEAT","Xtr Meat","98","8","0","0","0"
-"15","GARLIC BURGER","Garlic Burger","1","5","51","204","51"
-"16","DBL GARLIC BGR","Dbl Garlic Bgr","0","0","51","204","51"
-"17","HAWAIIAN BURGER","Hawaiian Burgr","1","9","51","204","51"
-"18","DBL HAWAIIAN BGR","Dbl Hawain Bgr","0","0","51","204","51"
-"19","CHICKEN SAMWICH","Chickn Samwich","2","1","255","153","51"
-"20","ALLSTAR BURGER","Allstar Burger","1","7","0","102","255"
-"21","DBL ALLSTAR BGR","Dbl Allstar","0","0","0","102","255"
-"22","1000 ISLAND BGR","1000 Islnd Bgr","1","6","51","204","51"
-"23","DBL CHILI n CHSE","Db Chli n Chse","1","12","255","0","0"
-"25","BACON CHEESE BGR","Bacon Chse Bgr","1","8","176","31","36"
-"26","DIP KETCHUP","Dip Ketchup","6","1","255","0","0"
-"27","DIP MAYO","Dip Mayo","6","2","255","255","153"
-"28","DIP CHILLI","Dip Chilli","6","3","255","153","0"
-"29","DIP GARLC MAYO","Dip Garlic","6","4","166","29","33"
-"30","REGULAR FRIES","Regular Fries","5","1","255","153","51"
-"31","LARGE FRIES","Large Fries","5","2","255","153","51"
-"32","CHICKEN ALLSTAR","Chicken Allstr","2","4","255","153","51"
-"33","XTR CHICkN","Xtr Chicken","98","9","255","153","51"
-"34","XTR VEGGIE","Xtr Veggie","98","13","51","204","51"
-"35","KIDS CHEESE-BGR","Kids Chse Bgr","4","2","255","255","0"
-"36","XTR BACON","Xtr Bacon","98","10","176","31","36"
-"37","XTR GARLIC MAY","Xtr Garlic","98","4","176","31","36"
-"38","XTR PINAPL","Xtr Pineapple","98","12","176","31","36"
-"39","DIP BBQ","Dip BBQ","6","2","176","31","36"
-"40","XTR KETCH","Xtr Ketch","98","1","176","31","36"
-"41","XTR MAYO","Xtr Mayo","98","2","176","31","36"
-"42","XTR CHILLI","Xtr Chilli","98","3","176","31","36"
-"43","XTR MISC 25p ","Misc 25p","7","1","176","31","36"
-"44","VEGIE SALAD SAMW","Veggi Sald Sam","3","9","176","31","36"
-"45","XTR CHEEZ","Xtr Cheese","98","11","176","31","36"
-"46","XTR MISC 10p","Misc 10p","7","2","176","31","36"
-"47","XTR BLUE","Xtra Blu Chese","98","7","176","31","36"
-"48","CHICKEN CHILLI","Chicken Chilli","2","3","176","31","36"
-"51","COKE CLASSIC CAN","Coke Can","10","6","176","31","36"
-"52","TANGO CAN","Tango Can","10","7","176","31","36"
-"53","DIET COKE CAN","Diet  Can","10","4","176","31","36"
-"54","DBL BACON CHEESE","Dbl Bacon Chse","0","0","176","31","36"
-"55","OUR BIGGEST BGR","Our Bigest Bgr","1","13","176","31","36"
-"60","BANANA SHAKE","Banana Shake","10","19","176","31","36"
-"61","CHOCOLATE SHAKE","Chocolate Shk","10","18","176","31","36"
-"62","STRAWBERRY SHK","Strawbry Shke","10","17","176","31","36"
-"64","VEGGIE BACN SAM","Veggie Bcn Sam","3","10","176","31","36"
-"65","TEXAN BURGER","Texan burger","1","10","176","31","36"
-"66","BANANA SHK LARGE","Banana Shk Lrg","10","24","176","31","36"
-"67","CHOC SHK LARGE","Choc Shk Lrg","10","23","176","31","36"
-"68","STRAW SHK LARGE","Strawb Shk Lrg","10","22","176","31","36"
-"69","VANILLA SHAKE","Vanilla Shake","10","20","176","31","36"
-"70","VANILLA SK LARGE","Vanila Shk Lrg","10","25","176","31","36"
-"71","SIX  BITES","Six Bites","2","8","176","31","36"
-"72","NINE BITES","Nine Bites","2","9","176","31","36"
-"73","FRIES Lrg Go Lrg","Fries goLrg","0","0","176","31","36"
-"75","7UP LEMON CAN","7 Up Can","10","15","176","31","36"
-"76","CHOC SHKE KIDS","Choc Shk Kids","99","13","176","31","36"
-"77","BLT SAMWICH","BLT Samwich","1","14","176","31","36"
-"78","CHICKEN EL FUEGO","Chick El Fuego","2","5","176","31","36"
-"81","HOT APPLE PIE","Hot Apple Pie","5","6","176","31","36"
-"82","ONION RINGS 8","Onion Rings 8","5","4","176","31","36"
-"83","BEAN BURGER","Bean Burger","3","3","176","31","36"
-"84","BANANA SHKE KIDS","Banana Shk Kds","99","16","176","31","36"
-"85","STRAWB SHKE KIDS","Strawb Shk Kds","99","12","176","31","36"
-"86","VANILLA SHK KIDS","Vanila Shk ids","99","15","176","31","36"
-"87","COFFEE     165","Coffee","11","33","176","31","36"
-"90","CHICKEN BACN CHS","Chkn Bacn Chs","2","7","176","31","36"
-"91","BOTTLED WATER","Bottled Water","10","16","176","31","36"
-"92","VEGGIE DE-LUXE","Veggie DeLuxe","3","2","176","31","36"
-"93","KIDS WATER","Kids Water","99","5","176","31","36"
-"94","CHICKEN WRAP","Chicken Wrap","2","2","176","31","36"
-"95","MOZARELA FINGERS","Mozarela Fingr","5","7","176","31","36"
-"97","XTR BEAN PATTY","Xtr Bean Patty","98","15","176","31","36"
-"99","CLASSIC COKE 500","Coke Bottle","10","14","176","31","36"
-"100","XTR BBQ","Xtr BBQ","98","6","176","31","36"
-"101","DIP 1000 ISLE","Dip 1000 Islnd","6","1","0","102","255"
-"102","ONION RINGS 12","Onion Rings 12","5","5","176","31","36"
-"104","DIP BLUECHEESE","Dip Blue Chese","6","3","176","31","36"
-"105","DBL 1000 ISL BGR","Dbl 1000 Burg","0","0","176","31","36"
-"107","XTR VGBACN","Xtr Veg Bacn","98","14","176","31","36"
-"108","PLATTER 2nd dip","Platter 2nd dp","0","0","176","31","36"
-"109","XTR 1000","Xtr 1000","98","5","176","31","36"
-"110","DIP NONE","Dip none","6","5","176","31","36"
-"111","XTR NONE","None","0","0","176","31","36"
-"113","DBL TEXAN BURGER","Dbl Texan Bgr","0","0","176","31","36"
-"115","CHICKN BBQ TEXAN","Chkn BBQ Texan","2","6","176","31","36"
-"118","KIDS  4  BITES  ","Kids4BiteMeal","4","3","176","31","36"
-"124","7UP LEMON 500m","7up Bottle","10","8","176","31","36"
-"125","TANGO ORANGE 500","Tango Bottle","10","9","176","31","36"
-"133","TEA         165","Tee","11","32","176","31","36"
-"136","CHILLI  tub","Chilli Tub","6","6","176","31","36"
-"138","DIET COKE 500ml","Diet Bottle","10","54","176","31","36"
-"146","TOFFEE SHAKE","Toffee Shake","10","21","176","31","36"
-"147","TOFFEE SK LARGE","Toffee Shk Lrg","10","26","176","31","36"
-"148","TOFFEE SHK KIDS","Toffee Shk Kid","99","14","176","31","36"
-"166","DELIVERY �2.50 ","Delivery  2.50","7","4","176","31","36"
-"171","TRPL CHEESEBRGR","Trp Cheesebgr","0","0","176","31","36"
-"172","TRPL ALLSTAR BRG","Trp Allstr Bgr","0","0","176","31","36"
-"173","TRPL BACON CHEES","Trp Bcn Cheese","0","0","176","31","36"
-"191","KIDS FRT-SH ORNG","Kid FSht Orng","99","6","176","31","36"
-"194","KID FRT-SH A-BLC","Kid F-Shot Blk","99","7","176","31","36"
-"195","KIDS CLASIC COKE","Kids Coke Can","99","1","176","31","36"
-"200","SUPER SHAKE OREO","Super Shk Oreo","10","36","176","31","36"
-"201","SUPER SHKE LOTUS","Supr Shk Lotus","10","37","176","31","36"
-"202","SUPER SHKE FLAKE","Supr Shk Flake","10","38","176","31","36"
-"207","SUPER MINT AERO","Super Shk Aero","10","39","176","31","36"
+PRODNUMB,PRODNAME,ITEM_DESC,EPOS_GROUP,EPOS_SEQUENCE,COLOUR_RED,COLOUR_GREEN,COLOUR_BLUE
+1,HAMBURGER,Hamburger,1,1,231,52,52
+2,DBL HAMBURGER,Dbl Hamburger,0,0,231,52,52
+3,CHEESEBURGER,Cheeseburger,1,2,255,255,0
+4,DBL CHEESEBURGR,Dbl Cheese Bgr,0,0,255,255,0
+5,CHILLIBURGER,Chilliburger,1,3,255,0,0
+6,DBL CHILLIBURGER,Dbl Chillibgr,0,0,255,0,0
+7,ORIGINAL,Original,1,4,0,102,255
+8,DBL ORIGINAL,Dbl Original,0,0,0,102,255
+9,BLUECHEESE BGR,Blue Cheesebgr,1,11,102,153,0
+10,DBL BLUE CHSEBGR,Dbl BluChsebgr,0,0,102,153,0
+11,VEGGIE BURGER,Veggie Burger,3,1,51,204,51
+12,VEGGIE instead,Veggie Instead,3,7,51,204,51
+13,KIDS HAMBURGER,Kids Hamburger,4,1,231,52,52
+14,XTR MEAT,Xtr Meat,98,8,0,0,0
+15,GARLIC BURGER,Garlic Burger,1,5,51,204,51
+16,DBL GARLIC BGR,Dbl Garlic Bgr,0,0,51,204,51
+17,HAWAIIAN BURGER,Hawaiian Burgr,1,9,51,204,51
+18,DBL HAWAIIAN BGR,Dbl Hawain Bgr,0,0,51,204,51
+19,CHICKEN SAMWICH,Chickn Samwich,2,1,255,153,51
+20,ALLSTAR BURGER,Allstar Burger,1,7,0,102,255
+21,DBL ALLSTAR BGR,Dbl Allstar,0,0,0,102,255
+22,1000 ISLAND BGR,1000 Islnd Bgr,1,6,51,204,51
+23,DBL CHILI n CHSE,Db Chli n Chse,1,12,255,0,0
+25,BACON CHEESE BGR,Bacon Chse Bgr,1,8,176,31,36
+26,DIP KETCHUP,Dip Ketchup,6,1,255,0,0
+27,DIP MAYO,Dip Mayo,6,2,255,255,153
+28,DIP CHILLI,Dip Chilli,6,3,255,153,0
+29,DIP GARLC MAYO,Dip Garlic,6,4,166,29,33
+30,REGULAR FRIES,Regular Fries,5,1,255,153,51
+31,LARGE FRIES,Large Fries,5,2,255,153,51
+32,CHICKEN ALLSTAR,Chicken Allstr,2,4,255,153,51
+33,XTR CHICkN,Xtr Chicken,98,9,255,153,51
+34,XTR VEGGIE,Xtr Veggie,98,13,51,204,51
+35,KIDS CHEESE-BGR,Kids Chse Bgr,4,2,255,255,0
+36,XTR BACON,Xtr Bacon,98,10,176,31,36
+37,XTR GARLIC MAY,Xtr Garlic,98,4,176,31,36
+38,XTR PINAPL,Xtr Pineapple,98,12,176,31,36
+39,DIP BBQ,Dip BBQ,6,2,176,31,36
+40,XTR KETCH,Xtr Ketch,98,1,176,31,36
+41,XTR MAYO,Xtr Mayo,98,2,176,31,36
+42,XTR CHILLI,Xtr Chilli,98,3,176,31,36
+43,XTR MISC 25p ,Misc 25p,7,1,176,31,36
+44,VEGIE SALAD SAMW,Veggi Sald Sam,3,9,176,31,36
+45,XTR CHEEZ,Xtr Cheese,98,11,176,31,36
+46,XTR MISC 10p,Misc 10p,7,2,176,31,36
+47,XTR BLUE,Xtra Blu Chese,98,7,176,31,36
+48,CHICKEN CHILLI,Chicken Chilli,2,3,176,31,36
+51,COKE CLASSIC CAN,Coke Can,10,6,176,31,36
+52,TANGO CAN,Tango Can,10,7,176,31,36
+53,DIET COKE CAN,Diet  Can,10,4,176,31,36
+54,DBL BACON CHEESE,Dbl Bacon Chse,0,0,176,31,36
+55,OUR BIGGEST BGR,Our Bigest Bgr,1,13,176,31,36
+60,BANANA SHAKE,Banana Shake,10,19,176,31,36
+61,CHOCOLATE SHAKE,Chocolate Shk,10,18,176,31,36
+62,STRAWBERRY SHK,Strawbry Shke,10,17,176,31,36
+64,VEGGIE BACN SAM,Veggie Bcn Sam,3,10,176,31,36
+65,TEXAN BURGER,Texan burger,1,10,176,31,36
+66,BANANA SHK LARGE,Banana Shk Lrg,10,24,176,31,36
+67,CHOC SHK LARGE,Choc Shk Lrg,10,23,176,31,36
+68,STRAW SHK LARGE,Strawb Shk Lrg,10,22,176,31,36
+69,VANILLA SHAKE,Vanilla Shake,10,20,176,31,36
+70,VANILLA SK LARGE,Vanila Shk Lrg,10,25,176,31,36
+71,SIX  BITES,Six Bites,2,8,176,31,36
+72,NINE BITES,Nine Bites,2,9,176,31,36
+73,FRIES Lrg Go Lrg,Fries goLrg,0,0,176,31,36
+75,7UP LEMON CAN,7 Up Can,10,15,176,31,36
+76,CHOC SHKE KIDS,Choc Shk Kids,99,13,176,31,36
+77,BLT SAMWICH,BLT Samwich,1,14,176,31,36
+78,CHICKEN EL FUEGO,Chick El Fuego,2,5,176,31,36
+81,HOT APPLE PIE,Hot Apple Pie,5,6,176,31,36
+82,ONION RINGS 8,Onion Rings 8,5,4,176,31,36
+83,BEAN BURGER,Bean Burger,3,3,176,31,36
+84,BANANA SHKE KIDS,Banana Shk Kds,99,16,176,31,36
+85,STRAWB SHKE KIDS,Strawb Shk Kds,99,12,176,31,36
+86,VANILLA SHK KIDS,Vanila Shk ids,99,15,176,31,36
+87,COFFEE     165,Coffee,11,33,176,31,36
+90,CHICKEN BACN CHS,Chkn Bacn Chs,2,7,176,31,36
+91,BOTTLED WATER,Bottled Water,10,16,176,31,36
+92,VEGGIE DE-LUXE,Veggie DeLuxe,3,2,176,31,36
+93,KIDS WATER,Kids Water,99,5,176,31,36
+94,CHICKEN WRAP,Chicken Wrap,2,2,176,31,36
+95,MOZARELA FINGERS,Mozarela Fingr,5,7,176,31,36
+97,XTR BEAN PATTY,Xtr Bean Patty,98,15,176,31,36
+99,CLASSIC COKE 500,Coke Bottle,10,14,176,31,36
+100,XTR BBQ,Xtr BBQ,98,6,176,31,36
+101,DIP 1000 ISLE,Dip 1000 Islnd,6,1,0,102,255
+102,ONION RINGS 12,Onion Rings 12,5,5,176,31,36
+104,DIP BLUECHEESE,Dip Blue Chese,6,3,176,31,36
+105,DBL 1000 ISL BGR,Dbl 1000 Burg,0,0,176,31,36
+107,XTR VGBACN,Xtr Veg Bacn,98,14,176,31,36
+108,PLATTER 2nd dip,Platter 2nd dp,0,0,176,31,36
+109,XTR 1000,Xtr 1000,98,5,176,31,36
+110,DIP NONE,Dip none,6,5,176,31,36
+111,XTR NONE,None,0,0,176,31,36
+113,DBL TEXAN BURGER,Dbl Texan Bgr,0,0,176,31,36
+115,CHICKN BBQ TEXAN,Chkn BBQ Texan,2,6,176,31,36
+118,KIDS  4  BITES  ,Kids4BiteMeal,4,3,176,31,36
+124,7UP LEMON 500m,7up Bottle,10,8,176,31,36
+125,TANGO ORANGE 500,Tango Bottle,10,9,176,31,36
+133,TEA         165,Tee,11,32,176,31,36
+136,CHILLI  tub,Chilli Tub,6,6,176,31,36
+138,DIET COKE 500ml,Diet Bottle,10,54,176,31,36
+146,TOFFEE SHAKE,Toffee Shake,10,21,176,31,36
+147,TOFFEE SK LARGE,Toffee Shk Lrg,10,26,176,31,36
+148,TOFFEE SHK KIDS,Toffee Shk Kid,99,14,176,31,36
+166,DELIVERY �2.50 ,Delivery  2.50,7,4,176,31,36
+171,TRPL CHEESEBRGR,Trp Cheesebgr,0,0,176,31,36
+172,TRPL ALLSTAR BRG,Trp Allstr Bgr,0,0,176,31,36
+173,TRPL BACON CHEES,Trp Bcn Cheese,0,0,176,31,36
+191,KIDS FRT-SH ORNG,Kid FSht Orng,99,6,176,31,36
+194,KID FRT-SH A-BLC,Kid F-Shot Blk,99,7,176,31,36
+195,KIDS CLASIC COKE,Kids Coke Can,99,1,176,31,36
+200,SUPER SHAKE OREO,Super Shk Oreo,10,36,176,31,36
+201,SUPER SHKE LOTUS,Supr Shk Lotus,10,37,176,31,36
+202,SUPER SHKE FLAKE,Supr Shk Flake,10,38,176,31,36
+207,SUPER MINT AERO,Super Shk Aero,10,39,176,31,36
