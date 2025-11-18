@@ -151,6 +151,10 @@
           <input id="crew-id" class="form-control form-control-lg py-3" style="font-size:1.15rem;" type="text" inputmode="numeric" placeholder="0" value="0" />
           <div id="crew-id-error" class="text-danger small mt-1 d-none">Crew ID is required</div>
         </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold" for="order-notes" style="font-size:1.1rem;">Notes</label>
+          <input id="order-notes" class="form-control form-control-lg py-3" style="font-size:1.05rem;" type="text" placeholder="Optional notes for this order" maxlength="1000" />
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-lg btn-outline-secondary px-4 py-2" data-bs-dismiss="modal">Cancel</button>
@@ -392,6 +396,7 @@
   let bandCoNumber = '';
   let isThirdPartyDelivery = false; // from selected channel
   let CHANNEL_ENTRIES = [];
+  let CURRENT_ACCEPT = { cash:true, card:true, onacc:true, voucher:true, crew_food:true, cooked_waste:true };
   // Expose superuser flag for conditional UI (embed as string to avoid JS parse issues in editors)
   const IS_SUPERUSER = "{% if user.is_superuser %}1{% else %}0{% endif %}" === '1';
   const HOT_DRINKS_GROUP_ID = 11;
@@ -411,10 +416,55 @@
     fetch('/api/channels')
       .then(r=>r.json())
       .then(data=>{
-        CHANNEL_ENTRIES = (data.channels||[]).map(c=>({ band:c.band, desc:c.name, code:c.channel_code, co:c.co_number, third: !!c.is_third_party_delivery }));
+        CHANNEL_ENTRIES = (data.channels||[]).map(c=>({
+          band: c.band,
+          desc: c.name,
+          code: c.channel_code,
+          co: c.co_number,
+          third: !!c.is_third_party_delivery,
+          accept: {
+            cash: !!c.accept_cash,
+            card: !!c.accept_card,
+            onacc: !!c.accept_onacc,
+            voucher: !!c.accept_voucher,
+            crew_food: !!c.accept_crew_food,
+            cooked_waste: !!c.accept_cooked_waste,
+          }
+        }));
         // Removed auto-open to avoid backdrop intercept issues; user/test will click the button.
       })
       .catch(()=>{});
+  }
+
+  function updatePayMethodButtons(){
+    const wrap = document.getElementById('pay-method-buttons');
+    if(!wrap) return;
+    const map = {
+      'Cash': 'cash',
+      'Card': 'card',
+      'On Account': 'onacc',
+      'Voucher': 'voucher',
+      'Crew Food': 'crew_food',
+      'Waste food': 'cooked_waste',
+    };
+    const btns = Array.from(wrap.querySelectorAll('.pay-method-btn'));
+    let firstAllowed = null;
+    btns.forEach(btn=>{
+      const method = btn.getAttribute('data-pay-method');
+      const key = map[method] || '';
+      const allowed = key ? !!CURRENT_ACCEPT[key] : true;
+      if(allowed && !firstAllowed) firstAllowed = btn;
+      // Hide if not allowed
+      btn.classList.toggle('d-none', !allowed);
+      btn.disabled = !allowed;
+    });
+    // Ensure an allowed one is active
+    const active = wrap.querySelector('.pay-method-btn.active');
+    const activeAllowed = active && !active.classList.contains('d-none') && !active.disabled;
+    if(!activeAllowed){
+      btns.forEach(b=> b.classList.remove('active'));
+      if(firstAllowed){ firstAllowed.classList.add('active'); }
+    }
   }
 
   function applyChannelSelection(band, co, desc, fetch=true, code){
@@ -426,6 +476,13 @@
     // resolve third-party flag
     const match = CHANNEL_ENTRIES.find(c=> (code? c.code===code : (c.band==band && c.co===co && c.desc===desc)) );
     isThirdPartyDelivery = !!(match && match.third);
+    // capture accept flags and refresh payment methods UI
+    if(match && match.accept){
+      CURRENT_ACCEPT = { ...match.accept };
+    } else {
+      CURRENT_ACCEPT = { cash:true, card:true, onacc:true, voucher:true, crew_food:true, cooked_waste:true };
+    }
+    updatePayMethodButtons();
     // pre-fetch hot drink codes for filtering (used in meal config and possibly categories)
     const done = prefetchHotDrinkCodes();
     activeCategoryId = null;
@@ -937,6 +994,7 @@
   const activePayBtn = document.querySelector('#pay-method-buttons .pay-method-btn.active');
   const payMethod = activePayBtn ? activePayBtn.getAttribute('data-pay-method') : 'Cash';
     const crewId = (document.getElementById('crew-id').value||'').trim();
+    const notesVal = (document.getElementById('order-notes')?.value||'').trim();
     if(crewId===''){
       document.getElementById('crew-id-error').classList.remove('d-none');
       return;
@@ -952,12 +1010,12 @@
         okBtn.onclick = ()=>{
           // proceed to submit order with Cash
           cashModal.hide();
-          submitOrder({ payment_method: 'Cash', crew_id: crewId });
+          submitOrder({ payment_method: 'Cash', crew_id: crewId, notes: notesVal });
         };
       }
     } else {
       checkoutModal.hide();
-      submitOrder({ payment_method: payMethod, crew_id: crewId });
+      submitOrder({ payment_method: payMethod, crew_id: crewId, notes: notesVal });
     }
   });
 
@@ -1977,7 +2035,7 @@
       checkoutBtn.disabled=false; checkoutBtn.textContent='Checkout';
       return;
     }
-  const payload = { price_band: currentBand, band_co_number: bandCoNumber, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', lines: apiLines };
+  const payload = { price_band: currentBand, band_co_number: bandCoNumber, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', notes: (extra?.notes||'').slice(0,1000), lines: apiLines };
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
       .then(resp=>{

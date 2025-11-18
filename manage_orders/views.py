@@ -92,9 +92,11 @@ def api_channel_mappings(request: HttpRequest):
             channel_code <- SUPPLIER_CODE
             co_number <- PARENT_ID (coerced to string)
             is_third_party_delivery <- NOT of (HOT_DRINK)
+        accept flags <- ACCEPT_* booleans on PriceBand
 
         Response:
-            { "channels": [ { id, name, band, channel_code, co_number, is_third_party_delivery }, ... ] }
+        { "channels": [ { id, name, band, channel_code, co_number, is_third_party_delivery,
+                   accept_cash, accept_card, accept_onacc, accept_voucher, accept_crew_food, accept_cooked_waste }, ... ] }
         """
         rows = PriceBand.objects.filter(APPLY_HERE=True).order_by('SEQ_ORDER', 'SUPPLIER_NAME')
         data = []
@@ -106,6 +108,12 @@ def api_channel_mappings(request: HttpRequest):
                         'channel_code': r.SUPPLIER_CODE,
                         'co_number': str(r.PARENT_ID) if r.PARENT_ID is not None else '',
                         'is_third_party_delivery': not bool(r.HOT_DRINK),
+            'accept_cash': bool(getattr(r, 'ACCEPT_CASH', False)),
+            'accept_card': bool(getattr(r, 'ACCEPT_CARD', False)),
+            'accept_onacc': bool(getattr(r, 'ACCEPT_ONACC', False)),
+            'accept_voucher': bool(getattr(r, 'ACCEPT_VOUCHER', False)),
+            'accept_crew_food': bool(getattr(r, 'ACCEPT_CREW_FOOD', False)),
+            'accept_cooked_waste': bool(getattr(r, 'ACCEPT_COOKED_WASTE', False)),
                 })
         return JsonResponse({'channels': data})
 
@@ -935,6 +943,8 @@ def api_submit_order(request: HttpRequest):
     crew_id = str(payload.get('crew_id') or '0').strip()
     if crew_id == '':
         return JsonResponse({'error': 'Crew ID is required'}, status=400)
+    # Optional order notes (limited length)
+    notes = (payload.get('notes') or '').strip()
     if not isinstance(lines, list) or not lines:
         return JsonResponse({'error': 'No lines supplied'}, status=400)
     from .models import Order, OrderLine
@@ -982,6 +992,7 @@ def api_submit_order(request: HttpRequest):
             payment_method=payment_method,
             crew_id=crew_id,
             band_co_number=band_co_number,
+            notes=notes[:1000]
         )
         for ln in lines:
             try:
