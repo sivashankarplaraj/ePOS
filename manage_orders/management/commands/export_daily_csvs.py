@@ -32,17 +32,17 @@ class Command(BaseCommand):
 
         # MP: include ALL products available (from PdItem), even if zero sales; join counts from KMeal when present
         with open(outdir / mp_name, 'w', newline='', encoding='utf-8') as f:
-            f.write('PRODNUMB,TAKEAWAY,EATIN\n')
+            f.write('PRODNUMB,TAKEAWAY,EATIN\r\n')
             # Cache meal counts for fast lookup
             meal_map = {m['PRODNUMB']:(m['TAKEAWAY'], m['EATIN']) for m in KMeal.objects.filter(stat_date=export_date).values('PRODNUMB','TAKEAWAY','EATIN')}
             for prod in PdItem.objects.all().only('PRODNUMB').order_by('PRODNUMB'):
                 tw, ei = meal_map.get(prod.PRODNUMB, (0,0))
-                f.write(f"{prod.PRODNUMB},{tw},{ei}\n")
+                f.write(f"{prod.PRODNUMB},{tw},{ei}\r\n")
 
         # PD: include ALL products (PdItem) and ALL combos (CombTb) – even with zero sales.
         # Join any existing KPro counts for the date.
         with open(outdir / pd_name, 'w', newline='', encoding='utf-8') as f:
-            f.write('PRODNUMB,COMBO,TAKEAWAY,EATIN,WASTE,STAFF,OPTION\n')
+            f.write('PRODNUMB,COMBO,TAKEAWAY,EATIN,WASTE,STAFF,OPTION\r\n')
             kpro_rows = {
                 (r['PRODNUMB'], bool(r['COMBO'])): (
                     r['TAKEAWAY'], r['EATIN'], r['WASTE'], r['STAFF'], r['OPTION']
@@ -54,32 +54,32 @@ class Command(BaseCommand):
             # Products first (COMBO=FALSE) ordered by PRODNUMB
             for prod in PdItem.objects.all().only('PRODNUMB').order_by('PRODNUMB'):
                 tw, ei, wa, st, op = kpro_rows.get((prod.PRODNUMB, False), (0,0,0,0,0))
-                f.write(f"{prod.PRODNUMB},FALSE,{tw},{ei},{wa},{st},{op}\n")
+                f.write(f"{prod.PRODNUMB},FALSE,{tw},{ei},{wa},{st},{op}\r\n")
             # Then combos (COMBO=TRUE) ordered by COMBONUMB
             for combo in CombTb.objects.all().only('COMBONUMB').order_by('COMBONUMB'):
                 tw, ei, wa, st, op = kpro_rows.get((combo.COMBONUMB, True), (0,0,0,0,0))
-                f.write(f"{combo.COMBONUMB},TRUE,{tw},{ei},{wa},{st},{op}\n")
+                f.write(f"{combo.COMBONUMB},TRUE,{tw},{ei},{wa},{st},{op}\r\n")
 
         with open(outdir / rv_name, 'w', newline='', encoding='utf-8') as f:
-            f.write('TCASHVAL,TCHQVAL,TCARDVAL,TONACCOUNT,TSTAFFVAL,TWASTEVAL,TCOUPVAL,TPAYOUTVA,TTOKENVAL,TDISCNTVA,TTOKENNOVR,TGOLARGENU,TMEAL_DISCNT,ACTCASH,ACTCHQ,ACTCARD,VAT,XPV\n')
+            f.write('TCASHVAL,TCHQVAL,TCARDVAL,TONACCOUNT,TSTAFFVAL,TWASTEVAL,TCOUPVAL,TPAYOUTVA,TTOKENVAL,TDISCNTVA,TTOKENNOVR,TGOLARGENU,TMEAL_DISCNT,ACTCASH,ACTCHQ,ACTCARD,VAT,XPV\r\n')
             row = KRev.objects.filter(stat_date=export_date).values('TCASHVAL','TCHQVAL','TCARDVAL','TONACCOUNT','TSTAFFVAL','TWASTEVAL','TCOUPVAL','TPAYOUTVA','TTOKENVAL','TDISCNTVA','TTOKENNOVR','TGOLARGENU','TMEAL_DISCNT','ACTCASH','ACTCHQ','ACTCARD','VAT','XPV').first() or {}
             keys = ['TCASHVAL','TCHQVAL','TCARDVAL','TONACCOUNT','TSTAFFVAL','TWASTEVAL','TCOUPVAL','TPAYOUTVA','TTOKENVAL','TDISCNTVA','TTOKENNOVR','TGOLARGENU','TMEAL_DISCNT','ACTCASH','ACTCHQ','ACTCARD','VAT','XPV']
             f.write(','.join(str(row.get(k, 0)) for k in keys))
-            f.write('\n')
+            f.write('\r\n')
 
         # Write K_WK_VAT.csv snapshot for all VAT classes
         kwk_name = "K_WK_VAT.csv"
         with open(outdir / kwk_name, 'w', newline='', encoding='utf-8') as f:
             header = ['VAT_CLASS','VAT_RATE','TOT_VAT_1','TOT_VAT_2','TOT_VAT_3','TOT_VAT_4','TOT_VAT_5','TOT_VAT_6','TOT_VAT_7',
                       'T_VAL_EXCLVAT_1','T_VAL_EXCLVAT_2','T_VAL_EXCLVAT_3','T_VAL_EXCLVAT_4','T_VAL_EXCLVAT_5','T_VAL_EXCLVAT_6','T_VAL_EXCLVAT_7']
-            f.write(','.join(header) + '\n')
+            f.write(','.join(header) + '\r\n')
             for row in KWkVat.objects.all().order_by('VAT_CLASS').values():
                 vals = [
                     row.get('VAT_CLASS', 0), row.get('VAT_RATE', 0),
                     row.get('TOT_VAT_1', 0.0), row.get('TOT_VAT_2', 0.0), row.get('TOT_VAT_3', 0.0), row.get('TOT_VAT_4', 0.0), row.get('TOT_VAT_5', 0.0), row.get('TOT_VAT_6', 0.0), row.get('TOT_VAT_7', 0.0),
                     row.get('T_VAL_EXCLVAT_1', 0.0), row.get('T_VAL_EXCLVAT_2', 0.0), row.get('T_VAL_EXCLVAT_3', 0.0), row.get('T_VAL_EXCLVAT_4', 0.0), row.get('T_VAL_EXCLVAT_5', 0.0), row.get('T_VAL_EXCLVAT_6', 0.0), row.get('T_VAL_EXCLVAT_7', 0.0),
                 ]
-                f.write(','.join(str(v) for v in vals) + '\n')
+                f.write(','.join(str(v) for v in vals) + '\r\n')
 
         self.stdout.write(self.style.SUCCESS(f"Built stats and exported {mp_name}, {pd_name}, {rv_name}, K_WK_VAT.csv to {outdir}"))
 
