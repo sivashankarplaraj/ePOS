@@ -11,21 +11,63 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+import dotenv
+import ast
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+"""Base directory of the project (repository root)."""
 
+# Explicitly load .env from project root. Use override=True so environment variables
+# in the running process (e.g. set by hosting platform) can still supersede if desired.
+dotenv.load_dotenv(BASE_DIR / '.env', override=True)
+
+def env_bool(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable in a tolerant way.
+
+    Accepts truthy: 1, true, yes, on (case-insensitive). Everything else is False.
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {'1','true','yes','on'}
+
+def env_list(name: str, default=None):
+    """Parse a list environment variable.
+
+    Supports either a comma-separated string (a,b,c) or a Python list literal (['a','b']).
+    Returns list[str].
+    """
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == '':
+        return default if default is not None else []
+    txt = raw.strip()
+    if txt.startswith('[') and txt.endswith(']'):
+        try:
+            parsed = ast.literal_eval(txt)
+            if isinstance(parsed, (list, tuple)):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            # fall back to comma parsing
+            pass
+    return [p.strip() for p in txt.split(',') if p.strip()]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=k3t$)r0d6ecp)-2sp))0rkn*ko2ftwm4)4h-vj&26&h^r20(4'
+SECRET_KEY = os.getenv('SECRET_KEY') or 'INSECURE-CHANGE-ME'
+    
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DEBUG', False)
 
-ALLOWED_HOSTS = ['*'] # allow all hosts for development, change in production
+raw_hosts_default = ['127.0.0.1','localhost']
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', default=raw_hosts_default)
+if DEBUG:
+    # During local development or explicit DEBUG, allow all hosts
+    ALLOWED_HOSTS = ['*']
 
 # CSRF trusted origins (update with your deployed domain)
 CSRF_TRUSTED_ORIGINS = [
