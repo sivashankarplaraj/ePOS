@@ -21,9 +21,17 @@
               <div class="row align-items-center mb-2">
                 <div class="col">{{ d.name }} (£{{ d.value }})</div>
                 <div class="col-auto">
-                  <input type="number" class="form-control denom-input" min="0" name="denom_{{ d.pk }}" value="0"
-                    data-value="{{ d.value }}"
-                    data-value-pence="{{ d.value|floatformat:2|cut:'.' }}">
+                  <div class="input-group">
+                    <span class="input-group-text">£</span>
+                    <input type="number" step="0.01" class="form-control denom-amount-input" min="0" value="0"
+                      id="denom_amount_{{ d.pk }}"
+                      data-value="{{ d.value }}"
+                      data-value-pence="{{ d.value|floatformat:2|cut:'.' }}"
+                      aria-describedby="denom_help_{{ d.pk }}">
+                  </div>
+                  <!-- Hidden original count field preserved for backend -->
+                  <input type="hidden" name="denom_{{ d.pk }}" id="denom_count_{{ d.pk }}" value="0">
+                  <small id="denom_help_{{ d.pk }}" class="text-muted">Count: <span class="denom-count" data-denom="{{ d.pk }}">0</span></small>
                 </div>
               </div>
             {% empty %}
@@ -49,18 +57,42 @@
   function money(pence){ return '£' + (pence/100).toFixed(2); }
   function recalc(){
     let actualP = 0;
-    document.querySelectorAll('.denom-input').forEach(inp=>{
-      const count = parseInt(inp.value||'0',10) || 0;
+    document.querySelectorAll('.denom-amount-input').forEach(inp=>{
       const pv = inp.getAttribute('data-value-pence');
-      let pence = 0;
+      let denomP = 0;
       if(pv !== null && pv !== ''){
-        pence = parseInt(pv, 10) || 0;
+        denomP = parseInt(pv, 10) || 0;
       } else {
         const valStr = inp.getAttribute('data-value');
         const val = parseFloat(valStr);
-        pence = Math.round((isNaN(val)?0:val)*100);
+        denomP = Math.round((isNaN(val)?0:val)*100);
       }
-      actualP += (count * pence);
+      const amountEnteredP = parsePoundsToPence(inp.value);
+      actualP += amountEnteredP;
+      // Compute count
+      let countDisplay = '0';
+      let isValid = true;
+      if(denomP > 0){
+        if(amountEnteredP === 0){
+          countDisplay = '0';
+        } else if(amountEnteredP % denomP === 0){
+          countDisplay = String(amountEnteredP / denomP);
+        } else {
+          // Non-integer number of notes/coins
+          const rawCount = amountEnteredP / denomP;
+          countDisplay = rawCount.toFixed(2);
+          isValid = false;
+        }
+      }
+      const denomId = inp.id.replace('denom_amount_','');
+      const countSpan = document.querySelector('.denom-count[data-denom="'+denomId+'"]');
+      if(countSpan) countSpan.textContent = countDisplay;
+      const hiddenCount = document.getElementById('denom_count_'+denomId);
+      if(hiddenCount){
+        // Store integer rounded count (floor) to backend; if invalid keep floor
+        hiddenCount.value = denomP>0 ? Math.floor(amountEnteredP/denomP) : 0;
+      }
+      inp.classList.toggle('is-invalid', !isValid);
     });
     const expectedInp = document.getElementById('id_expected_amount');
     const expectedP = expectedInp ? parsePoundsToPence(expectedInp.value) : 0;
@@ -71,7 +103,7 @@
     if(dEl) dEl.textContent = money(diffP);
   }
   document.addEventListener('input', (e)=>{
-    if(e.target.matches('.denom-input') || e.target.id==='id_expected_amount') recalc();
+    if(e.target.matches('.denom-amount-input') || e.target.id==='id_expected_amount') recalc();
   });
   recalc();
 })();
