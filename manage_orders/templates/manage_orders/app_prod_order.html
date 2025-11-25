@@ -389,7 +389,7 @@
     basketOffcanvasEl.addEventListener('show.bs.offcanvas', ()=>{ if(basketFab) basketFab.classList.add('d-none'); });
     basketOffcanvasEl.addEventListener('hidden.bs.offcanvas', ()=>{ if(basketFab) basketFab.classList.remove('d-none'); });
   }
-  let currentBand = '1';
+  let currentBand = '';
   let currentChannelName = '';
   let vatBasis = 'take'; // default
   let showNet = false;
@@ -431,6 +431,11 @@
             cooked_waste: !!c.accept_cooked_waste,
           }
         }));
+        // Auto-select the first channel in SEQ_ORDER sequence as default if nothing chosen yet
+        if(!currentBand && CHANNEL_ENTRIES.length){
+          const first = CHANNEL_ENTRIES[0];
+          applyChannelSelection(String(first.band), first.co, first.desc, true, first.code);
+        }
         // Removed auto-open to avoid backdrop intercept issues; user/test will click the button.
       })
       .catch(()=>{});
@@ -1862,15 +1867,13 @@
     }
     const body = modalEl.querySelector('#band-channel-body');
     if(body){
-      const grouped = CHANNEL_ENTRIES.reduce((acc,e)=>{ (acc[e.band]=acc[e.band]||[]).push(e); return acc; },{});
-      const bands = Object.keys(grouped).map(n=>parseInt(n,10)).sort((a,b)=>a-b);
-      body.innerHTML = bands.map(b=>{
-        const rows = grouped[b].map(e=>`<button type='button' class='list-group-item list-group-item-action d-flex justify-content-between align-items-center' data-channel-band='${e.band}' data-channel-co='${e.co}' data-channel-code='${e.code}'>
-          <span class='text-start'><strong>${e.desc}</strong><br><small class='text-muted'>Code: ${e.code} / CO: ${e.co}</small></span>
+      // Flat list ordered as CHANNEL_ENTRIES is loaded (already SEQ_ORDER from backend), no grouping by band
+      body.innerHTML = `<div class='list-group'>` + CHANNEL_ENTRIES.map(e=>`
+        <button type='button' class='list-group-item list-group-item-action d-flex justify-content-between align-items-center' data-channel-band='${e.band}' data-channel-co='${e.co}' data-channel-code='${e.code}'>
+          <span class='text-start'><strong>${e.desc}</strong><br><small class='text-muted'>Code: ${e.code} / CO: ${e.co} / Band: ${e.band}</small></span>
           <span class='badge bg-primary'>Band ${e.band}</span>
-        </button>`).join('');
-        return `<div class='mb-4'><h6 class='fw-bold'>Band ${b}</h6><div class='list-group'>${rows}</div></div>`;
-      }).join('');
+        </button>`).join('') + `
+      </div>`;
       // Attach direct click handlers to channel buttons (force bubbling delegation reliability)
       body.querySelectorAll('[data-channel-band]').forEach(btnEl=>{
         btnEl.addEventListener('click', channelSelectHandler);
