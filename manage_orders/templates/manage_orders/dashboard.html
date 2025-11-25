@@ -155,6 +155,7 @@
             ${linesHtml}
           </ul>
         </div>
+        ${o.notes ? `<div class='small text-muted fst-italic mb-2'>Note: ${o.notes}</div>` : ''}
         <div class='mt-auto d-flex justify-content-between align-items-center'>
           <div class='fw-bold fs-5'>${money(o.total_gross)}</div>
           <div class='small text-muted text-uppercase fw-semibold'>${o.status}</div>
