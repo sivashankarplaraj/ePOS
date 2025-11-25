@@ -688,7 +688,7 @@
       card.style.cursor = 'pointer';
   const basePrice = priceForDisplay(prod);
   const isKids = (prod.meal_type === 'kids');
-  const priceHtml = `<span class='fs-5 fw-bold'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
+  const priceHtml = `<span class='text-muted small'>${money(basePrice)}</span>${showNet? ' <span class=\"text-muted small\">ex VAT</span>':''}`;
     const codeHtml = IS_SUPERUSER ? ` <span class='text-muted small'>#${prod.code}</span>` : '';
   const mealLabel = isKids ? 'Kids Meal' : 'Meal';
   const mealBadge = prod.meal_flag ? ` <span class='badge bg-info text-dark'>${mealLabel}</span>` : '';
@@ -700,7 +700,7 @@
           return `<span class='badge text-bg-light' role='button' data-var='${v.code}' data-parent='${prod.code}' data-item-type='product' title='${v.label}'>${v.label}: ${money(v.price_gross)}</span>`; }).join('') + `</div>`;
       }
       card.innerHTML = `<div class=\"card-body d-flex flex-column\">        
-        <h6 class=\"card-title text-truncate\" title=\"${prod.name}\">${prod.name}${mealBadge}</h6>
+        <h6 class=\"card-title fs-5 fw-bold text-truncate\" title=\"${prod.name}\">${prod.name}${mealBadge}</h6>
   <div class=\"price-line fw-semibold mb-1\">${priceHtml}${discountHtml}${codeHtml}</div>
         ${variantsHtml}
         <div class=\"mt-auto\"></div>
