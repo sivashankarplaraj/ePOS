@@ -487,6 +487,10 @@
     } else {
       CURRENT_ACCEPT = { cash:true, card:true, onacc:true, voucher:true, crew_food:true, cooked_waste:true };
     }
+    // Whenever the channel/price band changes, clear the current basket to avoid cross-channel carry-over
+    basket.lines = [];
+    lastProductSignature = null;
+    renderBasket();
     updatePayMethodButtons();
     // pre-fetch hot drink codes for filtering (used in meal config and possibly categories)
     const done = prefetchHotDrinkCodes();
