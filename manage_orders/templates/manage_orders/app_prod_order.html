@@ -475,9 +475,9 @@
   function applyChannelSelection(band, co, desc, fetch=true, code){
     currentBand = String(band);
     currentChannelName = desc || '';
-    bandCoNumber = co || '';
+    bandCoNumber = desc || '';  // Store SUPPLIER_NAME (desc) instead of PARENT_ID (co)
     const badge = document.getElementById('band-channel-active');
-    if(badge){ badge.textContent = `${desc} (${bandCoNumber})`; badge.classList.remove('d-none'); }
+    if(badge){ badge.textContent = `${desc} (${co})`; badge.classList.remove('d-none'); }
     // resolve third-party flag
     const match = CHANNEL_ENTRIES.find(c=> (code? c.code===code : (c.band==band && c.co===co && c.desc===desc)) );
     isThirdPartyDelivery = !!(match && match.third);

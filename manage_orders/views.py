@@ -917,23 +917,16 @@ def api_submit_order(request: HttpRequest):
     band = str(payload.get('price_band'))
     if band not in {'1','2','3','4','5','6'}:
         return JsonResponse({'error': 'Invalid price_band'}, status=400)
-    band_co_number = (payload.get('band_co_number') or '').strip().upper()[:4]
-    # Lightweight validation: allow empty or must match one of known suffix codes in price band map keys (last token after final '-')
+    band_co_number = (payload.get('band_co_number') or '').strip()[:30]
+    # Lightweight validation: allow empty or must match one of known SUPPLIER_NAMEs from active PriceBand rows
     if band_co_number:
-        allowed_codes = set()
-        # Legacy static mapping tokens
-        for k in _price_band_map().keys():
-            parts = k.rsplit('-', 2)
-            if len(parts) >= 2:
-                token = parts[-2]
-                if 0 < len(token) <= 4:
-                    allowed_codes.add(token.upper())
-        # Dynamic codes from PriceBand (APPLY_HERE only)
-        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('PARENT_ID'):
-            if pb.PARENT_ID is not None:
-                allowed_codes.add(str(pb.PARENT_ID).upper())
-        if band_co_number.upper() not in allowed_codes:
-            return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
+        allowed_names = set()
+        # Dynamic names from PriceBand (APPLY_HERE only)
+        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('SUPPLIER_NAME'):
+            if pb.SUPPLIER_NAME:
+                allowed_names.add(pb.SUPPLIER_NAME.strip())
+        if band_co_number not in allowed_names:
+            return JsonResponse({'error': 'Invalid band_co_number (supplier name)'}, status=400)
     vat_basis = payload.get('vat_basis')
     if vat_basis not in {'take','eat'}:
         return JsonResponse({'error': 'Invalid vat_basis'}, status=400)
@@ -1272,7 +1265,7 @@ def api_paid_out(request: HttpRequest):
     """Record a cash Paid Out event as an Order with no lines.
 
     Expected JSON body:
-      { "price_band":"1"|"5", "band_co_number": "SO|JE|...", "amount_pence": 1234, "notes": "..." }
+      { "price_band":"1"|"5", "band_co_number": "<SUPPLIER_NAME>", "amount_pence": 1234, "notes": "..." }
 
             Server behavior:
                 - Creates an Order with created_at/packed_at/completed_at = now, status = dispatched
@@ -1281,7 +1274,7 @@ def api_paid_out(request: HttpRequest):
                 - total_gross = amount_pence (cash leaving till)
                 - total_net = 0
                 - price_band must be '1' or '5'
-                - band_co_number validated against allowed suffix tokens and active PriceBand.PARENT_IDs
+                - band_co_number validated against active PriceBand.SUPPLIER_NAMEs
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
@@ -1290,21 +1283,15 @@ def api_paid_out(request: HttpRequest):
     band = str(payload.get('price_band'))
     if band not in {'1','5'}:
         return JsonResponse({'error': 'Paid Out allowed only for Standard bands 1 or 5'}, status=400)
-    band_co_number = (payload.get('band_co_number') or '').strip().upper()[:4]
-    # Validate band CO using same rules as api_submit_order
+    band_co_number = (payload.get('band_co_number') or '').strip()[:30]
+    # Validate band CO using SUPPLIER_NAME from active PriceBand rows
     if band_co_number:
-        allowed_codes = set()
-        for k in _price_band_map().keys():
-            parts = k.rsplit('-', 2)
-            if len(parts) >= 2:
-                token = parts[-2]
-                if 0 < len(token) <= 4:
-                    allowed_codes.add(token.upper())
-        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('PARENT_ID'):
-            if pb.PARENT_ID is not None:
-                allowed_codes.add(str(pb.PARENT_ID).upper())
-        if band_co_number.upper() not in allowed_codes:
-            return JsonResponse({'error': 'Invalid band_co_number'}, status=400)
+        allowed_names = set()
+        for pb in PriceBand.objects.filter(APPLY_HERE=True).only('SUPPLIER_NAME'):
+            if pb.SUPPLIER_NAME:
+                allowed_names.add(pb.SUPPLIER_NAME.strip())
+        if band_co_number not in allowed_names:
+            return JsonResponse({'error': 'Invalid band_co_number (supplier name)'}, status=400)
     try:
         amount_pence = int(payload.get('amount_pence'))
     except Exception:
