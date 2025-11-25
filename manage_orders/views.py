@@ -1096,6 +1096,7 @@ def api_orders_pending(request: HttpRequest):
             'age_seconds': int((timezone.now()-o.created_at).total_seconds()),
             'status': o.status,
             'payment_method': o.payment_method,
+            'band_co_number': o.band_co_number,
             'crew_id': o.crew_id,
             'total_gross': o.total_gross,
             'lines': [
