@@ -71,7 +71,7 @@
 				tbody.innerHTML='';
 				if(!filtered.length){ tbody.innerHTML = `<tr><td colspan="7" class="text-muted">No pending orders.</td></tr>`; return; }
 				filtered.forEach(o=>{
-					const noteHtml = o.notes ? `<div class='small text-muted mt-1'>${o.notes}</div>` : '';
+					const noteHtml = o.notes ? `<div class='fs-6 mt-1'>${o.notes}</div>` : '';
 					const linesHtml = (o.lines||[]).map(l=>{
 						const variantHtml = l.variant ? ` <span class='badge bg-secondary'>${l.variant}</span>` : '';
 						const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
