@@ -1113,7 +1113,8 @@ def api_orders_pending(request: HttpRequest):
                     'meal': l.is_meal,
                     'meta': l.meta
                 } for l in o.lines.all()
-            ]
+            ],
+            'notes': o.notes
         })
     return JsonResponse({'orders': orders})
 

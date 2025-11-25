@@ -25,6 +25,7 @@
 							<th style="width:10%">Order</th>
 							<th style="width:10%">Age</th>
 							<th>Items</th>
+							<th>Notes</th>
 						</tr>
 					</thead>
 					<tbody id="orders-body"></tbody>
@@ -64,11 +65,13 @@
 					if(!q) return true;
 					const idStr=String(o.id);
 					const items=(o.lines||[]).map(l=>`${l.name} ${l.variant||''}`).join(' ').toLowerCase();
-					return idStr.includes(q) || items.includes(q);
+					const note=((o.notes||'')+'' ).toLowerCase();
+					return idStr.includes(q) || items.includes(q) || note.includes(q);
 				});
 				tbody.innerHTML='';
 				if(!filtered.length){ tbody.innerHTML = `<tr><td colspan="7" class="text-muted">No pending orders.</td></tr>`; return; }
 				filtered.forEach(o=>{
+					const noteHtml = o.notes ? `<div class='small text-muted mt-1'>${o.notes}</div>` : '';
 					const linesHtml = (o.lines||[]).map(l=>{
 						const variantHtml = l.variant ? ` <span class='badge bg-secondary'>${l.variant}</span>` : '';
 						const mealHtml = l.meal ? ` <span class='badge bg-info text-dark'>Meal</span>` : '';
@@ -78,7 +81,8 @@
 					tr.innerHTML = `
 						<td class="fw-semibold">#${o.id}</td>
 						<td><span class='badge ${o.status==='packed'?'text-bg-warning':'bg-danger'} fw-semibold' data-timer='${o.id}' data-age='${o.age_seconds||0}'>--:--</span></td>
-						<td>${linesHtml}</td>`;
+						<td>${linesHtml}</td>
+						<td>${noteHtml}</td>`;
 					tbody.appendChild(tr);
 				});
 				startTimers();
