@@ -218,10 +218,21 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                         add_counts(key_comp, line.qty)
             if line.item_type == 'product':
                 meta = line.meta or {}
-                # Deprecated: OPTION column increments (option_code/options/free_choices) are not recorded in PD.
-                # As per current testing.md, both free choices and extra add-ons must be counted as product sales in the
-                # appropriate TAKEAWAY/EATIN/STAFF/WASTE columns, and OPTION should not be incremented.
-                # Therefore, we deliberately do not update any 'OPTION' counters here.
+                # Product-level free choices: increment OPTION count for each selected free choice code.
+                # This records sauces/relishes (e.g., Xtr Mayo) in PD OPTION column against their own product codes.
+                free_list = meta.get('free_choices') or []
+                if isinstance(free_list, list) and free_list:
+                    for fc in free_list:
+                        try:
+                            opt_code = int(fc)
+                        except Exception:
+                            opt_code = None
+                        if not opt_code:
+                            continue
+                        key_opt = (opt_code, False)
+                        if key_opt not in kpro_counts:
+                            kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        kpro_counts[key_opt]['OPTION'] += int(line.qty or 1)
                 # Extras attached as separate priced products should increment basis counts (not OPTION)
                 extras = meta.get('extras_products') or []
                 if isinstance(extras, list) and extras:
