@@ -1178,6 +1178,7 @@ def api_orders_completed(request: HttpRequest):
             'completed_at': o.completed_at.isoformat() if o.completed_at else None,
             'total_gross': o.total_gross,
             'payment_method': o.payment_method,
+            'band_co_number': o.band_co_number,
             'crew_id': o.crew_id,
             'lines': [
                 {
