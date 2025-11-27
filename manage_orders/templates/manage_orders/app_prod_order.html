@@ -457,9 +457,10 @@
     btns.forEach(btn=>{
       const method = btn.getAttribute('data-pay-method');
       const key = map[method] || '';
-      // Business rule: Crew Food and Waste food are not selectable in checkout payment methods
-      const alwaysBlocked = (key === 'crew_food' || key === 'cooked_waste');
-      const allowed = key ? (!alwaysBlocked && !!CURRENT_ACCEPT[key]) : true;
+      // Business rule: Crew Food and Waste food are selectable ONLY for Eat-in; block for Takeaway
+      const restricted = (key === 'crew_food' || key === 'cooked_waste');
+      const blockedByBasis = (vatBasis === 'take') && restricted;
+      const allowed = key ? (!blockedByBasis && !!CURRENT_ACCEPT[key]) : true;
       if(allowed && !firstAllowed) firstAllowed = btn;
       // Hide if not allowed
       btn.classList.toggle('d-none', !allowed);
@@ -991,7 +992,14 @@
     const firstKey = document.querySelector('[data-cash-key="1"]'); if(firstKey){ try{ firstKey.focus({preventScroll:true}); }catch(e){} }
     // attach one-time handlers (delegated)
   }
-  checkoutBtn.addEventListener('click', ()=>{ if(!basket.lines.length) return; ensureCheckoutModal(); document.getElementById('crew-id-error').classList.add('d-none'); checkoutModal.show(); });
+  checkoutBtn.addEventListener('click', ()=>{
+    if(!basket.lines.length) return;
+    ensureCheckoutModal();
+    // Refresh payment methods to respect current basis (Eat-in vs Takeaway)
+    updatePayMethodButtons();
+    document.getElementById('crew-id-error').classList.add('d-none');
+    checkoutModal.show();
+  });
   // Payment method button group (touch friendly)
   document.addEventListener('click', (e)=>{
     const btn = e.target.closest('.pay-method-btn');
@@ -1048,8 +1056,27 @@
       return;
     }
     const back = e.target.closest('#cash-backspace'); if(back){ cashState.receivedPence = Math.floor((cashState.receivedPence||0)/10); updateCashUI(); return; }
-    const basisTake = e.target.closest('#cash-basis-take'); if(basisTake){ vatBasis='take'; setCashBasisButtons(); /* Optional: re-render prices */ renderProducts(); renderBasket(); return; }
-    const basisEat = e.target.closest('#cash-basis-eat'); if(basisEat){ vatBasis='eat'; setCashBasisButtons(); renderProducts(); renderBasket(); return; }
+    const basisTake = e.target.closest('#cash-basis-take');
+    if(basisTake){
+      vatBasis='take';
+      setCashBasisButtons();
+      /* Optional: re-render prices */
+      renderProducts();
+      renderBasket();
+      // Update payment methods availability for Takeaway
+      updatePayMethodButtons();
+      return;
+    }
+    const basisEat = e.target.closest('#cash-basis-eat');
+    if(basisEat){
+      vatBasis='eat';
+      setCashBasisButtons();
+      renderProducts();
+      renderBasket();
+      // Update payment methods availability for Eat-in
+      updatePayMethodButtons();
+      return;
+    }
   });
 
   itemsContainer.addEventListener('click', (e)=>{
