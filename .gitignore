@@ -2,4 +2,5 @@ django_env
 *.pyc
 *.DS_Store
 .tmp_exports/
+exports_tmp/
 
