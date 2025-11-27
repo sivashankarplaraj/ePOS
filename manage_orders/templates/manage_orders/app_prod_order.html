@@ -457,7 +457,9 @@
     btns.forEach(btn=>{
       const method = btn.getAttribute('data-pay-method');
       const key = map[method] || '';
-      const allowed = key ? !!CURRENT_ACCEPT[key] : true;
+      // Business rule: Crew Food and Waste food are not selectable in checkout payment methods
+      const alwaysBlocked = (key === 'crew_food' || key === 'cooked_waste');
+      const allowed = key ? (!alwaysBlocked && !!CURRENT_ACCEPT[key]) : true;
       if(allowed && !firstAllowed) firstAllowed = btn;
       // Hide if not allowed
       btn.classList.toggle('d-none', !allowed);
