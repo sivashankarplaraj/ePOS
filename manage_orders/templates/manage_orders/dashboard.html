@@ -140,7 +140,9 @@
           <div>
             <div class='fw-bold fs-5'>Order #${o.id}</div>
             <div class='text-muted small'>${new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-            <div class='mt-1'>${o.band_co_number ? `<span class='badge text-bg-light'>${o.band_co_number}</span>` : ''}${o.crew_id? ` <span class='badge text-bg-light'>Crew ${o.crew_id}</span>`:''}</div>
+            <div class='mt-1'>${o.band_co_number ? `<span class='badge text-bg-light'>${o.band_co_number}</span>` : ''}
+              ${o.payment_method ? ` <span class='badge text-bg-light'>${o.payment_method}</span>` : ''}
+              ${o.crew_id? ` <span class='badge text-bg-light'>Crew ${o.crew_id}</span>`:''}</div>
           </div>
           <div class='d-flex flex-column align-items-end gap-2'>
             <div class='badge ${o.status==='packed'?'text-bg-warning':'bg-danger'} fs-6 fw-semibold' data-timer='${o.id}' data-age='${o.age_seconds||0}'>--:--</div>
@@ -275,7 +277,7 @@
           <div class='text-muted small'>Created: ${created}</div>
       <div class='text-muted small'>Packed: ${packed}</div>
           <div class='text-muted small'>Completed: ${completed}</div>
-          <div class='mt-1 small text-muted'>${o.band_co_number || ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
+          <div class='mt-1 small text-muted'>${o.band_co_number || ''}${' • '+(o.payment_method || '')}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
         </div>
         <div class='fw-bold fs-5 text-nowrap'>${money(o.total_gross)}</div>
       </div>
