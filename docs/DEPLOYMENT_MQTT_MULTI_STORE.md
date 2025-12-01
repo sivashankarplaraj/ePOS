@@ -10,20 +10,20 @@ This document outlines how to deploy the Django ePOS across 15 locally hosted ki
 ## High‑level architecture
 
 ```mermaid
-flowchart LR
-  subgraph K[Kiosk (x15)]
-    K1[Local Django\nmanage_orders / update_till]
-    K2[(Local DB\nSQLite or Postgres)]
-    K3[MQTT Client\n(pub/sub, durable outbox)]
+graph LR
+  subgraph K [Kiosk (x15)]
+    K1[Local Django<br/>manage_orders / update_till]
+    K2[(Local DB<br/>SQLite or Postgres)]
+    K3[MQTT Client<br/>(pub/sub, durable outbox)]
     K1 <--> K2
     K1 <--> K3
   end
 
-  K3 -->|orders, daily summary, health| B[MQTT Broker\n(TLS, ACL)]
+  K3 -->|orders, daily summary, health| B[MQTT Broker<br/>(TLS, ACL)]
   B -->|catalog snapshots/deltas, commands, config| K3
 
-  B --> I[HO Ingestion/Aggregation\n(worker)]
-  I --> D[(HO DB\nPostgres)]
+  B --> I[HO Ingestion/Aggregation<br/>(worker)]
+  I --> D[(HO DB<br/>Postgres)]
   I --> C[Catalog Service]
   C -->|publish snapshots/deltas| B
   I --> A[HO Admin/Dashboard]
