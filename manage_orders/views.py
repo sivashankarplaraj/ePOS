@@ -153,6 +153,11 @@ def kitchen_monitor(request):
     """Simple kitchen monitor page (initial placeholder)."""
     return render(request, 'manage_orders/kitchen_monitor.html')
 
+@ensure_csrf_cookie
+def customer_basket(request):
+    """Customer-facing basket display that mirrors the POS basket in real time."""
+    return render(request, 'manage_orders/customer_basket.html')
+
 def _price_column_name(band: str, discounted: bool) -> str:
     """Return model field name for given band and discounted flag.
 

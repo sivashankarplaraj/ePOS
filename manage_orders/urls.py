@@ -11,6 +11,7 @@ urlpatterns = [
     path('manage_orders/app_prod_order/', views.app_prod_order, name='manage_orders_app_prod_order'),
     path('manage_orders/reports/', views.reports, name='manage_orders_reports'),
     path('manage_orders/kitchen/', views.kitchen_monitor, name='manage_orders_kitchen'),
+    path('manage_orders/customer_basket/', views.customer_basket, name='manage_orders_customer_basket'),
     # API: menu structure (categories + items) for a given price band
     path('api/menu', views.api_menu, name='mo_api_menu'),
     # Lightweight APIs to reduce payloads

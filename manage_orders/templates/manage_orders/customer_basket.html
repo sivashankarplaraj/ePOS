@@ -1,0 +1,102 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Customer Basket</title>
+		<link rel="stylesheet" type="text/css" href="{% static 'bootstrap-5.3.7-dist/css/bootstrap.min.css' %}">
+		<style>
+		  body{ font-size:1.15rem; }
+		  #basket-header-total{ font-weight:800; font-size:2rem; }
+		  .basket-item{ display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; padding:.75rem 0; border-bottom:1px dashed var(--bs-border-color); }
+		  .basket-item:last-child{ border-bottom:none; }
+		  .basket-name{ font-weight:600; }
+		  .basket-qty{ min-width:3.25rem; text-align:center; font-weight:700; }
+		  .basket-line-total{ font-weight:700; white-space:nowrap; }
+		  .basket-details{ color: var(--bs-secondary-color); font-size: .95rem; }
+		</style>
+	</head>
+	<body>
+		<div class="container-fluid px-3 py-3">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h1 class="h3 m-0">Your Basket</h1>
+				<div id="basket-header-total">£0.00</div>
+            </div>
+			<div id="empty-state" class="text-center text-muted py-5">No items yet</div>
+			<div id="items-list" class=""></div>
+		</div>
+		<script>
+		(function(){
+		  function money(p){ return '£' + ((p||0)/100).toFixed(2); }
+		  const headerTotal = document.getElementById('basket-header-total');
+		  const itemsList = document.getElementById('items-list');
+		  const emptyState = document.getElementById('empty-state');
+
+		  function render(state){
+		    try{
+		      const data = state || {};
+		      const items = Array.isArray(data.items) ? data.items : [];
+		      const total = Number.isFinite(data.total_pence) ? data.total_pence : 0;
+		      headerTotal.textContent = money(total);
+		      itemsList.innerHTML = '';
+		      if(!items.length){ emptyState.classList.remove('d-none'); return; }
+		      emptyState.classList.add('d-none');
+		      const frag = document.createDocumentFragment();
+		      items.forEach(it => {
+		        const line = document.createElement('div');
+		        line.className = 'basket-item';
+		        const qty = Number(it.qty||1);
+		        const per = Number(it.unit_price_pence||0) + Number(it.extra_pence||0);
+		        const lineTotal = qty * per;
+		        const details = Array.isArray(it.details) ? it.details : [];
+		        const mods = Array.isArray(it.modifiers) ? it.modifiers : [];
+		        const modsHtml = mods.length ? `<ul class="basket-details list-unstyled mb-0 mt-1">${mods.map(m=>{
+		          const cls = m.kind==='extra' ? 'text-success' : (m.kind==='remove' ? 'text-danger' : 'text-info');
+		          const priceAdj = m.kind==='extra' && m.price_pence ? ` (+${money(m.price_pence)})` : '';
+		          const label = m.kind==='remove' ? ('No ' + m.name.replace(/^No\s+/i,'')) : m.name;
+		          return `<li class='${cls}'>${label}${priceAdj}</li>`;
+		        }).join('')}</ul>` : '';
+		        const extrasBreakdown = (Number(it.extra_pence||0) > 0) ? `<div class='small text-muted'>${qty>1? qty+' × ' : ''}(${money(it.unit_price_pence||0)} + ${money(it.extra_pence||0)} extras${qty>1? ' each':''})</div>` : '';
+		        line.innerHTML = `
+		          <div class="basket-qty">x${qty}</div>
+		          <div class="flex-grow-1">
+		            <div class="basket-name">${(it.name||'').toString()}</div>
+		            ${details.length ? `<div class="basket-details">${details.map(d=>String(d)).join(', ')}</div>` : ''}
+		            ${modsHtml}
+		          </div>
+		          <div class="basket-line-total">${money(lineTotal)}${extrasBreakdown}</div>
+		        `;
+		        frag.appendChild(line);
+		      });
+		      itemsList.appendChild(frag);
+		    } catch(_e){ /* ignore render errors */ }
+		  }
+
+		  function readInitial(){
+		    try{
+		      const raw = localStorage.getItem('epos_basket_state');
+		      if(!raw){ render({items:[], total_pence:0}); return; }
+		      const parsed = JSON.parse(raw);
+		      render(parsed);
+		    } catch(_e){ render({items:[], total_pence:0}); }
+		  }
+
+		  // Update when cashier page writes to localStorage (fires across windows/tabs)
+		  window.addEventListener('storage', (e)=>{
+		    if(e && e.key === 'epos_basket_state'){
+		      try{ render(JSON.parse(e.newValue||'{}')); }catch(_){ /* ignore */ }
+		    }
+		  });
+
+		  // Fallback polling in case storage events are not delivered by kiosk/browser setup
+		  let lastTs = 0; setInterval(()=>{
+		    try{ const raw = localStorage.getItem('epos_basket_state'); if(!raw) return; const p = JSON.parse(raw); if(p && p.ts && p.ts !== lastTs){ lastTs = p.ts; render(p); } }catch(_){ }
+		  }, 1000);
+
+		  readInitial();
+		})();
+		</script>
+		<script src="{% static 'bootstrap-5.3.7-dist/js/bootstrap.bundle.min.js' %}"></script>
+    </body>
+</html>

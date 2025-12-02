@@ -851,6 +851,7 @@
           </div>
           <div class='text-end'>
             <div class='fw-semibold'>${money(lineDisplayPence)}</div>
+            ${extrasSum>0 ? `<div class='small text-muted'>${(l.qty||1)>1? (l.qty||1)+' × ' : ''}(${money(l.price)} + ${money(extrasSum)} extras${(l.qty||1)>1? ' each':''})</div>` : ''}
             <button class='btn btn-outline-danger mt-1 d-inline-flex align-items-center justify-content-center'
                     style='width:40px;height:40px;border-width:2px;'
                     data-del='${basket.lines.indexOf(l)}' title='Remove' aria-label='Remove item'>
@@ -866,6 +867,49 @@
   });
   basket.total = recomputedTotal;
   basketTotal.textContent = money(basket.total);
+    // Publish a lightweight snapshot for customer display pages (e.g., customer_basket.html)
+    try {
+      const itemsForMirror = displayLines.map(l=>{
+        const meta = l.meta || {};
+        const attachedMods = basket.lines.filter(t=> t.type==='topping' && t.meta?.targetSig === l.signature);
+        // Separate priced extras (kind==='extra') from removals/other modifiers
+        const extras = attachedMods.filter(t=> t.meta?.kind === 'extra');
+        const extrasSum = extras.reduce((s,t)=> s + (t.price||0), 0);
+        const modifiers = attachedMods.map(t=>{
+          const action = t.meta?.action || (t.meta?.kind==='extra' ? 'extra' : 'custom');
+          const kind = t.meta?.kind === 'extra' ? 'extra' : (action==='remove' ? 'remove' : 'modify');
+          return {
+            name: t.name || '',
+            kind: kind,
+            action: action,
+            price_pence: t.price || 0
+          };
+        });
+        // Detail lines: prefer display_choices; else fallback to fries/drink/options similar to cashier list UI
+        let details = [];
+        if(Array.isArray(meta.display_choices) && meta.display_choices.length){
+          details = meta.display_choices.slice();
+        } else {
+          if(meta.fries) details.push(`Fries: #${meta.fries}`);
+          if(meta.drink) details.push(`Drink: #${meta.drink}`);
+          if(Array.isArray(meta.options) && meta.options.length){ details.push(`Options: ${meta.options.map(o=>'#'+o).join(', ')}`); }
+        }
+        const isMeal = !!l.meal || !!l.meal_flag;
+        const mealType = l.meal_type || (l.meal_id===2 ? 'kids' : 'regular');
+        return {
+          name: String(l.name || '') + (l.variant? ` (${l.variant})`: '') + (isMeal? (mealType==='kids'?' Kids Meal':' Meal'): ''),
+          qty: l.qty || 1,
+          unit_price_pence: l.price || 0,
+          extra_pence: extrasSum,
+          meal_flag: isMeal,
+          meal_type: mealType,
+          details: details,
+          modifiers: modifiers
+        };
+      });
+      const mirrorPayload = { items: itemsForMirror, total_pence: basket.total, ts: Date.now() };
+      localStorage.setItem('epos_basket_state', JSON.stringify(mirrorPayload));
+    } catch(_e) { /* non-blocking */ }
     clearBtn.disabled = displayLines.length===0; checkoutBtn.disabled = displayLines.length===0;
     const totalQty = displayLines.reduce((s,l)=> s + (l.qty||1),0);
     if(basketFabCount) basketFabCount.textContent = totalQty;
@@ -879,6 +923,12 @@
     pulse(basketFab);
     pulse(document.getElementById('basketOffcanvas'));
   }
+  // Expose read-only helpers for external monitors / test harness
+  try {
+    window.__eposGetBasketState = function(){
+      try { return JSON.parse(localStorage.getItem('epos_basket_state')||'{}'); } catch(e){ return {}; }
+    };
+  } catch(_) {}
   clearBtn.addEventListener('click', ()=>{ basket.lines=[]; lastProductSignature=null; renderBasket(); });
   // Pin / Unpin basket logic
   const pinToggleBtn = document.getElementById('basket-pin-toggle');
@@ -1139,7 +1189,9 @@
           const extraLine = { code: base.code, name: base.name, price: base.price_gross||0, type:'topping', meta:{ kind:'extra', targetSig: targetLine.signature, extra_product_code: base.code } };
           addLine(extraLine);
         } else {
-          addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type });
+          // Preserve meal flag so mirror display can show "Meal" label
+          const mealMeta = base.meal_flag ? { meal:true, meal_flag:true, meal_type: (base.meal_type || (base.meal_id===2?'kids':'regular')) } : {};
+          addLine({ code: base.code, name: base.name, qty:1, price: base.price_gross, type: base.type, ...mealMeta });
         }
       }
       return;
