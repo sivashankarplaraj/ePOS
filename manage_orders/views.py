@@ -1073,7 +1073,21 @@ def api_submit_order(request: HttpRequest):
             )
         order.total_gross = total_gross
         order.total_net = int(total_net)
-        order.save(update_fields=['total_gross','total_net'])
+        # Handle Split Pay breakdown if supplied
+        if payment_method.lower() == 'split':
+            try:
+                split_cash = int(payload.get('split_cash_pence') or 0)
+                split_card = int(payload.get('split_card_pence') or 0)
+            except Exception:
+                split_cash = 0; split_card = 0
+            # Validate non-negative and sum equals total_gross
+            if split_cash < 0 or split_card < 0 or (split_cash + split_card) != total_gross:
+                return JsonResponse({'error': 'Invalid split amounts: Cash + Card must equal total and be non-negative'}, status=400)
+            order.split_cash_pence = split_cash
+            order.split_card_pence = split_card
+            order.save(update_fields=['total_gross','total_net','split_cash_pence','split_card_pence'])
+        else:
+            order.save(update_fields=['total_gross','total_net'])
     return JsonResponse({'order_id': order.id, 'total_gross': total_gross})
 
 
