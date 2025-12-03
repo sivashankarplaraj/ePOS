@@ -1115,6 +1115,8 @@ def api_orders_pending(request: HttpRequest):
             'age_seconds': int((timezone.now()-o.created_at).total_seconds()),
             'status': o.status,
             'payment_method': o.payment_method,
+            'split_cash_pence': getattr(o, 'split_cash_pence', 0),
+            'split_card_pence': getattr(o, 'split_card_pence', 0),
             'band_co_number': o.band_co_number,
             'crew_id': o.crew_id,
             'total_gross': o.total_gross,
@@ -1197,6 +1199,8 @@ def api_orders_completed(request: HttpRequest):
             'completed_at': o.completed_at.isoformat() if o.completed_at else None,
             'total_gross': o.total_gross,
             'payment_method': o.payment_method,
+            'split_cash_pence': getattr(o, 'split_cash_pence', 0),
+            'split_card_pence': getattr(o, 'split_card_pence', 0),
             'band_co_number': o.band_co_number,
             'crew_id': o.crew_id,
             'lines': [
@@ -1240,10 +1244,17 @@ def api_daily_sales(request: HttpRequest):
     from collections import defaultdict
     by_method: dict[str, int] = defaultdict(int)
     total = 0
-    for o in qs.only('total_gross', 'payment_method'):
-        m = (o.payment_method or '').strip() or 'Unspecified'
-        by_method[m] += o.total_gross
-        total += o.total_gross
+    for o in qs.only('total_gross', 'payment_method', 'split_cash_pence', 'split_card_pence'):
+        pm = (o.payment_method or '').strip()
+        if pm.lower() == 'split':
+            # Attribute totals to Cash and Card buckets
+            by_method['Cash'] += getattr(o, 'split_cash_pence', 0) or 0
+            by_method['Card'] += getattr(o, 'split_card_pence', 0) or 0
+            total += (getattr(o, 'split_cash_pence', 0) or 0) + (getattr(o, 'split_card_pence', 0) or 0)
+        else:
+            m = pm or 'Unspecified'
+            by_method[m] += o.total_gross
+            total += o.total_gross
     breakdown = [
         {'method': m, 'total_gross': amt} for m, amt in sorted(by_method.items(), key=lambda x: (-x[1], x[0]))
     ]
