@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      DJANGO_SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      SHOP_NUMBER: ${SHOP_NUMBER}
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - .:/ePOS
+    working_dir: /ePOS
