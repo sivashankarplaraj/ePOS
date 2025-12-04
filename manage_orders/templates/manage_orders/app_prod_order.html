@@ -140,11 +140,36 @@
           <div id="pay-method-buttons" class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-outline-primary pay-method-btn active" data-pay-method="Cash">Cash</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Card">Card</button>
+            <button type="button" class="btn btn-outline-primary pay-method-btn d-none" data-pay-method="Split">Split Pay</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="On Account">On Account</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Voucher">Voucher</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Crew Food">Crew Food</button>
             <button type="button" class="btn btn-outline-primary pay-method-btn" data-pay-method="Waste food">Waste food</button>
           </div>
+        </div>
+        <!-- Split Pay Panel (shown only when Split selected) -->
+        <div id="split-pay-panel" class="border rounded p-3 mb-3 d-none">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Total</div>
+            <div id="split-total" class="fs-5">£0.00</div>
+          </div>
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+              <label for="split-cash" class="form-label fw-semibold">Cash</label>
+              <div class="input-group input-group-lg">
+                <span class="input-group-text">£</span>
+                <input type="number" step="0.01" min="0" id="split-cash" class="form-control" placeholder="0.00" />
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label for="split-card" class="form-label fw-semibold">Card</label>
+              <div class="input-group input-group-lg">
+                <span class="input-group-text">£</span>
+                <input type="number" step="0.01" min="0" id="split-card" class="form-control" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+          <div id="split-error" class="text-danger small mt-2 d-none">Cash + Card must equal total.</div>
         </div>
         <div class="mb-2">
           <label class="form-label fw-semibold" for="crew-id" style="font-size:1.1rem;">Crew ID</label>
@@ -447,6 +472,7 @@
     const map = {
       'Cash': 'cash',
       'Card': 'card',
+      'Split': 'split',
       'On Account': 'onacc',
       'Voucher': 'voucher',
       'Crew Food': 'crew_food',
@@ -460,7 +486,13 @@
       // Business rule: Crew Food and Waste food are selectable ONLY for Eat-in; block for Takeaway
       const restricted = (key === 'crew_food' || key === 'cooked_waste');
       const blockedByBasis = (vatBasis === 'take') && restricted;
-      const allowed = key ? (!blockedByBasis && !!CURRENT_ACCEPT[key]) : true;
+      let allowed;
+      if(key === 'split'){
+        // Split allowed only if both cash and card are accepted for this channel and not blocked by basis
+        allowed = !blockedByBasis && !!CURRENT_ACCEPT.cash && !!CURRENT_ACCEPT.card;
+      } else {
+        allowed = key ? (!blockedByBasis && !!CURRENT_ACCEPT[key]) : true;
+      }
       if(allowed && !firstAllowed) firstAllowed = btn;
       // Hide if not allowed
       btn.classList.toggle('d-none', !allowed);
@@ -473,6 +505,55 @@
       btns.forEach(b=> b.classList.remove('active'));
       if(firstAllowed){ firstAllowed.classList.add('active'); }
     }
+    // Update split panel visibility and totals if needed
+    updateSplitPanelVisibility();
+  }
+
+  function parsePoundsToPence(txt){
+    const n = parseFloat(String(txt||'0'));
+    if(isNaN(n)) return 0;
+    return Math.round(n*100);
+  }
+
+  let updatingSplit = false;
+  function updateSplitPanelVisibility(){
+    const panel = document.getElementById('split-pay-panel');
+    const totalEl = document.getElementById('split-total');
+    const activePayBtn = document.querySelector('#pay-method-buttons .pay-method-btn.active');
+    const isSplit = !!activePayBtn && activePayBtn.getAttribute('data-pay-method') === 'Split';
+    if(!panel) return;
+    panel.classList.toggle('d-none', !isSplit);
+    if(isSplit){
+      const total = basket.total||0;
+      if(totalEl) totalEl.textContent = money(total);
+      // Initialize if both empty: default to half/half
+      const cashInp = document.getElementById('split-cash');
+      const cardInp = document.getElementById('split-card');
+      const cashP = parsePoundsToPence(cashInp.value);
+      const cardP = parsePoundsToPence(cardInp.value);
+      if(cashP===0 && cardP===0 && total>0){
+        updatingSplit = true;
+        const half = Math.floor(total/2);
+        const other = total - half;
+        cashInp.value = (half/100).toFixed(2);
+        cardInp.value = (other/100).toFixed(2);
+        updatingSplit = false;
+      }
+      validateSplit();
+    }
+  }
+
+  function validateSplit(){
+    const err = document.getElementById('split-error');
+    const cashInp = document.getElementById('split-cash');
+    const cardInp = document.getElementById('split-card');
+    if(!cashInp || !cardInp){ if(err) err.classList.add('d-none'); return true; }
+    const total = basket.total||0;
+    const cashP = parsePoundsToPence(cashInp.value);
+    const cardP = parsePoundsToPence(cardInp.value);
+    const ok = (cashP>=0 && cardP>=0 && (cashP+cardP) === total);
+    if(err) err.classList.toggle('d-none', ok);
+    return ok;
   }
 
   function applyChannelSelection(band, co, desc, fetch=true, code){
@@ -867,6 +948,8 @@
   });
   basket.total = recomputedTotal;
   basketTotal.textContent = money(basket.total);
+  // If Split Pay panel exists, keep its total and validation updated
+  try { if(document.getElementById('split-pay-panel')) updateSplitPanelVisibility(); } catch(_){}
     // Publish a lightweight snapshot for customer display pages (e.g., customer_basket.html)
     try {
       const itemsForMirror = displayLines.map(l=>{
@@ -1057,6 +1140,33 @@
       const wrap = document.getElementById('pay-method-buttons');
       wrap.querySelectorAll('.pay-method-btn').forEach(b=> b.classList.remove('active'));
       btn.classList.add('active');
+      updateSplitPanelVisibility();
+    }
+  });
+  // Keep split inputs in sync with total
+  document.addEventListener('input', (e)=>{
+    if(!e.target) return;
+    const total = basket.total||0;
+    const tgtCash = e.target.closest('#split-cash');
+    const tgtCard = e.target.closest('#split-card');
+    if(tgtCash || tgtCard){
+      if(updatingSplit) return;
+      updatingSplit = true;
+      const cashInp = document.getElementById('split-cash');
+      const cardInp = document.getElementById('split-card');
+      if(tgtCash){
+        let cashP = parsePoundsToPence(cashInp.value);
+        if(cashP < 0) cashP = 0;
+        let cardP = Math.max(0, total - cashP);
+        cardInp.value = (cardP/100).toFixed(2);
+      } else if(tgtCard){
+        let cardP = parsePoundsToPence(cardInp.value);
+        if(cardP < 0) cardP = 0;
+        let cashP = Math.max(0, total - cardP);
+        cashInp.value = (cashP/100).toFixed(2);
+      }
+      updatingSplit = false;
+      validateSplit();
     }
   });
   document.getElementById('confirm-checkout').addEventListener('click', ()=>{
@@ -1066,6 +1176,15 @@
     const notesVal = (document.getElementById('order-notes')?.value||'').trim();
     if(crewId===''){
       document.getElementById('crew-id-error').classList.remove('d-none');
+      return;
+    }
+    // For Split, validate inputs and submit directly
+    if(payMethod === 'Split'){
+      if(!validateSplit()) return;
+      const cashP = parsePoundsToPence(document.getElementById('split-cash').value);
+      const cardP = parsePoundsToPence(document.getElementById('split-card').value);
+      checkoutModal.hide();
+      submitOrder({ payment_method: 'Split', crew_id: crewId, notes: notesVal, split_cash_pence: cashP, split_card_pence: cardP });
       return;
     }
     // For Cash, show calculator first; others submit directly
@@ -2124,6 +2243,10 @@
       return;
     }
   const payload = { price_band: currentBand, band_co_number: bandCoNumber, vat_basis: vatBasis, show_net: showNet, payment_method: extra?.payment_method || 'Cash', crew_id: extra?.crew_id || '0', notes: (extra?.notes||'').slice(0,1000), lines: apiLines };
+  if(extra && typeof extra === 'object'){
+    if('split_cash_pence' in extra) payload.split_cash_pence = parseInt(extra.split_cash_pence)||0;
+    if('split_card_pence' in extra) payload.split_card_pence = parseInt(extra.split_card_pence)||0;
+  }
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
       .then(resp=>{

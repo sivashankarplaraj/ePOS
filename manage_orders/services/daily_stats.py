@@ -158,7 +158,15 @@ def _aggregate_orders(export_date: date) -> DailyStats:
         # Normalise multiple internal whitespace to single space for robust matching
         norm_method = ' '.join(raw_method.split())
         pay_key = pay_map.get(norm_method) or pay_map.get(norm_method.replace(' ', '_'))
-        if pay_key:
+        if (norm_method == 'split'):
+            # Allocate split amounts to Cash and Card buckets
+            cash_part = int(getattr(o, 'split_cash_pence', 0) or 0)
+            card_part = int(getattr(o, 'split_card_pence', 0) or 0)
+            if cash_part > 0:
+                rev['TCASHVAL'] += cash_part
+            if card_part > 0:
+                rev['TCARDVAL'] += card_part
+        elif pay_key:
             # Only accumulate transactional tenders here (cash/card/etc). Crew/Waste handled in VAT pass as NET.
             if pay_key in {'TCASHVAL','TCARDVAL','TCHQVAL','TONACCOUNT','TCOUPVAL','TPAYOUTVA'}:
                 # For Paid Out, the amount is now recorded in Order.total_gross (cash leaving till).
