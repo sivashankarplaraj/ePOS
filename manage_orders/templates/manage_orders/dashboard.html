@@ -141,7 +141,7 @@
             <div class='fw-bold fs-5'>Order #${o.id}</div>
             <div class='text-muted small'>${new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
             <div class='mt-1'>${o.band_co_number ? `<span class='badge text-bg-light'>${o.band_co_number}</span>` : ''}
-              ${o.payment_method ? ` <span class='badge text-bg-light'>${o.payment_method}${o.payment_method==='Split' ? ` (£${(o.split_cash_pence/100).toFixed(2)} cash, £${(o.split_card_pence/100).toFixed(2)} card)` : ''}</span>` : ''}
+              ${o.payment_method ? ` <span class='badge text-bg-light'>${o.payment_method}${o.payment_method==='Split' ? ` (£${(o.split_cash_pence/100).toFixed(2)} cash, £${(o.split_card_pence/100).toFixed(2)} card${(o.split_voucher_pence||0)>0 ? `, £${(o.split_voucher_pence/100).toFixed(2)} voucher` : ''})` : ''}</span>` : ''}
               ${o.crew_id? ` <span class='badge text-bg-light'>Crew ${o.crew_id}</span>`:''}</div>
           </div>
           <div class='d-flex flex-column align-items-end gap-2'>
@@ -277,7 +277,7 @@
           <div class='text-muted small'>Created: ${created}</div>
       <div class='text-muted small'>Packed: ${packed}</div>
           <div class='text-muted small'>Completed: ${completed}</div>
-          <div class='mt-1 small text-muted'>${o.band_co_number || ''}${' • '+(o.payment_method || '')}${o.payment_method==='Split' ? ` (Cash ${money(o.split_cash_pence||0)}, Card ${money(o.split_card_pence||0)})` : ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
+          <div class='mt-1 small text-muted'>${o.band_co_number || ''}${' • '+(o.payment_method || '')}${o.payment_method==='Split' ? ` (Cash ${money(o.split_cash_pence||0)}, Card ${money(o.split_card_pence||0)}${(o.split_voucher_pence||0)>0 ? `, Voucher ${money(o.split_voucher_pence||0)}` : ''})` : ''}${o.crew_id? ' • Crew '+o.crew_id:''}</div>
         </div>
         <div class='fw-bold fs-5 text-nowrap'>${money(o.total_gross)}</div>
       </div>

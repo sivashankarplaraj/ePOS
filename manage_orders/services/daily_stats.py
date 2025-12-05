@@ -162,10 +162,13 @@ def _aggregate_orders(export_date: date) -> DailyStats:
             # Allocate split amounts to Cash and Card buckets
             cash_part = int(getattr(o, 'split_cash_pence', 0) or 0)
             card_part = int(getattr(o, 'split_card_pence', 0) or 0)
+            voucher_part = int(getattr(o, 'split_voucher_pence', 0) or 0)
             if cash_part > 0:
                 rev['TCASHVAL'] += cash_part
             if card_part > 0:
                 rev['TCARDVAL'] += card_part
+            if voucher_part > 0:
+                rev['TCOUPVAL'] += voucher_part
         elif pay_key:
             # Only accumulate transactional tenders here (cash/card/etc). Crew/Waste handled in VAT pass as NET.
             if pay_key in {'TCASHVAL','TCARDVAL','TCHQVAL','TONACCOUNT','TCOUPVAL','TPAYOUTVA'}:

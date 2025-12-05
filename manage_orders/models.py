@@ -16,6 +16,7 @@ class Order(models.Model):
 	# Split Pay breakdown (pence). Used when payment_method == 'Split'.
 	split_cash_pence = models.IntegerField(default=0)
 	split_card_pence = models.IntegerField(default=0)
+	split_voucher_pence = models.IntegerField(default=0)
 	crew_id = models.CharField(max_length=20, blank=True, default='')
 	band_co_number = models.CharField(max_length=30, blank=True, default='', help_text="Channel/supplier name associated with the selected price band (PriceBand.SUPPLIER_NAME).")
 	notes = models.TextField(blank=True)

@@ -154,22 +154,29 @@
             <div id="split-total" class="fs-5">£0.00</div>
           </div>
           <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-4">
               <label for="split-cash" class="form-label fw-semibold">Cash</label>
               <div class="input-group input-group-lg">
                 <span class="input-group-text">£</span>
                 <input type="number" step="0.01" min="0" id="split-cash" class="form-control" placeholder="0.00" />
               </div>
             </div>
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-4">
               <label for="split-card" class="form-label fw-semibold">Card</label>
               <div class="input-group input-group-lg">
                 <span class="input-group-text">£</span>
                 <input type="number" step="0.01" min="0" id="split-card" class="form-control" placeholder="0.00" />
               </div>
             </div>
+            <div class="col-12 col-md-4">
+              <label for="split-voucher" class="form-label fw-semibold">Voucher</label>
+              <div class="input-group input-group-lg">
+                <span class="input-group-text">£</span>
+                <input type="number" step="0.01" min="0" id="split-voucher" class="form-control" placeholder="0.00" />
+              </div>
+            </div>
           </div>
-          <div id="split-error" class="text-danger small mt-2 d-none">Cash + Card must equal total.</div>
+          <div id="split-error" class="text-danger small mt-2 d-none">Cash + Card + Voucher must equal total.</div>
         </div>
         <div class="mb-2">
           <label class="form-label fw-semibold" for="crew-id" style="font-size:1.1rem;">Crew ID</label>
@@ -529,14 +536,17 @@
       // Initialize if both empty: default to half/half
       const cashInp = document.getElementById('split-cash');
       const cardInp = document.getElementById('split-card');
+      const voucherInp = document.getElementById('split-voucher');
       const cashP = parsePoundsToPence(cashInp.value);
       const cardP = parsePoundsToPence(cardInp.value);
-      if(cashP===0 && cardP===0 && total>0){
+      const voucherP = voucherInp ? parsePoundsToPence(voucherInp.value) : 0;
+      if(cashP===0 && cardP===0 && voucherP===0 && total>0){
         updatingSplit = true;
         const half = Math.floor(total/2);
         const other = total - half;
         cashInp.value = (half/100).toFixed(2);
         cardInp.value = (other/100).toFixed(2);
+        if(voucherInp) voucherInp.value = (0).toFixed(2);
         updatingSplit = false;
       }
       validateSplit();
@@ -547,11 +557,13 @@
     const err = document.getElementById('split-error');
     const cashInp = document.getElementById('split-cash');
     const cardInp = document.getElementById('split-card');
+    const voucherInp = document.getElementById('split-voucher');
     if(!cashInp || !cardInp){ if(err) err.classList.add('d-none'); return true; }
     const total = basket.total||0;
     const cashP = parsePoundsToPence(cashInp.value);
     const cardP = parsePoundsToPence(cardInp.value);
-    const ok = (cashP>=0 && cardP>=0 && (cashP+cardP) === total);
+    const voucherP = voucherInp ? parsePoundsToPence(voucherInp.value) : 0;
+    const ok = (cashP>=0 && cardP>=0 && voucherP>=0 && (cashP+cardP+voucherP) === total);
     if(err) err.classList.toggle('d-none', ok);
     return ok;
   }
@@ -1149,21 +1161,27 @@
     const total = basket.total||0;
     const tgtCash = e.target.closest('#split-cash');
     const tgtCard = e.target.closest('#split-card');
-    if(tgtCash || tgtCard){
+    const tgtVoucher = e.target.closest('#split-voucher');
+    if(tgtCash || tgtCard || tgtVoucher){
       if(updatingSplit) return;
       updatingSplit = true;
       const cashInp = document.getElementById('split-cash');
       const cardInp = document.getElementById('split-card');
+      const voucherInp = document.getElementById('split-voucher');
+      const voucherP0 = voucherInp ? Math.max(0, parsePoundsToPence(voucherInp.value)) : 0;
       if(tgtCash){
-        let cashP = parsePoundsToPence(cashInp.value);
-        if(cashP < 0) cashP = 0;
-        let cardP = Math.max(0, total - cashP);
+        let cashP = Math.max(0, parsePoundsToPence(cashInp.value));
+        let cardP = Math.max(0, total - cashP - voucherP0);
         cardInp.value = (cardP/100).toFixed(2);
       } else if(tgtCard){
-        let cardP = parsePoundsToPence(cardInp.value);
-        if(cardP < 0) cardP = 0;
-        let cashP = Math.max(0, total - cardP);
+        let cardP = Math.max(0, parsePoundsToPence(cardInp.value));
+        let cashP = Math.max(0, total - cardP - voucherP0);
         cashInp.value = (cashP/100).toFixed(2);
+      } else if(tgtVoucher){
+        let voucherP = Math.max(0, parsePoundsToPence(voucherInp.value));
+        let cashP = Math.max(0, parsePoundsToPence(cashInp.value));
+        let cardP = Math.max(0, total - cashP - voucherP);
+        cardInp.value = (cardP/100).toFixed(2);
       }
       updatingSplit = false;
       validateSplit();
@@ -1183,8 +1201,10 @@
       if(!validateSplit()) return;
       const cashP = parsePoundsToPence(document.getElementById('split-cash').value);
       const cardP = parsePoundsToPence(document.getElementById('split-card').value);
+      const voucherEl = document.getElementById('split-voucher');
+      const voucherP = voucherEl ? parsePoundsToPence(voucherEl.value) : 0;
       checkoutModal.hide();
-      submitOrder({ payment_method: 'Split', crew_id: crewId, notes: notesVal, split_cash_pence: cashP, split_card_pence: cardP });
+      submitOrder({ payment_method: 'Split', crew_id: crewId, notes: notesVal, split_cash_pence: cashP, split_card_pence: cardP, split_voucher_pence: voucherP });
       return;
     }
     // For Cash, show calculator first; others submit directly
@@ -2246,6 +2266,7 @@
   if(extra && typeof extra === 'object'){
     if('split_cash_pence' in extra) payload.split_cash_pence = parseInt(extra.split_cash_pence)||0;
     if('split_card_pence' in extra) payload.split_card_pence = parseInt(extra.split_card_pence)||0;
+    if('split_voucher_pence' in extra) payload.split_voucher_pence = parseInt(extra.split_voucher_pence)||0;
   }
   fetch('/api/order/submit', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()}, body: JSON.stringify(payload) })
       .then(r=>r.json())
