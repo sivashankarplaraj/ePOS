@@ -23,6 +23,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # in the running process (e.g. set by hosting platform) can still supersede if desired.
 dotenv.load_dotenv(BASE_DIR / '.env', override=True)
 
+# Application versioning: read from VERSION file at repo root if present, else 'dev'
+def _load_app_version() -> str:
+    try:
+        with open(BASE_DIR / 'VERSION', 'r', encoding='utf-8') as f:
+            return f.read().strip() or 'dev'
+    except Exception:
+        return 'dev'
+
+APP_VERSION = os.getenv('APP_VERSION') or _load_app_version()
+
 def env_bool(name: str, default: bool = False) -> bool:
     """Parse a boolean environment variable in a tolerant way.
 
@@ -113,6 +123,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'epos.context_processors.app_version',
             ],
         },
     },
