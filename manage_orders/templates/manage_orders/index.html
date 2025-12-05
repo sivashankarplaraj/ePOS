@@ -29,7 +29,7 @@
       {% block content %}{% endblock %}
     </div>
     <!-- Minimal version badge -->
-    <div style="position:fixed; right:.5rem; bottom:.35rem; opacity:.55; font-size:.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; pointer-events:none; z-index: 2000;">
+    <div style="position:fixed; left:.5rem; top:.35rem; opacity:.55; font-size:.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; pointer-events:none; z-index: 2000;">
       v{{ APP_VERSION|default:'dev' }}
     </div>
     <script src="{% static 'bootstrap-5.3.7-dist/js/bootstrap.bundle.min.js' %}"></script>
