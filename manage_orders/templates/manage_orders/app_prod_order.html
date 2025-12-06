@@ -67,13 +67,7 @@
     <label class="form-check-label" for="toggle-net">Show Net (Ex VAT) Prices</label>
   </div>
   {% endif %}
-  <div class="mt-2">
-    <label class="form-label small mb-1">VAT Basis</label>
-    <div id="basis-buttons" class="d-flex gap-2 flex-wrap">
-      <button type="button" class="btn btn-outline-info btn-lg px-3 py-2 active" data-basis="take">Takeaway</button>
-      <button type="button" class="btn btn-outline-info btn-lg px-3 py-2" data-basis="eat">Eat-in</button>
-    </div>
-  </div>
+  <!-- VAT Basis moved to checkout modal -->
 </div>
 <!-- Categories below Price Band (horizontal scroll) -->
 <div id="categories-section" class="mb-3">
@@ -135,6 +129,14 @@
         <button type="button" class="btn-close btn-lg" style="transform:scale(1.3);" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <!-- VAT Basis (moved here) -->
+        <div class="mb-3" id="checkout-basis-wrap">
+          <span class="form-label fw-semibold d-block mb-2" style="font-size:1.1rem;">VAT Basis</span>
+          <div id="checkout-basis-buttons" class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-outline-info btn-lg px-3 py-2" data-basis="take">Takeaway</button>
+            <button type="button" class="btn btn-outline-info btn-lg px-3 py-2" data-basis="eat">Eat-in</button>
+          </div>
+        </div>
         <div class="mb-3">
           <span class="form-label fw-semibold d-block mb-2" style="font-size:1.1rem;">Payment Method</span>
           <div id="pay-method-buttons" class="d-flex flex-wrap gap-2">
@@ -188,10 +190,10 @@
           <input id="order-notes" class="form-control form-control-lg py-3" style="font-size:1.05rem;" type="text" placeholder="Optional notes for this order" maxlength="1000" />
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-lg btn-outline-secondary px-4 py-2" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-lg btn-primary px-4 py-2 fw-bold" id="confirm-checkout">Confirm</button>
-      </div>
+        <div class="modal-footer">
+          <button class="btn btn-lg btn-outline-secondary px-4 py-2" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-lg btn-primary px-4 py-2 fw-bold" id="confirm-checkout" disabled>Confirm</button>
+        </div>
     </div>
   </div>
   </div>
@@ -258,10 +260,7 @@
         </div>
       </div>
       <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div class="btn-group" role="group" aria-label="VAT basis">
-          <button type="button" class="btn btn-outline-info" id="cash-basis-take" data-basis="take">Takeaway</button>
-          <button type="button" class="btn btn-outline-info" id="cash-basis-eat" data-basis="eat">Eat-In</button>
-        </div>
+        <!-- VAT basis controls removed from cash calculator per new flow -->
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-lg btn-outline-secondary" id="cash-backspace" title="Backspace">⌫</button>
           <button type="button" class="btn btn-lg btn-primary fw-bold" id="cash-ok">OK</button>
@@ -406,7 +405,7 @@
     document.head.appendChild(st3);
   }
   const bandButtonsWrap = null; // removed band buttons UI
-  const basisButtonsWrap = document.getElementById('basis-buttons');
+  const basisButtonsWrap = null; // removed from main page; now using checkout modal buttons
   const categoryStrip = document.getElementById('category-strip');
   const itemsContainer = document.getElementById('items-container');
   const basketList = document.getElementById('basket-list');
@@ -512,8 +511,18 @@
       btns.forEach(b=> b.classList.remove('active'));
       if(firstAllowed){ firstAllowed.classList.add('active'); }
     }
+    // If only On Account is allowed, hide VAT basis and force takeaway
+    const onlyOnAcc = (!!CURRENT_ACCEPT.onacc) && !CURRENT_ACCEPT.cash && !CURRENT_ACCEPT.card && !CURRENT_ACCEPT.voucher;
+    const basisWrap = document.getElementById('checkout-basis-wrap');
+    if(basisWrap){ basisWrap.classList.toggle('d-none', !!onlyOnAcc); }
+    if(onlyOnAcc){
+      vatBasis = 'take';
+      const wrapB = document.getElementById('checkout-basis-buttons');
+      if(wrapB){ wrapB.querySelectorAll('[data-basis]').forEach(b=> b.classList.toggle('active', b.getAttribute('data-basis')==='take')); }
+    }
     // Update split panel visibility and totals if needed
     updateSplitPanelVisibility();
+    updateConfirmEnabled();
   }
 
   function parsePoundsToPence(txt){
@@ -551,6 +560,20 @@
       }
       validateSplit();
     }
+  }
+
+  // Enable Confirm only when VAT basis (unless only On Account) and payment method are selected
+  function updateConfirmEnabled(){
+    const confirmBtn = document.getElementById('confirm-checkout');
+    if(!confirmBtn) return;
+    // Determine active payment method
+    const activePayBtn = document.querySelector('#pay-method-buttons .pay-method-btn.active');
+    const payMethod = activePayBtn ? activePayBtn.getAttribute('data-pay-method') : null;
+    const payOk = !!payMethod;
+    // If channel allows only On Account, basis is implicitly takeaway and not required
+    const onlyOnAcc = (!!CURRENT_ACCEPT.onacc) && !CURRENT_ACCEPT.cash && !CURRENT_ACCEPT.card && !CURRENT_ACCEPT.voucher;
+    const basisOk = onlyOnAcc ? true : (vatBasis==='take' || vatBasis==='eat');
+    confirmBtn.disabled = !(payOk && basisOk);
   }
 
   function validateSplit(){
@@ -1103,13 +1126,7 @@
   // Cash calculator modal helpers/state
   let cashModal = null; const ensureCashModal=()=>{ if(!cashModal){ cashModal = new bootstrap.Modal(document.getElementById('cashCalcModal')); } };
   const cashState = { receivedPence: 0 };
-  function setCashBasisButtons(){
-    const takeBtn = document.getElementById('cash-basis-take');
-    const eatBtn = document.getElementById('cash-basis-eat');
-    if(!takeBtn || !eatBtn) return;
-    takeBtn.classList.toggle('active', vatBasis==='take');
-    eatBtn.classList.toggle('active', vatBasis==='eat');
-  }
+  function setCashBasisButtons(){ /* removed basis buttons in cash calculator */ }
   function moneyPence(p){ return money(p); }
   function updateCashUI(){
     const total = basket.total||0;
@@ -1142,8 +1159,12 @@
     ensureCheckoutModal();
     // Refresh payment methods to respect current basis (Eat-in vs Takeaway)
     updatePayMethodButtons();
+    // Initialize checkout VAT basis UI active state
+    const wrapB = document.getElementById('checkout-basis-buttons');
+    if(wrapB){ wrapB.querySelectorAll('[data-basis]').forEach(b=> b.classList.toggle('active', b.getAttribute('data-basis')===vatBasis)); }
     document.getElementById('crew-id-error').classList.add('d-none');
     checkoutModal.show();
+    updateConfirmEnabled();
   });
   // Payment method button group (touch friendly)
   document.addEventListener('click', (e)=>{
@@ -1153,6 +1174,7 @@
       wrap.querySelectorAll('.pay-method-btn').forEach(b=> b.classList.remove('active'));
       btn.classList.add('active');
       updateSplitPanelVisibility();
+      updateConfirmEnabled();
     }
   });
   // Keep split inputs in sync with total
@@ -1245,27 +1267,7 @@
       return;
     }
     const back = e.target.closest('#cash-backspace'); if(back){ cashState.receivedPence = Math.floor((cashState.receivedPence||0)/10); updateCashUI(); return; }
-    const basisTake = e.target.closest('#cash-basis-take');
-    if(basisTake){
-      vatBasis='take';
-      setCashBasisButtons();
-      /* Optional: re-render prices */
-      renderProducts();
-      renderBasket();
-      // Update payment methods availability for Takeaway
-      updatePayMethodButtons();
-      return;
-    }
-    const basisEat = e.target.closest('#cash-basis-eat');
-    if(basisEat){
-      vatBasis='eat';
-      setCashBasisButtons();
-      renderProducts();
-      renderBasket();
-      // Update payment methods availability for Eat-in
-      updatePayMethodButtons();
-      return;
-    }
+    // Cash calculator basis buttons removed
   });
 
   itemsContainer.addEventListener('click', (e)=>{
@@ -2015,12 +2017,20 @@
   });
 
   // VAT basis buttons handler
-  basisButtonsWrap.addEventListener('click', (e)=>{
-    const btn = e.target.closest('[data-basis]');
+  // Checkout modal VAT basis buttons
+  document.addEventListener('click', (e)=>{
+    const wrap = document.getElementById('checkout-basis-buttons');
+    if(!wrap) return;
+    const btn = e.target.closest('#checkout-basis-buttons [data-basis]');
     if(!btn) return;
     vatBasis = btn.getAttribute('data-basis') === 'eat' ? 'eat' : 'take';
-    [...basisButtonsWrap.querySelectorAll('[data-basis]')].forEach(b=> b.classList.toggle('active', b===btn));
+    wrap.querySelectorAll('[data-basis]').forEach(b=> b.classList.toggle('active', b===btn));
+    // Re-render pricing as basis affects net price display toggle
     renderProducts();
+    renderBasket();
+    // Event-driven: update payment methods availability on basis change
+    updatePayMethodButtons();
+    updateConfirmEnabled();
   });
   // Band buttons removed; channel modal controls band now
   const toggleNetEl = document.getElementById('toggle-net');
