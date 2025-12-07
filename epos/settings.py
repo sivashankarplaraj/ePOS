@@ -201,3 +201,20 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 LOGIN_URL = '/cashup/crew-login/'
 LOGIN_REDIRECT_URL = '/cashup/'
 LOGOUT_REDIRECT_URL = '/cashup/crew-login/'
+
+# deliveroo, uber eats, etc. webhook secret keys
+DELIVEROO_WEBHOOK_SECRET = os.getenv('DELIVEROO_WEBHOOK_SECRET') or ''
+UBER_EATS_WEBHOOK_SECRET = os.getenv('UBER_EATS_WEBHOOK_SECRET') or ''
+JUST_EAT_WEBHOOK_SECRET = os.getenv('JUST_EAT_WEBHOOK_SECRET') or ''
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "":{"handlers": ["console"], "level": "INFO"},
+        "manage_orders": {"handlers": ["console"], "level": "DEBUG"},
+    },
+}
