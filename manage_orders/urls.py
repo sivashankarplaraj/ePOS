@@ -35,4 +35,6 @@ urlpatterns = [
     path('reports/export-daily-csvs', views.export_daily_csvs_zip, name='mo_export_daily_csvs_zip'),
     # Webhooks: deliveroo, uber eats, etc.
     path('webhooks/deliveroo/orders', views.deliveroo_webhook, name='deliveroo_webhook'),
+    path('webhook/deliveroo/order-update', views.deliveroo_webhook, name='deliveroo_webhook_compat'),
+    path('webhook/<str:platform>/order-update', views.webhook_order_update, name='webhook_order_update'),
 ]

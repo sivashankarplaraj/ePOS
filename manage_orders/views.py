@@ -226,6 +226,13 @@ def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
             for oid in ids:
                 threading.Thread(target=_send_sync_status, args=(payload, oid, 'failed'), daemon=True).start()
     return JsonResponse({'status': 'ok'})
+
+@csrf_exempt
+@require_POST
+def webhook_order_update(request: HttpRequest, platform: str) -> HttpResponse:
+    if platform == 'deliveroo':
+        return deliveroo_webhook(request)
+    return HttpResponseBadRequest('Unsupported platform')
 """
 @csrf_exempt  # Webhooks come from external systems, not your frontend
 @require_POST
