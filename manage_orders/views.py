@@ -1,6 +1,8 @@
 import sys
 import threading
 import os
+import time
+import requests
 from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse, HttpRequest
@@ -21,16 +23,56 @@ from pathlib import Path
 import json, hmac, hashlib, logging
 
 logging = logging.getLogger(__name__)
-try:
-    _webhooks_src = (Path(settings.BASE_DIR) / 'webhooks' / 'src')
-    p = str(_webhooks_src)
-    if p not in sys.path:
-        sys.path.insert(0, p)
-    from config import load_config  # type: ignore
-    from deliveroo_client import DeliverooClient  # type: ignore
-except Exception:
-    load_config = None
-    DeliverooClient = None
+_d_token = None
+_d_token_expiry = 0.0
+def _deliveroo_hosts():
+    env = os.getenv('DELIVEROO_ENV', 'sandbox').strip().lower()
+    if env == 'production':
+        api = os.getenv('DELIVEROO_API_BASE_URL', 'https://api.developers.deliveroo.com')
+        auth = os.getenv('DELIVEROO_AUTH_TOKEN_URL', 'https://auth.developers.deliveroo.com/oauth2/token')
+    else:
+        api = os.getenv('DELIVEROO_API_BASE_URL', 'https://api-sandbox.developers.deliveroo.com')
+        auth = os.getenv('DELIVEROO_AUTH_TOKEN_URL', 'https://auth-sandbox.developers.deliveroo.com/oauth2/token')
+    return api, auth
+def _deliveroo_auth_headers():
+    global _d_token, _d_token_expiry
+    now = time.time()
+    if (not _d_token) or (now >= _d_token_expiry):
+        api, auth = _deliveroo_hosts()
+        client_id = os.getenv('DELIVEROO_CLIENT_ID', '')
+        client_secret = os.getenv('DELIVEROO_CLIENT_SECRET', '')
+        data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'grant_type': 'client_credentials',
+        }
+        headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'}
+        resp = requests.post(auth, data=data, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return {}
+        payload = resp.json()
+        _d_token = payload.get('access_token')
+        try:
+            expires_in = int(payload.get('expires_in', 300))
+        except Exception:
+            expires_in = 300
+        _d_token_expiry = now + max(60, expires_in - 10)
+    return {'Authorization': f'Bearer {_d_token}'}
+def _post_sync_status(order_id: str, status: str, reason: str | None = None, notes: str | None = None, occurred_at: str | None = None) -> None:
+    api, _ = _deliveroo_hosts()
+    url = f"{api}/order/v1/orders/{order_id}/sync_status"
+    body = {'status': status}
+    if reason:
+        body['reason'] = reason
+    if notes:
+        body['notes'] = notes
+    if occurred_at:
+        body['occurred_at'] = occurred_at
+    headers = {'Content-Type': 'application/json'}
+    headers.update(_deliveroo_auth_headers())
+    if not headers.get('Authorization'):
+        return
+    requests.post(url, json=body, headers=headers, timeout=20)
 
 def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
     """Verify HMAC SHA256 signature of incoming webhook request.
@@ -95,11 +137,6 @@ def _has_canceled_status(payload: dict) -> bool:
 
 def _send_sync_status(payload: dict, order_id: str | None, status: str = 'succeeded', reason_override: str | None = None) -> None:
     try:
-        if not load_config or not DeliverooClient:
-            return
-        dotenv_path = str(Path(settings.BASE_DIR) / 'webhooks' / '.env')
-        cfg = load_config(dotenv_path=dotenv_path)
-        client = DeliverooClient(cfg)
         body = payload.get('body') or {}
         order = body.get('order') or {}
         oid = order_id or order.get('id')
@@ -132,7 +169,7 @@ def _send_sync_status(payload: dict, order_id: str | None, status: str = 'succee
             mp = []
         if mp:
             notes = f"missing_plu_items={','.join(mp[:10])}"
-        client.create_sync_status(order_id=str(oid), status=status, reason=reason, notes=notes, occurred_at=occurred_at)
+        _post_sync_status(order_id=str(oid), status=status, reason=reason, notes=notes, occurred_at=occurred_at)
     except Exception:
         pass
 
@@ -144,6 +181,14 @@ def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
         return HttpResponseForbidden("Invalid signature")
     content_type = request.headers.get('content-type', '')
     raw = request.body
+    try:
+        logging.info("deliveroo webhook received")
+        logging.info("content_type=%s raw_len=%s", content_type, len(raw))
+        logging.info("headers=%s", dict(request.headers))
+        snippet = raw.decode(errors='ignore')[:500]
+        logging.info("raw_snippet=%s", snippet)
+    except Exception:
+        pass
     try:
         payload = json.loads(raw.decode('utf-8'))
     except Exception:
@@ -163,6 +208,54 @@ def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
             return JsonResponse({'status': 'ok'})
     body = payload.get('body') or {}
     order = body.get('order') or {}
+    try:
+        logging.info("payload_status_log=%s", order.get('status_log') or payload.get('status_log'))
+        logging.info("payload_top_status=%s", order.get('status') or order.get('state') or payload.get('status') or payload.get('state'))
+    except Exception:
+        pass
+    discounts = (
+        order.get('discounts')
+        or order.get('promotions')
+        or order.get('basket_discount')
+        or order.get('basket_discounts')
+    )
+    if discounts:
+        try:
+            logging.info("payload_discounts=%s", discounts)
+        except Exception:
+            pass
+    payments = (
+        order.get('payments')
+        or order.get('payment_methods')
+        or order.get('payment')
+        or order.get('tenders')
+    )
+    if payments:
+        try:
+            logging.info("payload_payments=%s", payments)
+        except Exception:
+            pass
+    items = order.get('items') or order.get('line_items') or []
+    missing_plus = []
+    try:
+        for it in items:
+            codes = [
+                it.get('plu'),
+                it.get('sku'),
+                it.get('pos_code'),
+                it.get('external_id'),
+                it.get('pos_id'),
+                it.get('code'),
+            ]
+            if not any(c and str(c).strip() for c in codes):
+                missing_plus.append(it.get('name') or it.get('menu_item_id') or it.get('id') or '?')
+    except Exception:
+        missing_plus = []
+    if missing_plus:
+        try:
+            logging.info("payload_missing_plus=%s", missing_plus)
+        except Exception:
+            pass
     def collect_order_ids(o: dict) -> list:
         ids = []
         oid = o.get('id') or payload.get('order_id') or payload.get('id')
@@ -179,6 +272,7 @@ def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
                         ids.append(vid)
         return list(dict.fromkeys(ids))
     ids = collect_order_ids(order)
+    logging.info("candidate_order_ids=%s", ids)
     if _has_accepted_status(payload):
         for oid in ids:
             items = order.get('items') or order.get('line_items') or []
@@ -218,17 +312,28 @@ def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
             def _bg(status: str, reason: str | None = None):
                 threading.Thread(target=_send_sync_status, args=(payload, oid, status, reason), daemon=True).start()
             if missing_count >= 2:
+                logging.info("queue sync status (failed - mismatched PLUs) for %s", oid)
                 _bg('failed', 'pos_item_id_mismatched')
             elif has_missing_plu:
+                logging.info("queue sync status (failed - missing PLUs) for %s", oid)
                 _bg('failed', 'pos_item_id_not_found')
             elif has_mismatched_plu or has_mismatch_broad:
+                logging.info("queue sync status (failed - mismatched PLUs) for %s", oid)
                 _bg('failed', 'pos_item_id_mismatched')
             else:
+                logging.info("queue sync status for %s", oid)
                 _bg('succeeded')
     elif _has_rejected_status(payload):
         if _has_accepted_status(payload):
             for oid in ids:
+                logging.info("queue sync status (rejected) for %s", oid)
                 threading.Thread(target=_send_sync_status, args=(payload, oid, 'failed'), daemon=True).start()
+        else:
+            logging.info("skip rejected sync: order never accepted")
+    elif _has_canceled_status(payload):
+        logging.info("cancellation received; no sync status required")
+    else:
+        logging.info("sync status not queued")
     return JsonResponse({'status': 'ok'})
 
 @csrf_exempt
