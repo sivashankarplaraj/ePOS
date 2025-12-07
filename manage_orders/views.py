@@ -38,7 +38,11 @@ def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
     The signature is expected in the 'X-Signature' header as a hex string.
     The HMAC is computed over the raw request body using the provided secret.
     """
+    allow_unsigned = os.getenv('DELIVEROO_ALLOW_UNSIGNED_WEBHOOKS', '0').strip().lower() in {'1','true','yes','on'}
+    env = os.getenv('DELIVEROO_ENV', 'sandbox').strip().lower()
     if not secret:
+        return True
+    if allow_unsigned and env != 'production':
         return True
     signature = request.headers.get('X-Signature', '')
     if not signature:
