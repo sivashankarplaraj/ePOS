@@ -1,19 +1,116 @@
+from curses import raw
+from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse, HttpRequest
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.views.decorators.http import require_GET
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt 
 from update_till.models import (
     PdItem, AppProd, GroupTb, PChoice, CombTb, AppComb, PdVatTb, CompPro, OptPro,
     EposGroup, EposProd, EposFreeProd, EposComb, EposCombFreeProd, ToppingDel, ACodes,
     EposAddOns, PriceBand
 )
 from pathlib import Path
-import json
+import json, hmac, hashlib, logging
+
+logging = logging.getLogger(__name__)
+
+def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
+    """Verify HMAC SHA256 signature of incoming webhook request.
+
+    The signature is expected in the 'X-Signature' header as a hex string.
+    The HMAC is computed over the raw request body using the provided secret.
+    """
+    signature = request.headers.get('X-Signature', '')
+    if not signature:
+        return False
+    computed_hmac = hmac.new(
+        key=secret.encode('utf-8'),
+        msg=request.body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(computed_hmac, signature)
+
+@csrf_exempt
+@require_POST
+def webhook_handler(partner_name: str, request: HttpRequest) -> HttpResponse:
+    """Handle incoming webhooks from third-party delivery partners."""
+    secret_map = {
+        'deliveroo': settings.DELIVEROO_WEBHOOK_SECRET,
+        'uber_eats': settings.UBER_EATS_WEBHOOK_SECRET,
+        'just_eat': settings.JUST_EAT_WEBHOOK_SECRET,
+    }
+    try:
+        if not _verify_webhook_signature(request, secret_map.get(partner_name, None)):
+            logging.warning(f"Invalid webhook signature for {partner_name}")
+            return HttpResponseForbidden("Invalid signature")
+        payload = json.loads(raw.decode('utf-8'))
+
+        # Process the payload as needed
+        logging.info(f"Received valid webhook from {partner_name}: {payload}")
+        return JsonResponse({'status': 'ok'}, status=200)
+    except json.JSONDecodeError:
+        logging.exception(f"Invalid JSON payload from {partner_name}")
+        return HttpResponseBadRequest("Invalid JSON")
+    except Exception as e:
+        logging.exception(f"Error processing webhook from {partner_name}: {e}")
+        return JsonResponse({'status': 'error'}, status=500)
+"""
+@csrf_exempt  # Webhooks come from external systems, not your frontend
+@require_POST
+def delivery_webhook(request):
+    try:
+        raw = request.body  # raw bytes
+        signature_header = request.headers.get("X-Signature")  # adjust name per partner
+        secret = getattr(settings, "DELIVERY_WEBHOOK_SECRET", None)
+
+        if not _verify_signature(raw, signature_header, secret):
+            logger.warning("Invalid signature for deliveries webhook")
+            return HttpResponseForbidden("Invalid signature")
+
+        payload = json.loads(raw.decode("utf-8"))
+
+        # Optional: enforce idempotency if a unique event ID is provided
+        event_id = payload.get("event_id") or payload.get("id")
+        if event_id and _already_processed(event_id):
+            # Avoid double-processing
+            return JsonResponse({"status": "duplicate"}, status=200)
+
+        # QUICK ACK first; enqueue actual processing
+        enqueue_delivery_event(payload)
+
+        return JsonResponse({"status": "ok"}, status=200)
+
+    except json.JSONDecodeError:
+        logger.exception("Invalid JSON payload")
+        return HttpResponseBadRequest("Invalid JSON")
+    except Exception:
+        logger.exception("Unhandled error in deliveries webhook")
+        return JsonResponse({"status": "error"}, status=500)
+
+# Example placeholders (implement these in your app)
+from django.core.cache import cache
+
+def _already_processed(event_id: str) -> bool:
+    key = f"delivery_evt_{event_id}"
+    if cache.get(key):
+        return True
+    cache.set(key, True, timeout=24*3600)  # 24h idempotency window
+    return False
+
+def enqueue_delivery_event(payload: dict):
+    # Put into Celery/Django-Q/RQ; avoid heavy work in the request thread
+    # Example Celery:
+    # process_delivery_event.delay(payload)
+    pass
+
+
+"""
 
 # Load local_menu.json file and read it first
 # group the list of menu category
