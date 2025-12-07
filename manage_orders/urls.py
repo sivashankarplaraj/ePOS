@@ -34,5 +34,5 @@ urlpatterns = [
     path('api/daily-sales-hourly', views.api_daily_sales_hourly, name='mo_api_daily_sales_hourly'),
     path('reports/export-daily-csvs', views.export_daily_csvs_zip, name='mo_export_daily_csvs_zip'),
     # Webhooks: deliveroo, uber eats, etc.
-    
+    path('webhook/<str:platform>/order-update', views.webhook_order_update, name='mo_webhook_order_update'),
 ]
