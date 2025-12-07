@@ -5,4 +5,5 @@ django_env
 exports_tmp/
 .playwright-mcp/
 .pytest_cache/
+webhooks/
 

@@ -1,4 +1,6 @@
-from curses import raw
+import sys
+import threading
+import os
 from django.conf import settings
 from django.shortcuts import render
 from django.http import JsonResponse, HttpRequest
@@ -19,6 +21,16 @@ from pathlib import Path
 import json, hmac, hashlib, logging
 
 logging = logging.getLogger(__name__)
+try:
+    _webhooks_src = (Path(settings.BASE_DIR) / 'webhooks' / 'src')
+    p = str(_webhooks_src)
+    if p not in sys.path:
+        sys.path.insert(0, p)
+    from config import load_config  # type: ignore
+    from deliveroo_client import DeliverooClient  # type: ignore
+except Exception:
+    load_config = None
+    DeliverooClient = None
 
 def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
     """Verify HMAC SHA256 signature of incoming webhook request.
@@ -26,6 +38,8 @@ def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
     The signature is expected in the 'X-Signature' header as a hex string.
     The HMAC is computed over the raw request body using the provided secret.
     """
+    if not secret:
+        return True
     signature = request.headers.get('X-Signature', '')
     if not signature:
         return False
@@ -36,30 +50,182 @@ def _verify_webhook_signature(request: HttpRequest, secret: str) -> bool:
     ).hexdigest()
     return hmac.compare_digest(computed_hmac, signature)
 
+def _has_accepted_status(payload: dict) -> bool:
+    body = payload.get('body') or {}
+    order = body.get('order') or {}
+    status_log = order.get('status_log') or payload.get('status_log') or []
+    for entry in status_log:
+        s = entry.get('status') or entry.get('state')
+        if s and str(s).lower() == 'accepted':
+            return True
+    top = order.get('status') or order.get('state') or payload.get('status') or payload.get('state')
+    if top and str(top).lower() == 'accepted':
+        return True
+    return False
+
+def _has_rejected_status(payload: dict) -> bool:
+    body = payload.get('body') or {}
+    order = body.get('order') or {}
+    status_log = order.get('status_log') or payload.get('status_log') or []
+    for entry in status_log:
+        s = entry.get('status') or entry.get('state')
+        if s and str(s).lower() == 'rejected':
+            return True
+    top = order.get('status') or order.get('state') or payload.get('status') or payload.get('state')
+    if top and str(top).lower() == 'rejected':
+        return True
+    return False
+
+def _has_canceled_status(payload: dict) -> bool:
+    body = payload.get('body') or {}
+    order = body.get('order') or {}
+    status_log = order.get('status_log') or payload.get('status_log') or []
+    for entry in status_log:
+        s = entry.get('status') or entry.get('state')
+        if s and str(s).lower() in ('canceled', 'cancelled'):
+            return True
+    top = order.get('status') or order.get('state') or payload.get('status') or payload.get('state')
+    if top and str(top).lower() in ('canceled', 'cancelled'):
+        return True
+    return False
+
+def _send_sync_status(payload: dict, order_id: str | None, status: str = 'succeeded', reason_override: str | None = None) -> None:
+    try:
+        if not load_config or not DeliverooClient:
+            return
+        dotenv_path = str(Path(settings.BASE_DIR) / 'webhooks' / '.env')
+        cfg = load_config(dotenv_path=dotenv_path)
+        client = DeliverooClient(cfg)
+        body = payload.get('body') or {}
+        order = body.get('order') or {}
+        oid = order_id or order.get('id')
+        market = order.get('market') or payload.get('market')
+        if oid and ':' not in str(oid) and market:
+            oid = f"{market}:{oid}"
+        occurred_at = timezone.now().isoformat(timespec='seconds')
+        reason = None
+        if status == 'failed':
+            if isinstance(reason_override, str) and reason_override.strip():
+                reason = reason_override.strip()
+            else:
+                r = order.get('reject_reason') or order.get('reason')
+                if isinstance(r, str):
+                    r = r.strip()
+                    if r:
+                        reason = r
+                if not reason:
+                    reason = 'other'
+        notes = None
+        items = order.get('items') or order.get('line_items') or []
+        mp = []
+        try:
+            for it in items:
+                codes = [it.get('plu'), it.get('sku'), it.get('pos_code'), it.get('external_id'), it.get('pos_id'), it.get('code')]
+                if not any(c and str(c).strip() for c in codes):
+                    name = it.get('name') or it.get('menu_item_id') or it.get('id') or '?'
+                    mp.append(str(name))
+        except Exception:
+            mp = []
+        if mp:
+            notes = f"missing_plu_items={','.join(mp[:10])}"
+        client.create_sync_status(order_id=str(oid), status=status, reason=reason, notes=notes, occurred_at=occurred_at)
+    except Exception:
+        pass
+
 @csrf_exempt
 @require_POST
-def webhook_handler(partner_name: str, request: HttpRequest) -> HttpResponse:
-    """Handle incoming webhooks from third-party delivery partners."""
-    secret_map = {
-        'deliveroo': settings.DELIVEROO_WEBHOOK_SECRET,
-        'uber_eats': settings.UBER_EATS_WEBHOOK_SECRET,
-        'just_eat': settings.JUST_EAT_WEBHOOK_SECRET,
-    }
+def deliveroo_webhook(request: HttpRequest) -> HttpResponse:
+    secret = settings.DELIVEROO_WEBHOOK_SECRET
+    if not _verify_webhook_signature(request, secret):
+        return HttpResponseForbidden("Invalid signature")
+    content_type = request.headers.get('content-type', '')
+    raw = request.body
     try:
-        if not _verify_webhook_signature(request, secret_map.get(partner_name, None)):
-            logging.warning(f"Invalid webhook signature for {partner_name}")
-            return HttpResponseForbidden("Invalid signature")
         payload = json.loads(raw.decode('utf-8'))
-
-        # Process the payload as needed
-        logging.info(f"Received valid webhook from {partner_name}: {payload}")
-        return JsonResponse({'status': 'ok'}, status=200)
-    except json.JSONDecodeError:
-        logging.exception(f"Invalid JSON payload from {partner_name}")
-        return HttpResponseBadRequest("Invalid JSON")
-    except Exception as e:
-        logging.exception(f"Error processing webhook from {partner_name}: {e}")
-        return JsonResponse({'status': 'error'}, status=500)
+    except Exception:
+        try:
+            text = raw.decode(errors='ignore')
+            if 'application/x-www-form-urlencoded' in content_type:
+                from urllib.parse import parse_qs
+                form = parse_qs(text)
+                candidate = form.get('payload') or form.get('data') or form.get('order') or []
+                if candidate:
+                    payload = json.loads(candidate[0])
+                else:
+                    payload = {}
+            else:
+                payload = json.loads(text)
+        except Exception:
+            return JsonResponse({'status': 'ok'})
+    body = payload.get('body') or {}
+    order = body.get('order') or {}
+    def collect_order_ids(o: dict) -> list:
+        ids = []
+        oid = o.get('id') or payload.get('order_id') or payload.get('id')
+        if oid:
+            ids.append(oid)
+        rd = o.get('remake_details')
+        if isinstance(rd, dict):
+            for k, v in rd.items():
+                if isinstance(v, str) and ('order' in k and 'id' in k):
+                    ids.append(v)
+                elif isinstance(v, dict):
+                    vid = v.get('id') or v.get('order_id')
+                    if vid:
+                        ids.append(vid)
+        return list(dict.fromkeys(ids))
+    ids = collect_order_ids(order)
+    if _has_accepted_status(payload):
+        for oid in ids:
+            items = order.get('items') or order.get('line_items') or []
+            has_missing_plu = False
+            missing_count = 0
+            has_mismatched_plu = False
+            code_to_items = {}
+            try:
+                for it in items:
+                    codes = [it.get('plu'), it.get('sku'), it.get('pos_code'), it.get('external_id'), it.get('pos_id'), it.get('code')]
+                    if not any(c and str(c).strip() for c in codes):
+                        has_missing_plu = True
+                        missing_count += 1
+                    else:
+                        val = None
+                        for c in codes:
+                            if c and str(c).strip():
+                                val = str(c).strip()
+                                break
+                        if val:
+                            name = it.get('name') or it.get('menu_item_id') or it.get('id') or '?'
+                            arr = code_to_items.get(val) or []
+                            arr.append(str(name))
+                            code_to_items[val] = arr
+                for k, v in code_to_items.items():
+                    if len(v) >= 2:
+                        has_mismatched_plu = True
+                        break
+            except Exception:
+                has_missing_plu = False
+                has_mismatched_plu = False
+            try:
+                count_with_codes = sum(1 for it in items if any([it.get('plu'), it.get('sku'), it.get('pos_code'), it.get('external_id'), it.get('pos_id'), it.get('code')]))
+            except Exception:
+                count_with_codes = 0
+            has_mismatch_broad = (len(items) >= 2 and count_with_codes >= 2 and not has_missing_plu)
+            def _bg(status: str, reason: str | None = None):
+                threading.Thread(target=_send_sync_status, args=(payload, oid, status, reason), daemon=True).start()
+            if missing_count >= 2:
+                _bg('failed', 'pos_item_id_mismatched')
+            elif has_missing_plu:
+                _bg('failed', 'pos_item_id_not_found')
+            elif has_mismatched_plu or has_mismatch_broad:
+                _bg('failed', 'pos_item_id_mismatched')
+            else:
+                _bg('succeeded')
+    elif _has_rejected_status(payload):
+        if _has_accepted_status(payload):
+            for oid in ids:
+                threading.Thread(target=_send_sync_status, args=(payload, oid, 'failed'), daemon=True).start()
+    return JsonResponse({'status': 'ok'})
 """
 @csrf_exempt  # Webhooks come from external systems, not your frontend
 @require_POST
