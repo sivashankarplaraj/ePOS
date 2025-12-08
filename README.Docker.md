@@ -148,6 +148,105 @@ docker run -d -p 8090:8090 --name epos-web epos-web:latest
 docker compose up -d
 ```
 
+## Override environment variables on another machine
+
+When you load the saved image on a different PC, you can change environment values (like `SHOP_NUMBER`) at container runtime without rebuilding. The app uses `python-dotenv` with `override=True`, so container env vars override values in `.env` baked into the image.
+
+Windows (PowerShell):
+
+```powershell
+# Stop and remove any existing container
+docker stop epos-web 2>$null
+docker rm epos-web 2>$null
+
+# Run with inline env overrides
+docker run -d `
+	-p 8090:8090 `
+	--name epos-web `
+	-e SHOP_NUMBER=5 `
+	-e DEBUG=0 `
+	-e ALLOWED_HOSTS=localhost,127.0.0.1 `
+	-e SECRET_KEY=replace-with-a-secret `
+	epos-web:latest
+
+# Alternatively, use an env-file (recommended)
+@"
+SHOP_NUMBER=5
+DEBUG=0
+ALLOWED_HOSTS=localhost,127.0.0.1
+SECRET_KEY=replace-with-a-secret
+"@ | Set-Content -Path .\epos.env -Encoding ASCII
+
+docker run -d `
+	-p 8090:8090 `
+	--name epos-web `
+	--env-file .\epos.env `
+	epos-web:latest
+
+# Or mount a custom .env to replace the one in the image
+docker run -d `
+	-p 8090:8090 `
+	--name epos-web `
+	-v ${PWD}\.env:/ePOS/.env `
+	epos-web:latest
+```
+
+Linux/macOS (bash/zsh):
+
+```bash
+# Stop and remove any existing container
+docker stop epos-web 2>/dev/null || true
+docker rm epos-web 2>/dev/null || true
+
+# Run with inline env overrides
+docker run -d \
+	-p 8090:8090 \
+	--name epos-web \
+	-e SHOP_NUMBER=5 \
+	-e DEBUG=0 \
+	-e ALLOWED_HOSTS=localhost,127.0.0.1 \
+	-e SECRET_KEY=replace-with-a-secret \
+	epos-web:latest
+
+# Alternatively, use an env-file
+cat > epos.env << 'EOF'
+SHOP_NUMBER=5
+DEBUG=0
+ALLOWED_HOSTS=localhost,127.0.0.1
+SECRET_KEY=replace-with-a-secret
+EOF
+
+docker run -d \
+	-p 8090:8090 \
+	--name epos-web \
+	--env-file ./epos.env \
+	epos-web:latest
+
+# Or mount a custom .env into the container
+docker run -d \
+	-p 8090:8090 \
+	--name epos-web \
+	-v $(pwd)/.env:/ePOS/.env \
+	epos-web:latest
+```
+
+Compose on the target PC:
+
+```powershell
+# Windows (PowerShell)
+docker compose up -d --build
+```
+
+```bash
+# Linux/macOS
+docker compose up -d --build
+```
+
+Tips:
+- Prefer `--env-file` or `-e` for secrets; avoid baking secrets into the image.
+- With `override=True` in settings, container envs take precedence over `.env`.
+- To change envs of a running container, recreate it: `docker stop` + `docker rm` then `docker run` with new `-e/--env-file`.
+
 ## Common commands
 
 Windows (PowerShell):
