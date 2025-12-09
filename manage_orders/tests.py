@@ -75,6 +75,145 @@ class ManageOrdersBasicTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['total_gross'], 485)
 
+
+class PdMealAndComboOptionTests(TestCase):
+    """
+    PD file rules wiring tests:
+    1) Product 71 Six Bites ordered as a meal should increment OPTION for chosen optional product (e.g., 27 Dip Mayo).
+    2) If product 110 Dip None is chosen for combo 4 Sharing Platter, increment TAKEAWAY or EATIN basis accordingly.
+    """
+    def setUp(self):
+        # Ensure VAT class exists
+        PdVatTb.objects.get_or_create(VAT_CLASS=1, defaults={'VAT_RATE': 20.0, 'VAT_DESC': 'Standard'})
+        # Minimal product setup used by daily_stats
+        PdItem.objects.update_or_create(
+            PRODNUMB=71,
+            defaults=dict(
+                PRODNAME='Six Bites', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=530, DC_VATPR=530,
+                VATPR_2=530, DC_VATPR_2=530,
+                VATPR_3=530, DC_VATPR_3=530,
+                VATPR_4=530, DC_VATPR_4=530,
+                VATPR_5=530, DC_VATPR_5=530,
+                VATPR_6=530, DC_VATPR_6=530,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=30,
+            defaults=dict(
+                PRODNAME='Regular Fries', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=220, DC_VATPR=130,
+                VATPR_2=220, DC_VATPR_2=130,
+                VATPR_3=220, DC_VATPR_3=130,
+                VATPR_4=220, DC_VATPR_4=130,
+                VATPR_5=220, DC_VATPR_5=130,
+                VATPR_6=220, DC_VATPR_6=130,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=52,
+            defaults=dict(
+                PRODNAME='Tango Can', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=140, DC_VATPR=140,
+                VATPR_2=140, DC_VATPR_2=140,
+                VATPR_3=140, DC_VATPR_3=140,
+                VATPR_4=140, DC_VATPR_4=140,
+                VATPR_5=140, DC_VATPR_5=140,
+                VATPR_6=140, DC_VATPR_6=140,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=27,
+            defaults=dict(
+                PRODNAME='Dip Mayo', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=55, DC_VATPR=55,
+                VATPR_2=55, DC_VATPR_2=55,
+                VATPR_3=55, DC_VATPR_3=55,
+                VATPR_4=55, DC_VATPR_4=55,
+                VATPR_5=55, DC_VATPR_5=55,
+                VATPR_6=55, DC_VATPR_6=55,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=110,
+            defaults=dict(
+                PRODNAME='Dip None', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=0, DC_VATPR=0,
+                VATPR_2=0, DC_VATPR_2=0,
+                VATPR_3=0, DC_VATPR_3=0,
+                VATPR_4=0, DC_VATPR_4=0,
+                VATPR_5=0, DC_VATPR_5=0,
+                VATPR_6=0, DC_VATPR_6=0,
+            )
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=4,
+            defaults=dict(
+                PRODNAME='Sharing Platter', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                VATPR=995, DC_VATPR=995,
+                VATPR_2=995, DC_VATPR_2=995,
+                VATPR_3=995, DC_VATPR_3=995,
+                VATPR_4=995, DC_VATPR_4=995,
+                VATPR_5=995, DC_VATPR_5=995,
+                VATPR_6=995, DC_VATPR_6=995,
+            )
+        )
+
+        # Combo relationships for Sharing Platter
+        CompPro.objects.get_or_create(COMBONUMB=4, PRODNUMB=71, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.get_or_create(COMBONUMB=4, PRODNUMB=82, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.get_or_create(COMBONUMB=4, PRODNUMB=95, defaults={'T_PRODNUMB': 0})
+        OptPro.objects.get_or_create(COMBONUMB=4, PRODNUMB=110, defaults={'T_PRODNUMB': 0})
+
+    def test_meal_optional_increments_option_for_27(self):
+        day = timezone.localdate()
+        order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Card', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        # Meal line for 71 with free choice 27 Dip Mayo
+        OrderLine.objects.create(
+            order=order,
+            item_code=71,
+            item_type='product',
+            is_meal=True,
+            qty=1,
+            unit_price_gross=890,  # arbitrary meal price for test
+            line_total_gross=890,
+            meta={
+                'fries': 30,
+                'drink': 52,
+                'free_choices': [27],
+                'display_choices': ['Regular Fries','Tango Can','Free: Dip Mayo'],
+                'meal_applied': True,
+            },
+        )
+        build_daily_stats(day)
+        from update_till.models import KPro
+        k = KPro.objects.filter(stat_date=day, PRODNUMB=27, COMBO=False).first()
+        self.assertIsNotNone(k, 'Expected KPro row for Dip Mayo (27)')
+        self.assertEqual(k.OPTION, 1, 'Meal optional Dip Mayo should increment OPTION by 1')
+
+    def test_combo_4_dip_none_counts_basis_takeaway_or_eatin(self):
+        # Takeaway case
+        day_take = timezone.localdate() + timedelta(days=10)
+        order_take = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day_take, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=order_take, item_code=4, item_type='combo', name='Sharing Platter', variant_label='', is_meal=False, qty=1, unit_price_gross=995, line_total_gross=995, meta={'options':[110]})
+        build_daily_stats(day_take)
+        from update_till.models import KPro
+        dip_none_take = KPro.objects.get(stat_date=day_take, PRODNUMB=110, COMBO=False)
+        self.assertEqual(dip_none_take.TAKEAWAY, 1, 'Dip None chosen in combo should count under TAKEAWAY for takeaway orders')
+        # Eatin case
+        day_eat = timezone.localdate() + timedelta(days=11)
+        order_eat = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Cash', created_at=timezone.make_aware(timezone.datetime.combine(day_eat, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=order_eat, item_code=4, item_type='combo', name='Sharing Platter', variant_label='', is_meal=False, qty=1, unit_price_gross=995, line_total_gross=995, meta={'options':[110]})
+        build_daily_stats(day_eat)
+        dip_none_eat = KPro.objects.get(stat_date=day_eat, PRODNUMB=110, COMBO=False)
+        self.assertEqual(dip_none_eat.EATIN, 1, 'Dip None chosen in combo should count under EATIN for eat-in orders')
+
     def test_meal_price_recomputed(self):
         _mk_product(3, 'Cheeseburger', 485, dc=485)
         _mk_product(30, 'Regular Fries', 205, dc=125)
@@ -127,6 +266,7 @@ class ChannelMappingTests(TestCase):
             APPLY_HERE=True, PARENT_ID=1, ACC_FIRM_NUM=0,
             ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
             ACCEPT_COOKED_WASTE=True, ACCEPT_CREW_FOOD=True, ACCEPT_VOUCHER=True,
+            DELIV_SUPPLIER=False,
             HOT_DRINK=True
         )
         PriceBand.objects.create(
@@ -134,6 +274,7 @@ class ChannelMappingTests(TestCase):
             APPLY_HERE=True, PARENT_ID=3, ACC_FIRM_NUM=0,
             ACCEPT_CASH=False, ACCEPT_CARD=True, ACCEPT_ONACC=False,
             ACCEPT_COOKED_WASTE=False, ACCEPT_CREW_FOOD=False, ACCEPT_VOUCHER=False,
+            DELIV_SUPPLIER=True,
             HOT_DRINK=False
         )
         # APPLY_HERE False row (should be filtered out)
@@ -142,6 +283,7 @@ class ChannelMappingTests(TestCase):
             APPLY_HERE=False, PARENT_ID=9, ACC_FIRM_NUM=0,
             ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
             ACCEPT_COOKED_WASTE=False, ACCEPT_CREW_FOOD=False, ACCEPT_VOUCHER=False,
+            DELIV_SUPPLIER=False,
             HOT_DRINK=True
         )
 
@@ -181,6 +323,7 @@ class BandCoNumberValidationTests(TestCase):
             APPLY_HERE=True, PARENT_ID=77, ACC_FIRM_NUM=0,
             ACCEPT_CASH=True, ACCEPT_CARD=True, ACCEPT_ONACC=False,
             ACCEPT_COOKED_WASTE=True, ACCEPT_CREW_FOOD=True, ACCEPT_VOUCHER=True,
+            DELIV_SUPPLIER=False,
             HOT_DRINK=True
         )
         _mk_product(1001, 'Test Prod', 250, dc=250)
@@ -188,7 +331,7 @@ class BandCoNumberValidationTests(TestCase):
     def test_submit_order_with_valid_band_co_number(self):
         payload = {
             'price_band': '1', 'vat_basis': 'take', 'show_net': False,
-            'band_co_number': '77',
+            'band_co_number': 'Standard',
             'lines': [{
                 'code': 1001, 'type': 'product', 'name': 'Test Prod', 'variant': None,
                 'meal': False, 'qty': 1, 'price_gross': 250, 'meta': {}
@@ -250,10 +393,10 @@ class StatsAggregationTests(TestCase):
         waste_order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Waste food')
         OrderLine.objects.create(order=waste_order, item_code=71, item_type='product', name='Six Bites', variant_label='', is_meal=False, qty=1, unit_price_gross=530, line_total_gross=530, meta={})
         build_daily_stats(timezone.localdate())
-        # Validate KRev combination discount: (530+245+315+55+75) - 995 = 225
+        # Validate KRev combination discount (EX-VAT): previously 225 gross; now ex-VAT rounds to 21
         from update_till.models import KRev, KPro
         rev = KRev.objects.get(stat_date=timezone.localdate())
-        self.assertEqual(rev.TDISCNTVA, 225)
+        self.assertEqual(rev.TDISCNTVA, 21)
         # STAFF count for combo product
         combo_row = KPro.objects.get(stat_date=timezone.localdate(), PRODNUMB=4, COMBO=True)
         self.assertEqual(combo_row.STAFF, 1)
@@ -296,12 +439,12 @@ class StatsAggregationTests(TestCase):
         self._prod(69,'Vanilla Shake',285, dc=280)
         # Meal order take away, go large true (meta.go_large)
         order = Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Cash')
-        # Effective meal price uses discounted components: 505 + 170 + 280 = 955; singles total 505+250+285=1040 discount=85
+        # Effective meal price uses discounted components: 505 + 170 + 280 = 955; singles total 505+250+285=1040; ex-VAT discount rounds to 71
         OrderLine.objects.create(order=order, item_code=3, item_type='product', name='Cheeseburger Meal', variant_label='', is_meal=True, qty=1, unit_price_gross=955, line_total_gross=955, meta={'fries':31, 'drink':69, 'go_large': True})
         build_daily_stats(timezone.localdate())
         from update_till.models import KRev
         rev = KRev.objects.get(stat_date=timezone.localdate())
-        self.assertEqual(rev.TMEAL_DISCNT, 85)
+        self.assertEqual(rev.TMEAL_DISCNT, 71)
         self.assertEqual(rev.TGOLARGENU, 1)
 
     def test_vat_and_act_mirroring(self):
@@ -541,3 +684,169 @@ class PaidOutRevenueTests(TestCase):
         self.assertIsNotNone(paid_out_order)
         self.assertEqual(paid_out_order.total_gross, 300)
         self.assertEqual(paid_out_order.total_net, 0)
+
+
+class UsInfoPackParityTests(TestCase):
+    """Parity tests against Uncle Sams info pack scenarios (2025-12-03)."""
+    def setUp(self):
+        # VAT class 1 = 20%
+        PdVatTb.objects.update_or_create(VAT_CLASS=1, defaults={'VAT_RATE': 20.0, 'VAT_DESC': 'Std'})
+
+    def test_crew_meal_discount_and_staff_value(self):
+        # Prices per doc (incl VAT): Burger 550, Fries (meal) 140 vs single 235, Shake (meal) 300 vs single 305
+        PdItem.objects.update_or_create(
+            PRODNUMB=3,
+            defaults=dict(PRODNAME='Cheeseburger', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=550, DC_VATPR=550,
+                          VATPR_2=550, DC_VATPR_2=550,
+                          VATPR_3=550, DC_VATPR_3=550,
+                          VATPR_4=550, DC_VATPR_4=550,
+                          VATPR_5=550, DC_VATPR_5=550,
+                          VATPR_6=550, DC_VATPR_6=550)
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=30,
+            defaults=dict(PRODNAME='Regular Fries', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=235, DC_VATPR=140,
+                          VATPR_2=235, DC_VATPR_2=140,
+                          VATPR_3=235, DC_VATPR_3=140,
+                          VATPR_4=235, DC_VATPR_4=140,
+                          VATPR_5=235, DC_VATPR_5=140,
+                          VATPR_6=235, DC_VATPR_6=140)
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=62,
+            defaults=dict(PRODNAME='Strawberry Shk', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=305, DC_VATPR=300,
+                          VATPR_2=305, DC_VATPR_2=300,
+                          VATPR_3=305, DC_VATPR_3=300,
+                          VATPR_4=305, DC_VATPR_4=300,
+                          VATPR_5=305, DC_VATPR_5=300,
+                          VATPR_6=305, DC_VATPR_6=300)
+        )
+        day = timezone.localdate() + timedelta(days=20)
+        o = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Crew Food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        # Meal line (total 550 + 140 + 300 = 990)
+        OrderLine.objects.create(order=o, item_code=3, item_type='product', name='Cheeseburger Meal', variant_label='', is_meal=True, qty=1, unit_price_gross=990, line_total_gross=990, meta={'fries':30,'drink':62})
+        s = build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        self.assertEqual(rev.TSTAFFVAL, 825, 'Crew Food staff value should be meal ex-VAT total (8.25)')
+        self.assertEqual(rev.TMEAL_DISCNT, 83, 'Meal discount should be singles ex-VAT (9.08) minus meal ex-VAT (8.25)')
+
+    def test_crew_combo_sharing_platter_discount_and_value(self):
+        # Component products (incl VAT)
+        PdItem.objects.update_or_create(PRODNUMB=26, defaults=dict(PRODNAME='Dip Ketchup', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                    VATPR=35, DC_VATPR=35, VATPR_2=35, DC_VATPR_2=35, VATPR_3=35, DC_VATPR_3=35, VATPR_4=35, DC_VATPR_4=35, VATPR_5=35, DC_VATPR_5=35, VATPR_6=35, DC_VATPR_6=35))
+        PdItem.objects.update_or_create(PRODNUMB=28, defaults=dict(PRODNAME='Dip Chilli', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=65, DC_VATPR=65, VATPR_2=65, DC_VATPR_2=65, VATPR_3=65, DC_VATPR_3=65, VATPR_4=65, DC_VATPR_4=65, VATPR_5=65, DC_VATPR_5=65, VATPR_6=65, DC_VATPR_6=65))
+        PdItem.objects.update_or_create(PRODNUMB=71, defaults=dict(PRODNAME='Six Bites', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=560, DC_VATPR=560, VATPR_2=560, DC_VATPR_2=560, VATPR_3=560, DC_VATPR_3=560, VATPR_4=560, DC_VATPR_4=560, VATPR_5=560, DC_VATPR_5=560, VATPR_6=560, DC_VATPR_6=560))
+        PdItem.objects.update_or_create(PRODNUMB=82, defaults=dict(PRODNAME='Onion Rings 8', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=260, DC_VATPR=260, VATPR_2=260, DC_VATPR_2=260, VATPR_3=260, DC_VATPR_3=260, VATPR_4=260, DC_VATPR_4=260, VATPR_5=260, DC_VATPR_5=260, VATPR_6=260, DC_VATPR_6=260))
+        PdItem.objects.update_or_create(PRODNUMB=95, defaults=dict(PRODNAME='Mozarela Fingers', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=335, DC_VATPR=335, VATPR_2=335, DC_VATPR_2=335, VATPR_3=335, DC_VATPR_3=335, VATPR_4=335, DC_VATPR_4=335, VATPR_5=335, DC_VATPR_5=335, VATPR_6=335, DC_VATPR_6=335))
+        # Combo record (incl VAT): Sharing Platter 10.05
+        from update_till.models import CombTb
+        CombTb.objects.update_or_create(COMBONUMB=4, defaults=dict(DESC='Sharing Platter', T_COMB_NUM=0, EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                                                                    VATPR=1005, T_VATPR=1005, VATPR_2=1005, T_VATPR_2=1005, VATPR_3=1005, T_VATPR_3=1005, VATPR_4=1005, T_VATPR_4=1005, VATPR_5=1005, T_VATPR_5=1005, VATPR_6=1005, T_VATPR_6=1005))
+        # Relationships
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=71, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=82, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=95, defaults={'T_PRODNUMB': 0})
+        OptPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=26, defaults={'T_PRODNUMB': 0})
+        OptPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=28, defaults={'T_PRODNUMB': 0})
+        day = timezone.localdate() + timedelta(days=21)
+        o = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Crew Food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=o, item_code=4, item_type='combo', name='Sharing Platter', variant_label='', is_meal=False, qty=1, unit_price_gross=1005, line_total_gross=1005, meta={'options':[26,28]})
+        s = build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        self.assertEqual(rev.TSTAFFVAL, 838, 'Crew Food combo staff value should be combo ex-VAT total (8.38)')
+        self.assertEqual(rev.TDISCNTVA, 208, 'Combo discount should be components ex-VAT sum (10.46) minus combo ex-VAT (8.38)')
+
+    def test_cooked_waste_mirrors_values(self):
+        # Define products as per doc
+        PdItem.objects.update_or_create(
+            PRODNUMB=3,
+            defaults=dict(PRODNAME='Cheeseburger', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=550, DC_VATPR=550,
+                          VATPR_2=550, DC_VATPR_2=550,
+                          VATPR_3=550, DC_VATPR_3=550,
+                          VATPR_4=550, DC_VATPR_4=550,
+                          VATPR_5=550, DC_VATPR_5=550,
+                          VATPR_6=550, DC_VATPR_6=550)
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=30,
+            defaults=dict(PRODNAME='Regular Fries', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=235, DC_VATPR=140,
+                          VATPR_2=235, DC_VATPR_2=140,
+                          VATPR_3=235, DC_VATPR_3=140,
+                          VATPR_4=235, DC_VATPR_4=140,
+                          VATPR_5=235, DC_VATPR_5=140,
+                          VATPR_6=235, DC_VATPR_6=140)
+        )
+        PdItem.objects.update_or_create(
+            PRODNUMB=62,
+            defaults=dict(PRODNAME='Strawberry Shk', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                          READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                          VATPR=305, DC_VATPR=300,
+                          VATPR_2=305, DC_VATPR_2=300,
+                          VATPR_3=305, DC_VATPR_3=300,
+                          VATPR_4=305, DC_VATPR_4=300,
+                          VATPR_5=305, DC_VATPR_5=300,
+                          VATPR_6=305, DC_VATPR_6=300)
+        )
+        PdItem.objects.update_or_create(PRODNUMB=26, defaults=dict(PRODNAME='Dip Ketchup', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                    VATPR=35, DC_VATPR=35, VATPR_2=35, DC_VATPR_2=35, VATPR_3=35, DC_VATPR_3=35, VATPR_4=35, DC_VATPR_4=35, VATPR_5=35, DC_VATPR_5=35, VATPR_6=35, DC_VATPR_6=35))
+        PdItem.objects.update_or_create(PRODNUMB=28, defaults=dict(PRODNAME='Dip Chilli', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=65, DC_VATPR=65, VATPR_2=65, DC_VATPR_2=65, VATPR_3=65, DC_VATPR_3=65, VATPR_4=65, DC_VATPR_4=65, VATPR_5=65, DC_VATPR_5=65, VATPR_6=65, DC_VATPR_6=65))
+        PdItem.objects.update_or_create(PRODNUMB=71, defaults=dict(PRODNAME='Six Bites', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=560, DC_VATPR=560, VATPR_2=560, DC_VATPR_2=560, VATPR_3=560, DC_VATPR_3=560, VATPR_4=560, DC_VATPR_4=560, VATPR_5=560, DC_VATPR_5=560, VATPR_6=560, DC_VATPR_6=560))
+        # Additional combo component products needed for combo discount math
+        PdItem.objects.update_or_create(PRODNUMB=82, defaults=dict(PRODNAME='Onion Rings 8', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=260, DC_VATPR=260, VATPR_2=260, DC_VATPR_2=260, VATPR_3=260, DC_VATPR_3=260, VATPR_4=260, DC_VATPR_4=260, VATPR_5=260, DC_VATPR_5=260, VATPR_6=260, DC_VATPR_6=260))
+        PdItem.objects.update_or_create(PRODNUMB=95, defaults=dict(PRODNAME='Mozarela Fingers', EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1, READBACK_ORD=1, MEAL_ONLY=False, MEAL_CODE=0, MEAL_DRINK=0, T_DRINK_CD=0,
+                                                                   VATPR=335, DC_VATPR=335, VATPR_2=335, DC_VATPR_2=335, VATPR_3=335, DC_VATPR_3=335, VATPR_4=335, DC_VATPR_4=335, VATPR_5=335, DC_VATPR_5=335, VATPR_6=335, DC_VATPR_6=335))
+        from update_till.models import CombTb
+        CombTb.objects.update_or_create(COMBONUMB=4, defaults=dict(DESC='Sharing Platter', T_COMB_NUM=0, EAT_VAT_CLASS=1, TAKE_VAT_CLASS=1,
+                                                                    VATPR=1005, T_VATPR=1005, VATPR_2=1005, T_VATPR_2=1005, VATPR_3=1005, T_VATPR_3=1005, VATPR_4=1005, T_VATPR_4=1005, VATPR_5=1005, T_VATPR_5=1005, VATPR_6=1005, T_VATPR_6=1005))
+        # Relationships for combo components and options
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=71, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=82, defaults={'T_PRODNUMB': 0})
+        CompPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=95, defaults={'T_PRODNUMB': 0})
+        OptPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=26, defaults={'T_PRODNUMB': 0})
+        OptPro.objects.update_or_create(COMBONUMB=4, PRODNUMB=28, defaults={'T_PRODNUMB': 0})
+
+        day = timezone.localdate() + timedelta(days=22)
+        ow = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Waste food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=ow, item_code=3, item_type='product', name='Cheeseburger Meal', variant_label='', is_meal=True, qty=1, unit_price_gross=990, line_total_gross=990, meta={'fries':30,'drink':62})
+        # Combo waste
+        ow2 = Order.objects.create(price_band=1, vat_basis='eat', show_net=False, payment_method='Waste food', created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        OrderLine.objects.create(order=ow2, item_code=4, item_type='combo', name='Sharing Platter', variant_label='', is_meal=False, qty=1, unit_price_gross=1005, line_total_gross=1005, meta={'options':[26,28]})
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        self.assertEqual(rev.TWASTEVAL, 825 + 838, 'Waste totals should reflect meal (8.25) + combo (8.38) ex-VAT values')
+        self.assertEqual(rev.TMEAL_DISCNT, 83)
+        self.assertEqual(rev.TDISCNTVA, 208)
+
+    def test_voucher_mapping_to_token_fields(self):
+        day = timezone.localdate() + timedelta(days=23)
+        # Simple voucher-only payment
+        Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Voucher', total_gross=500, created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        # Split payment including voucher
+        Order.objects.create(price_band=1, vat_basis='take', show_net=False, payment_method='Split', split_cash_pence=100, split_card_pence=200, split_voucher_pence=300, total_gross=600, created_at=timezone.make_aware(timezone.datetime.combine(day, timezone.datetime.min.time())))
+        build_daily_stats(day)
+        from update_till.models import KRev
+        rev = KRev.objects.get(stat_date=day)
+        self.assertEqual(rev.TTOKENVAL, 500 + 300)
+        self.assertEqual(rev.TCOUPVAL, 0)
+        self.assertEqual(rev.TCASHVAL, 100)
+        self.assertEqual(rev.TCARDVAL, 200)
