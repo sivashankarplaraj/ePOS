@@ -227,23 +227,46 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     if comp_code:
                         key_comp = (comp_code, False)
                         add_counts(key_comp, line.qty)
-            if line.item_type == 'product':
-                meta = line.meta or {}
-                # Product-level free choices: increment OPTION count for each selected free choice code.
-                # This records sauces/relishes (e.g., Xtr Mayo) in PD OPTION column against their own product codes.
-                free_list = meta.get('free_choices') or []
-                if isinstance(free_list, list) and free_list:
-                    for fc in free_list:
+                # Hing rule: for meals like "71 Six Bites", chosen optional products should increment OPTION counts
+                # If frontend recorded chosen free options under free_choices for this meal line, count them in OPTION
+                free_list_meal = meta.get('free_choices') or []
+                if isinstance(free_list_meal, list) and free_list_meal:
+                    for fc in free_list_meal:
                         try:
                             opt_code = int(fc)
                         except Exception:
                             opt_code = None
                         if not opt_code:
                             continue
+                        # Special-case: Dip None (110) should never count as OPTION on meals; keep under basis
+                        if opt_code == 110:
+                            key_basis = (opt_code, False)
+                            add_counts(key_basis, line.qty)
+                            continue
                         key_opt = (opt_code, False)
                         if key_opt not in kpro_counts:
                             kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                        # OPTION counts are independent of service basis; increment OPTION by meal qty
                         kpro_counts[key_opt]['OPTION'] += int(line.qty or 1)
+            if line.item_type == 'product':
+                meta = line.meta or {}
+                # Product-level free choices: increment OPTION count for each selected free choice code.
+                # This records sauces/relishes (e.g., Xtr Mayo) in PD OPTION column against their own product codes.
+                # Avoid double-counting for meals: meal free choices are handled in the meal branch above.
+                if not line.is_meal:
+                    free_list = meta.get('free_choices') or []
+                    if isinstance(free_list, list) and free_list:
+                        for fc in free_list:
+                            try:
+                                opt_code = int(fc)
+                            except Exception:
+                                opt_code = None
+                            if not opt_code:
+                                continue
+                            key_opt = (opt_code, False)
+                            if key_opt not in kpro_counts:
+                                kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                            kpro_counts[key_opt]['OPTION'] += int(line.qty or 1)
                 # Extras attached as separate priced products should increment basis counts (not OPTION)
                 extras = meta.get('extras_products') or []
                 if isinstance(extras, list) and extras:
@@ -289,9 +312,49 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                 for fc in free_list_combo:
                     if fc not in comp_codes:
                         comp_codes.append(fc)
-                # PD file requirement: compulsory and selected optional component products must increment their own TAKEAWAY/EATIN counts (COMBO = False)
+                # PD file requirement and Hing's legacy_split for combo 4 (Sharing Platter):
+                # - Two free dips: first counts under service basis; second counts under OPTION (except Dip None = 110, which stays under basis)
+                # Implement this classification while avoiding double-counting free dips in basis loop.
+                handled_free: List[int] = []
+                if line.item_code == 4 and isinstance(free_list_combo, list) and free_list_combo:
+                    # First free dip → service basis
+                    if len(free_list_combo) >= 1:
+                        first_dip = free_list_combo[0]
+                        key_first = (first_dip, False)
+                        add_counts(key_first, line.qty)
+                        handled_free.append(first_dip)
+                    # Second free dip → OPTION unless Dip None (110)
+                    if len(free_list_combo) >= 2:
+                        second_dip = free_list_combo[1]
+                        if second_dip == 110:
+                            # Special-case: Dip None should not be added to OPTION; keep under basis
+                            key_second = (second_dip, False)
+                            add_counts(key_second, line.qty)
+                        else:
+                            key_opt2 = (second_dip, False)
+                            if key_opt2 not in kpro_counts:
+                                kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                            kpro_counts[key_opt2]['OPTION'] += int(line.qty or 1)
+                        handled_free.append(second_dip)
+                    # Any additional free dips beyond the first two → OPTION (unless 110 which stays basis)
+                    if len(free_list_combo) >= 3:
+                        for extra_dip in free_list_combo[2:]:
+                            if extra_dip == 110:
+                                key_extra = (extra_dip, False)
+                                add_counts(key_extra, line.qty)
+                            else:
+                                key_opt_extra = (extra_dip, False)
+                                if key_opt_extra not in kpro_counts:
+                                    kpro_counts[key_opt_extra] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                                kpro_counts[key_opt_extra]['OPTION'] += int(line.qty or 1)
+                            handled_free.append(extra_dip)
+                
+                # PD file requirement: compulsory and selected optional component products (excluding handled free dips above)
+                # must increment their own TAKEAWAY/EATIN counts (COMBO = False)
                 if comp_codes:
                     for comp_code in comp_codes:
+                        if comp_code in handled_free:
+                            continue
                         key_comp = (comp_code, False)
                         add_counts(key_comp, line.qty)
                 if comp_codes:
