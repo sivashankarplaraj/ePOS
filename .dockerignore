@@ -2,7 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.db
-.env
 .git
 .vscode/
 .idea/
@@ -15,3 +14,17 @@ exports_tmp/
 *.CSV
 *.csv
 *.md
+
+# Local runtime data and build artifacts
+.tmp_exports/
+.playwright-mcp/
+.pytest_cache/
+webhooks/
+docker_build_files/
+epos_docker_build.zip
+*.tar
+*.zip
+
+
+# Exclude local staticfiles (we collect inside image)
+staticfiles/

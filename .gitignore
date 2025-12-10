@@ -6,4 +6,5 @@ exports_tmp/
 .playwright-mcp/
 .pytest_cache/
 webhooks/
-
+epos_docker_build.zip
+docker_build_files/
