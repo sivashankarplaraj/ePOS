@@ -122,7 +122,7 @@ def update_till_import(request: HttpRequest) -> HttpResponse:
             context['missing'] = missing
             return render(request, 'update_till/import_form.html', context)
 
-        # Capture stdout/stderr while running insert
+        # Capture stdout/stderr while running insert (script performs validation first)
         buf = io.StringIO()
         old_out, old_err = sys.stdout, sys.stderr
         sys.stdout = sys.stderr = buf
@@ -130,7 +130,17 @@ def update_till_import(request: HttpRequest) -> HttpResponse:
             run_insert()
         finally:
             sys.stdout, sys.stderr = old_out, old_err
-        context['output'] = buf.getvalue()
+        output_text = buf.getvalue()
+        # Extract validation errors if any
+        validation_errors = []
+        for line in output_text.splitlines():
+            if line.startswith('[VALIDATION] '):
+                validation_errors.append(line.replace('[VALIDATION] ', '', 1))
+        if 'Validation failed. No changes applied.' in output_text:
+            context['validation_errors'] = validation_errors or ['Validation failed. See logs above.']
+            context['output'] = output_text
+            return render(request, 'update_till/import_form.html', context)
+        context['output'] = output_text
         return render(request, 'update_till/import_form.html', context)
 
     # GET: render form

@@ -31,6 +31,18 @@
             </div>
         {% endif %}
 
+    {% if validation_errors %}
+            <div class="alert alert-danger mt-3">
+                <strong>CSV Validation Failed</strong>
+                <p class="mb-2">No database changes were applied. Please fix the following and retry:</p>
+                <ul>
+                    {% for err in validation_errors %}
+                        <li class="missing">{{ err }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
     {% if output %}
             <h5 class="mt-4">Import Output</h5>
             <pre>{{ output }}</pre>
@@ -43,6 +55,9 @@
                 <code>{{ f }}</code>{% if not forloop.last %} | {% endif %}
             {% endfor %}
             </span>
+        </div>
+        <div class="alert alert-info">
+            <strong>Import is transactional:</strong> We validate all CSVs first. If everything looks good, tables are cleared and updated atomically. If validation fails, existing data remains unchanged.
         </div>
     </div>
 {% endblock %}
