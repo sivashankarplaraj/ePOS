@@ -22,7 +22,8 @@
 
 	<div id="sales-summary" class="mb-4" style="display:none;">
 		<h5>Sales Summary (<span id="summary-date"></span>)</h5>
-		<p class="fs-5">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
+		<p class="fs-5 mb-1">Total Gross: <strong>£<span id="total-gross-lbl">0.00</span></strong></p>
+		<p class="fs-6 text-muted">Total Sales (excludes Crew Food and Waste): <strong>£<span id="total-sales-lbl">0.00</span></strong></p>
 		<div class="row g-3 mb-3">
 			<div class="col-12 col-lg-6">
 				<div class="border rounded p-2 h-100 position-relative" style="min-height:320px;display:flex;align-items:center;justify-content:center;">
@@ -75,6 +76,7 @@
 	const salesSummary = document.getElementById('sales-summary');
 	const summaryDateLbl = document.getElementById('summary-date');
 	const totalGrossLbl = document.getElementById('total-gross-lbl');
+	const totalSalesLbl = document.getElementById('total-sales-lbl');
 	const pmTableBody = document.querySelector('#pm-breakdown-table tbody');
 	const statusDiv = document.getElementById('download-status');
   let pmChart = null;
@@ -98,6 +100,8 @@
 			const data = await resp.json();
 			summaryDateLbl.textContent = data.date;
 			totalGrossLbl.textContent = formatPence(data.total_gross);
+			const totalSales = (typeof data.total_sales === 'number') ? data.total_sales : Math.max(0, (data.total_gross||0) - (data.crew_food_gross||0) - (data.waste_food_gross||0));
+			if (totalSalesLbl) totalSalesLbl.textContent = formatPence(totalSales);
 			// Build payment method breakdown
 			pmTableBody.innerHTML = '';
 			const total = data.total_gross || 0;

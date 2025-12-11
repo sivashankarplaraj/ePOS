@@ -1642,6 +1642,8 @@ def api_daily_sales(request: HttpRequest):
     from collections import defaultdict
     by_method: dict[str, int] = defaultdict(int)
     total = 0
+    crew_total = 0
+    waste_total = 0
     for o in qs.only('total_gross', 'payment_method', 'split_cash_pence', 'split_card_pence', 'split_voucher_pence'):
         pm = (o.payment_method or '').strip()
         if pm.lower() == 'split':
@@ -1656,10 +1658,26 @@ def api_daily_sales(request: HttpRequest):
             m = pm or 'Unspecified'
             by_method[m] += o.total_gross
             total += o.total_gross
+            low = m.lower()
+            if low == 'crew food':
+                crew_total += o.total_gross
+            elif low in {'waste food', 'cooked waste'}:
+                waste_total += o.total_gross
     breakdown = [
         {'method': m, 'total_gross': amt} for m, amt in sorted(by_method.items(), key=lambda x: (-x[1], x[0]))
     ]
-    return JsonResponse({'date': str(target_date), 'total_gross': total, 'currency': 'GBP', 'payment_methods': breakdown})
+    total_sales = total - crew_total - waste_total
+    if total_sales < 0:
+        total_sales = 0
+    return JsonResponse({
+        'date': str(target_date),
+        'total_gross': total,
+        'currency': 'GBP',
+        'payment_methods': breakdown,
+        'crew_food_gross': crew_total,
+        'waste_food_gross': waste_total,
+        'total_sales': total_sales
+    })
 
 
 @require_GET
