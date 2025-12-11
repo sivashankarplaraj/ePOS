@@ -254,6 +254,56 @@ class PdMealAndComboOptionTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['total_gross'], 485 + 125 + 260)
 
+    def test_meal_price_includes_paid_extras(self):
+        # Base items
+        _mk_product(115, 'Chkn BBQ Texan', 635, dc=635)
+        _mk_product(31, 'Large Fries', 280, dc=190)
+        _mk_product(138, 'Diet Bottle', 160, dc=160, meal=1)
+        # Paid extra: Xtr Bacon £1.15
+        _mk_product(36, 'Xtr Bacon', 115, dc=115)
+        # Mark burger as a meal-capable product
+        AppProd.objects.create(
+            PRODNUMB=115,
+            PRODNAME='Chkn BBQ Texan',
+            GROUP_ID=1,
+            GROUP_SUB_ID=1,
+            MEAL_ID=1,
+            MEAL_SUB_ID=1,
+            DOUBLE_PDNUMB=0,
+            TRIPLE_PDNUMB=0,
+        )
+        payload = {
+            'price_band': '1',
+            'vat_basis': 'take',
+            'show_net': False,
+            'lines': [
+                {
+                    'code': 115,
+                    'type': 'product',
+                    'name': 'Chkn BBQ Texan Meal',
+                    'variant': None,
+                    'meal': True,
+                    'qty': 1,
+                    'price_gross': 1075,  # client-side value before extras; server will recompute
+                    'meta': {
+                        'fries': 31,
+                        'drink': 138,
+                        'extras_products': [
+                            {'code': 36, 'name': 'Xtr Bacon', 'price_gross': 115},
+                        ]
+                    },
+                }
+            ],
+        }
+        resp = self.client.post(
+            reverse('mo_api_submit_order'),
+            data=payload,
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        # Expected: burger 635 + fries (dc 190) + drink (dc 160) + extra 115 = 1100
+        self.assertEqual(resp.json()['total_gross'], 635 + 190 + 160 + 115)
+
 
 class ChannelMappingTests(TestCase):
     """Tests for /api/channels endpoint after migration to PriceBand."""

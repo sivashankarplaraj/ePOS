@@ -1403,6 +1403,7 @@ def api_submit_order(request: HttpRequest):
                     except Exception:
                         return JsonResponse({'error': 'Invalid fries or drink code'}, status=400)
                     option_codes = []
+                    # Free/option add-ons selected as part of the meal (no extra charge)
                     raw_opts = meta_payload.get('options') or []
                     if isinstance(raw_opts, list):
                         for oc in raw_opts:
@@ -1410,6 +1411,19 @@ def api_submit_order(request: HttpRequest):
                                 option_codes.append(int(oc))
                             except Exception:
                                 continue
+                    # Paid extras selected by the customer (e.g., Xtr Bacon). These are provided
+                    # by the frontend under 'extras_products' with objects like { code, name, price_gross }.
+                    # For price authority, ignore any client-sent price and look up the standard
+                    # price for the current band from PdItem, same as options.
+                    raw_extras = meta_payload.get('extras_products') or []
+                    if isinstance(raw_extras, list):
+                        for ex in raw_extras:
+                            try:
+                                ex_code = int(ex.get('code'))
+                            except Exception:
+                                ex_code = None
+                            if ex_code:
+                                option_codes.append(ex_code)
                     recomputed = _compute_meal_price(code, fries_code, drink_code, option_codes)
                     unit_price_gross = recomputed  # override any client value
             line_total = unit_price_gross * qty
