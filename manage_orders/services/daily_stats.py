@@ -5,6 +5,7 @@ from datetime import date
 from typing import Dict, Tuple, List, Optional
 
 from django.db import transaction
+from django.conf import settings
 from django.utils import timezone
 
 from manage_orders.models import Order
@@ -358,15 +359,22 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     # Second free dip → OPTION unless Dip None (110)
                     if len(free_list_combo) >= 2:
                         second_dip = free_list_combo[1]
-                        if second_dip == 110:
-                            # Special-case: Dip None should not be added to OPTION; keep under basis
+                        # US mode: count the second free dip under service basis (unless staff/waste re-mapping applies)
+                        # Legacy mode: second dip → OPTION unless Dip None (110)
+                        us_mode = getattr(settings, 'EPOS_US_MODE', False)
+                        if us_mode:
                             key_second = (second_dip, False)
                             add_counts(key_second, line.qty)
                         else:
-                            key_opt2 = (second_dip, False)
-                            if key_opt2 not in kpro_counts:
-                                kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
-                            kpro_counts[key_opt2]['OPTION'] += int(line.qty or 1)
+                            if second_dip == 110:
+                                # Special-case: Dip None should not be added to OPTION; keep under basis
+                                key_second = (second_dip, False)
+                                add_counts(key_second, line.qty)
+                            else:
+                                key_opt2 = (second_dip, False)
+                                if key_opt2 not in kpro_counts:
+                                    kpro_counts[key_opt2] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                                kpro_counts[key_opt2]['OPTION'] += int(line.qty or 1)
                         handled_free.append(second_dip)
                     # Any additional free dips beyond the first two → OPTION (unless 110 which stays basis)
                     if len(free_list_combo) >= 3:

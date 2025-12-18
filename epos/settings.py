@@ -218,3 +218,9 @@ LOGGING = {
         "manage_orders": {"handlers": ["console"], "level": "DEBUG"},
     },
 }
+
+# Feature flags / behavior toggles
+# When True, classify both free dips for combo 4 (Sharing Platter) under service basis
+# instead of counting the second dip under OPTION. Default is False to preserve
+# current parity with existing tests; set EPOS_US_MODE=1 to enable US report behavior.
+EPOS_US_MODE = env_bool('EPOS_US_MODE', False)
