@@ -223,4 +223,12 @@ LOGGING = {
 # When True, classify both free dips for combo 4 (Sharing Platter) under service basis
 # instead of counting the second dip under OPTION. Default is False to preserve
 # current parity with existing tests; set EPOS_US_MODE=1 to enable US report behavior.
-EPOS_US_MODE = env_bool('EPOS_US_MODE', False)
+EPOS_US_MODE = env_bool('EPOS_US_MODE', True)
+
+# When True, record combination discount (TDISCNTVA) in gross terms (sum of component gross minus combo gross)
+# instead of EX-VAT. Default False to preserve existing parity.
+EPOS_GROSS_COMBO_DISCOUNT = env_bool('EPOS_GROSS_COMBO_DISCOUNT', True)
+
+# When True, record meal discount (TMEAL_DISCNT) in gross terms (sum of singles gross minus sum of meal component gross)
+# Default False to preserve EX-VAT parity behavior unless explicitly enabled.
+EPOS_GROSS_MEAL_DISCOUNT = env_bool('EPOS_GROSS_MEAL_DISCOUNT', True)

@@ -208,8 +208,9 @@ def _aggregate_orders(export_date: date) -> DailyStats:
             if line.is_meal:
                 m = meal_counts.setdefault(line.item_code, {'TAKEAWAY': 0, 'EATIN': 0})
                 m[basis] += line.qty
-                # Meal discount accumulation (TMEAL_DISCNT) in EX-VAT terms:
-                # (Sum singles ex-VAT) - (Sum meal components ex-VAT) * qty
+                # Meal discount accumulation (TMEAL_DISCNT): gross or EX-VAT per feature flag
+                # EX-VAT default: (Sum singles ex-VAT) - (Sum meal components ex-VAT)
+                # GROSS when EPOS_GROSS_MEAL_DISCOUNT=True: (Sum singles gross) - (Sum meal components gross)
                 meta = line.meta or {}
                 burger_code = line.item_code
                 fries_code = meta.get('fries') or 0
@@ -231,7 +232,12 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                         return int(round(amount_gross * 100.0 / (100.0 + rate))) if rate > 0 else amount_gross
                     singles_total_ex = ex_vat(b_std, burger_code) + ex_vat(f_std, fries_code) + ex_vat(d_std, drink_code)
                     meal_total_ex = ex_vat(b_meal, burger_code) + ex_vat(f_meal, fries_code) + ex_vat(d_meal, drink_code)
-                    discount = singles_total_ex - meal_total_ex
+                    if getattr(settings, 'EPOS_GROSS_MEAL_DISCOUNT', False):
+                        singles_total_g = (b_std or 0) + (f_std or 0) + (d_std or 0)
+                        meal_total_g = (b_meal or 0) + (f_meal or 0) + (d_meal or 0)
+                        discount = singles_total_g - meal_total_g
+                    else:
+                        discount = singles_total_ex - meal_total_ex
                     if discount > 0:
                         rev['TMEAL_DISCNT'] += discount * line.qty
                 # Go Large count (TGOLARGENU): meta.go_large flag set by frontend when applied
@@ -398,7 +404,7 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                         key_comp = (comp_code, False)
                         add_counts(key_comp, line.qty)
                 if comp_codes:
-                    # Sum EX-VAT standard prices for each component in the order's price band
+                    # Sum standard prices (GROSS) for each component in the order's price band
                     def std_col(n: int) -> str:
                         return 'VATPR' if n == 1 else f'VATPR_{n}'
                     std_name = std_col(o.price_band)
@@ -410,10 +416,12 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                         rate = vat_rate_by_class.get(vat_class, 0.0)
                         return int(round(amount_gross * 100.0 / (100.0 + rate))) if rate > 0 else amount_gross
                     total_components_ex = 0
+                    total_components_g = 0
                     for code in comp_codes:
                         item_obj = _get_pditem(code)
                         if item_obj:
                             g = getattr(item_obj, std_name, 0) or 0
+                            total_components_g += g
                             total_components_ex += ex_vat_amt(g, code)
                     # Compute EX-VAT for combo line price using combo VAT class
                     combo_price_g = int(line.unit_price_gross or 0)
@@ -424,9 +432,15 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     combo_vat_class = take_cls if basis == 'TAKEAWAY' else eat_cls
                     rate_combo = vat_rate_by_class.get(combo_vat_class, 0.0)
                     combo_ex = int(round(combo_price_g * 100.0 / (100.0 + rate_combo))) if rate_combo > 0 else combo_price_g
-                    discount_ex = total_components_ex - combo_ex
-                    if discount_ex > 0:
-                        rev['TDISCNTVA'] += discount_ex * int(line.qty or 1)
+                    # Choose discount model based on feature flag: gross vs EX-VAT
+                    if getattr(settings, 'EPOS_GROSS_COMBO_DISCOUNT', False):
+                        discount_g = total_components_g - combo_price_g
+                        if discount_g > 0:
+                            rev['TDISCNTVA'] += discount_g * int(line.qty or 1)
+                    else:
+                        discount_ex = total_components_ex - combo_ex
+                        if discount_ex > 0:
+                            rev['TDISCNTVA'] += discount_ex * int(line.qty or 1)
 
     return DailyStats(export_date, meal_counts, kpro_counts, rev)
 
@@ -559,6 +573,38 @@ def build_daily_stats(export_date: date) -> DailyStats:
                             if is_waste:
                                 waste_net_total += net
                         total_vat_all += (0 if (is_staff or is_waste) else vat_amt)
+                # Also include any paid extras attached to the meal line (e.g., extra dip) using their own VAT classes
+                extras = meta.get('extras_products') or []
+                if isinstance(extras, list) and extras:
+                    for ex in extras:
+                        try:
+                            ex_code = int(ex.get('code'))
+                        except Exception:
+                            ex_code = None
+                        ex_price = int(ex.get('price_gross') or 0) * int(line.qty or 1)
+                        if ex_price <= 0:
+                            continue
+                        if ex_code:
+                            eat_cls_ex, take_cls_ex = pd_items.get(ex_code, (None, None))
+                            vat_class_ex = take_cls_ex if basis == 'TAKEAWAY' else eat_cls_ex
+                        else:
+                            vat_class_ex = None
+                        if vat_class_ex is None:
+                            continue
+                        rate_ex = vat_rate_by_class.get(vat_class_ex)
+                        if rate_ex is None:
+                            continue
+                        net_ex = int(round(ex_price * 100.0 / (100.0 + rate_ex))) if rate_ex > 0 else ex_price
+                        vat_ex = ex_price - net_ex
+                        if not (is_staff or is_waste):
+                            vat_due_by_class[vat_class_ex] = (vat_due_by_class.get(vat_class_ex, 0) or 0) + vat_ex
+                            excl_val_by_class[vat_class_ex] = (excl_val_by_class.get(vat_class_ex, 0) or 0) + net_ex
+                        else:
+                            if is_staff:
+                                staff_net_total += net_ex
+                            if is_waste:
+                                waste_net_total += net_ex
+                        total_vat_all += (0 if (is_staff or is_waste) else vat_ex)
                 # Done with meal expansion for this line
                 continue
             # Non-meal lines: handle combos with VAT apportion; products may include extras needing VAT split by product
