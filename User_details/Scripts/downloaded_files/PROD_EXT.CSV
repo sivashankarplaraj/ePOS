@@ -12,7 +12,7 @@ PRODNUMB,PRODNAME,NAME_ON_MENU,COOK_ZONE,PROD_DESC
 11,VEGGIE BURGER,Veggie Burger,3,Veggie patty with freshly cut lettuce
 12,VEGGIE instead,Veggie Patty Instead,3,Replace the patty in a beef or chicken burger with a vegetarian alternative.
 13,KIDS HAMBURGER,Kids Hamburger,1,100% beef patty with ketchup served in a toasted sesame seed bun.
-14,XTR MEAT,Beef Patty,1,100% beef patty 
+14,XTR MEAT,Beef Patty,1,
 15,GARLIC BURGER,Garlic Burger,1,100% beef patty with home-made garlic mayonnaise
 16,DBL GARLIC BGR,Double Garlic Burger,1,Two 100% beef patties with home-made garlic mayonnaise
 17,HAWAIIAN BURGER,Hawaiian Burger,1,100% beef patty topped with grilled pineapple
@@ -147,7 +147,7 @@ PRODNUMB,PRODNAME,NAME_ON_MENU,COOK_ZONE,PROD_DESC
 198,CHICKEN 5 STRIPS,5 Chicken Strips,3,Southern Fried chicken strips and a choice of dip.
 199,CHICKEN 8 STRIPS,8 Chicken Strips,3,Southern Fried chicken strips and a choice of dip.
 200,SUPER SHAKE OREO,Oreo Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Oreo Crumb / Chocolate Sauce - Size 400ml.
-201,SUPER SHKE LOTUS,Lotus Biscoff Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 400ml.
+201,SUPER SHK BISCOF,Lotus Biscoff Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Lotus Biscoff Crumb / Lotus Biscoff Sauce - Size 400ml.
 202,SUPER SHKE FLAKE,Cadbury Flake Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Cadburys Flake crumb / Caramel Sauce - Size 400ml.
 203,SUPER SHK SMARTI,Smarties Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Smarties   - Size 400ml.
 204,SUPR SHK KITKAT,KitKat Super Shake,2,Our amazing milkshake with a twist!   Vanilla Milkshake / Kit kat  / Chocolate Sauce - Size 400ml.
