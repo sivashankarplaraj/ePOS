@@ -8,7 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from manage_orders.models import Order
-from update_till.models import KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, CompPro, OptPro
+from update_till.models import KMeal, KPro, KRev, KWkVat, PdVatTb, PdItem, CombTb, CompPro, OptPro, PChoice
 
 
 @dataclass
@@ -207,7 +207,7 @@ def _aggregate_orders(export_date: date) -> DailyStats:
             if line.is_meal:
                 m = meal_counts.setdefault(line.item_code, {'TAKEAWAY': 0, 'EATIN': 0})
                 m[basis] += line.qty
-                # Meal discount accumulation (TMEAL_DISCNT) in EX-VAT terms as per spec:
+                # Meal discount accumulation (TMEAL_DISCNT) in EX-VAT terms:
                 # (Sum singles ex-VAT) - (Sum meal components ex-VAT) * qty
                 meta = line.meta or {}
                 burger_code = line.item_code
@@ -220,8 +220,6 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                     fries_code = 0; drink_code = 0
                 if fries_code and drink_code:
                     b_std, b_meal, f_std, f_meal, d_std, d_meal = _meal_component_prices(o.price_band, burger_code, fries_code, drink_code)
-                    # Determine VAT class per component for current basis
-                    eat_take = 1 if basis == 'EATIN' else 0
                     # Helper to compute ex-VAT from gross and class
                     def ex_vat(amount_gross: int, code: int) -> int:
                         it = _get_pditem(code)
@@ -265,6 +263,23 @@ def _aggregate_orders(export_date: date) -> DailyStats:
                             kpro_counts[key_opt] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
                         # OPTION counts are independent of service basis; increment OPTION by meal qty
                         kpro_counts[key_opt]['OPTION'] += int(line.qty or 1)
+                else:
+                    # No explicit free choices provided: apply default optional product mapping (P_CHOICE) for kids meals, etc.
+                    # If a default exists (e.g., 118 -> 26 Ketchup), increment OPTION for that product.
+                    try:
+                        default_opt = PChoice.objects.filter(PRODNUMB=burger_code).values_list('OPT_PRODNUMB', flat=True).first()
+                    except Exception:
+                        default_opt = None
+                    if default_opt:
+                        # Skip Dip None (110) from OPTION; keep under basis
+                        if int(default_opt) == 110:
+                            key_basis = (110, False)
+                            add_counts(key_basis, line.qty)
+                        else:
+                            key_opt_def = (int(default_opt), False)
+                            if key_opt_def not in kpro_counts:
+                                kpro_counts[key_opt_def] = {'TAKEAWAY': 0, 'EATIN': 0, 'WASTE': 0, 'STAFF': 0, 'OPTION': 0}
+                            kpro_counts[key_opt_def]['OPTION'] += int(line.qty or 1)
             if line.item_type == 'product':
                 meta = line.meta or {}
                 # Product-level free choices: increment OPTION count for each selected free choice code.
